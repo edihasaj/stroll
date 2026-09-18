@@ -24,7 +24,9 @@ import {
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { MAX_CONTENT_WIDTH, useIsCompactFormFactor } from "@/constants/layout";
 import { useMutation } from "@tanstack/react-query";
-import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
+import Animated from "react-native-reanimated";
+import { useAppReducedMotion, withMotion } from "@/hooks/use-app-reduced-motion";
+import { appearEntering, appearExiting } from "@/styles/motion";
 import { Check, ChevronDown, X } from "lucide-react-native";
 import { buildWorkspaceTabPersistenceKey } from "@/workspace-tabs/model";
 import { openExplorerSidebarView } from "@/workspace-tabs/explorer-sidebar";
@@ -371,6 +373,7 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
     ref,
   ) {
     const { t } = useTranslation();
+    const reducedMotion = useAppReducedMotion();
     const autoExpandReasoning = useSettings((settings) => settings.autoExpandReasoning);
     const toolCallDetailLevel = useSettings((settings) => settings.toolCallDetailLevel);
     const chatOutlineEnabled = useSettings((settings) => settings.chatOutlineEnabled);
@@ -447,14 +450,10 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
         }
       : agentHistoryPagination;
     // Keep entry/exit animations off on Android due to RN dispatchDraw crashes
-    // tracked in react-native-reanimated#8422.
-    const shouldDisableEntryExitAnimations = Platform.OS === "android";
-    const scrollIndicatorFadeIn = shouldDisableEntryExitAnimations
-      ? undefined
-      : FadeIn.duration(200);
-    const scrollIndicatorFadeOut = shouldDisableEntryExitAnimations
-      ? undefined
-      : FadeOut.duration(200);
+    // tracked in react-native-reanimated#8422, and off everywhere reduced motion is on.
+    const shouldDisableEntryExitAnimations = Platform.OS === "android" || reducedMotion;
+    const scrollIndicatorFadeIn = withMotion(shouldDisableEntryExitAnimations, appearEntering);
+    const scrollIndicatorFadeOut = withMotion(shouldDisableEntryExitAnimations, appearExiting);
 
     useEffect(() => {
       setIsNearBottom(true);

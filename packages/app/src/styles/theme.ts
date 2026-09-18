@@ -1,4 +1,5 @@
 import { Platform } from "react-native";
+import { Easing } from "react-native-reanimated";
 import { darkHighlightColors, lightHighlightColors } from "@getpaseo/highlight";
 
 export const baseColors = {
@@ -640,6 +641,24 @@ export const OPACITY = {
   100: 1,
 } as const;
 
+// Motion — the app's one animation system (`react-native-reanimated`; see docs/design.md
+// "Motion"). `fast`/`base` are the menu overlay's existing open/close keyframe durations
+// (`packages/app/src/styles/motion.ts`'s `openClose*`); `slow` is the scroll-to-bottom pill's
+// fade duration (`appear*`). Every new `entering`/`exiting`/`withTiming` call reuses one of
+// these two shapes instead of a bespoke duration.
+export const MOTION_DURATION = {
+  fast: 100,
+  base: 150,
+  slow: 200,
+} as const;
+
+// Reanimated's `Keyframe` interpolates each step with `Easing.linear` unless a step sets its
+// own curve — the menu overlay's entering/exiting keyframes never set one, so `standard` names
+// that implicit default instead of leaving every future call site to rediscover it.
+export const MOTION_EASING = {
+  standard: Easing.linear,
+} as const;
+
 // Platform default font stacks — copied verbatim from constants/theme.ts `Fonts`
 // (sans -> ui, mono -> mono). These seed the dynamic `fontFamily` theme token and
 // are the fallback an empty user-supplied family resolves to at apply time.
@@ -684,6 +703,10 @@ interface CommonTheme {
   borderRadius: typeof BORDER_RADIUS;
   borderWidth: typeof BORDER_WIDTH;
   opacity: typeof OPACITY;
+  motion: {
+    duration: typeof MOTION_DURATION;
+    easing: typeof MOTION_EASING;
+  };
 }
 
 const commonTheme: CommonTheme = {
@@ -703,6 +726,10 @@ const commonTheme: CommonTheme = {
   borderRadius: BORDER_RADIUS,
   borderWidth: BORDER_WIDTH,
   opacity: OPACITY,
+  motion: {
+    duration: MOTION_DURATION,
+    easing: MOTION_EASING,
+  },
 };
 
 const darkShadow = {
