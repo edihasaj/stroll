@@ -30,6 +30,7 @@ At the start of non-trivial work, list `docs/` and skim anything relevant to the
 | [docs/glossary.md](docs/glossary.md)                                 | Authoritative terminology — UI label wins, no synonyms                                                                         |
 | [docs/coding-standards.md](docs/coding-standards.md)                 | Type hygiene, error handling, state design, React patterns, file organization                                                  |
 | [docs/design.md](docs/design.md)                                     | Design system — tokens, buttons, hierarchy, density, alignment rails, states, what's forbidden                                 |
+| [docs/ui-gap-gpt.md](docs/ui-gap-gpt.md)                             | UI gap audit vs ChatGPT/Codex desktop conventions — motion, composer, buttons, messages, sidebar, empty state, overlays        |
 | [docs/forms.md](docs/forms.md)                                       | Form architecture — non-React form model, form kit, load-state gating; the schedule form is the golden example                 |
 | [docs/hover.md](docs/hover.md)                                       | Hover — the canonical pattern (plain View + onPointerEnter/Leave, separate inner Pressable) and the three ways agents break it |
 | [docs/unistyles.md](docs/unistyles.md)                               | Unistyles gotchas — `useUnistyles()` is forbidden, alternatives in order                                                       |
