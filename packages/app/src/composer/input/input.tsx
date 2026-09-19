@@ -7,6 +7,7 @@ import {
   TextInputKeyPressEventData,
   TextInputSelectionChangeEventData,
   type LayoutChangeEvent,
+  type TextStyle,
 } from "react-native";
 import {
   useState,
@@ -19,8 +20,10 @@ import {
   forwardRef,
 } from "react";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
+import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
 import { useTranslation } from "react-i18next";
-import { ICON_SIZE, type Theme } from "@/styles/theme";
+import { ICON_SIZE, MOTION_DURATION, type Theme } from "@/styles/theme";
+import { useAppReducedMotion, withMotion } from "@/hooks/use-app-reduced-motion";
 import { ArrowUp, Mic, MicOff, CornerDownLeft, Plus, Square } from "lucide-react-native";
 import { useDictation } from "@/hooks/use-dictation";
 import { DictationOverlay } from "@/components/dictation-controls";
@@ -194,6 +197,16 @@ const MIN_INPUT_HEIGHT_DESKTOP = 46;
 const DEFAULT_MAX_INPUT_HEIGHT = 160;
 const MAX_INPUT_VIEWPORT_RATIO = 0.5;
 const MIN_INPUT_HEIGHT = isWeb ? MIN_INPUT_HEIGHT_DESKTOP : MIN_INPUT_HEIGHT_MOBILE;
+
+// The send/stop button's own "appear" shape (docs/design.md §17): opacity-only, no scale,
+// built once at module scope per the same rule as `styles/motion.ts`'s recipes. `duration.fast`
+// rather than the shared `appearEntering`/`appearExiting`'s `duration.slow` — a button glyph
+// swapping mid-keystroke reads better snappy than at the scroll-pill's fade pace. Reused by both
+// the icon swap inside `SendButtonContent` and the send<->stop swap in `PrimaryAction`: same
+// shape, same duration, one pair of builders (menu-overlay.tsx's `openClose*` are shared the
+// same way across every menu instance).
+const sendButtonMorphEntering = FadeIn.duration(MOTION_DURATION.fast);
+const sendButtonMorphExiting = FadeOut.duration(MOTION_DURATION.fast);
 type WebTextInputKeyPressEvent = NativeSyntheticEvent<
   TextInputKeyPressEventData & {
     metaKey?: boolean;
@@ -368,16 +381,34 @@ function SendButtonContent({
   submitLabel: string | undefined;
   buttonIconSize: number;
 }) {
+  const reducedMotion = useAppReducedMotion();
+  const entering = withMotion(reducedMotion, sendButtonMorphEntering);
+  const exiting = withMotion(reducedMotion, sendButtonMorphExiting);
+
+  let variantKey: string;
+  let glyph: React.ReactElement;
   if (isSubmitLoading) {
-    return <ThemedLoadingSpinner size="small" uniProps={iconOnForegroundMapping} />;
+    variantKey = "loading";
+    glyph = <ThemedLoadingSpinner size="small" uniProps={iconOnForegroundMapping} />;
+  } else if (submitLabel) {
+    variantKey = "label";
+    glyph = <Text style={styles.sendButtonLabel}>{submitLabel}</Text>;
+  } else if (submitIcon === "return") {
+    variantKey = "return";
+    glyph = <ThemedCornerDownLeft size={buttonIconSize} uniProps={iconOnForegroundMapping} />;
+  } else {
+    variantKey = "arrow";
+    glyph = <ThemedArrowUp size={buttonIconSize} uniProps={iconOnForegroundMapping} />;
   }
-  if (submitLabel) {
-    return <Text style={styles.sendButtonLabel}>{submitLabel}</Text>;
-  }
-  if (submitIcon === "return") {
-    return <ThemedCornerDownLeft size={buttonIconSize} uniProps={iconOnForegroundMapping} />;
-  }
-  return <ThemedArrowUp size={buttonIconSize} uniProps={iconOnForegroundMapping} />;
+
+  // Keying on the variant makes each swap a genuine mount/unmount from React's perspective, so
+  // the outgoing glyph plays `exiting` while the incoming one plays `entering` instead of
+  // popping — the actual fix for the unmount/remount this component used to do silently.
+  return (
+    <Animated.View key={variantKey} entering={entering} exiting={exiting}>
+      {glyph}
+    </Animated.View>
+  );
 }
 
 interface DesktopKeyPressContext {
@@ -646,6 +677,8 @@ interface ComposerTextSurfaceProps {
   focusHintVisible: boolean;
   focusInputKeys: ShortcutChord | null | undefined;
   focusHintLabel: string;
+  /** Web-only card-growth easing for the textarea's immediate parent (docs/design.md §17). */
+  wrapperStyle: TextStyle | undefined;
 }
 
 /**
@@ -664,7 +697,7 @@ function ComposerTextSurface(props: ComposerTextSurfaceProps): React.ReactElemen
     );
   }
   return (
-    <View style={styles.textInputScrollWrapper}>
+    <View style={[styles.textInputScrollWrapper, props.wrapperStyle]}>
       <ComposerTextInput
         ref={props.textInputRef}
         dataSet={COMPOSER_INPUT_DATASET}
@@ -822,9 +855,23 @@ function PrimaryAction({
   kind: PrimaryActionKind;
   activeActionContent: React.ReactNode;
 } & React.ComponentProps<typeof SendButtonTooltip>) {
-  if (kind === "active") return activeActionContent;
-  if (kind === "send") return <SendButtonTooltip {...sendButtonProps} />;
-  return null;
+  const reducedMotion = useAppReducedMotion();
+  const entering = withMotion(reducedMotion, sendButtonMorphEntering);
+  const exiting = withMotion(reducedMotion, sendButtonMorphExiting);
+
+  // "none" (nothing to send, agent idle) collapses the slot outright rather than
+  // cross-fading — there's no second state occupying the same 32px circle to morph into.
+  if (kind === "none") return null;
+
+  // Both branches fill the same 32px circle (`sendButton`/`cancelButtonWrapper`), so keying on
+  // `kind` and letting the outgoing one play `exiting` while the incoming plays `entering`
+  // cross-fades arrow <-> stop in place instead of the instant swap `PrimaryAction` used to do
+  // by returning a different subtree outright.
+  return (
+    <Animated.View key={kind} entering={entering} exiting={exiting}>
+      {kind === "active" ? activeActionContent : <SendButtonTooltip {...sendButtonProps} />}
+    </Animated.View>
+  );
 }
 interface ToggleRealtimeVoiceContext {
   voice:
@@ -1217,7 +1264,11 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
       minHeight: MIN_INPUT_HEIGHT,
       maxHeight: maxInputHeight,
     });
-    const { style: composerHeightStyle, scrollEnabled: isComposerScrollEnabled } = composerHeight;
+    const {
+      style: composerHeightStyle,
+      wrapperStyle: composerHeightWrapperStyle,
+      scrollEnabled: isComposerScrollEnabled,
+    } = composerHeight;
     const measuredComposerHeight = composerHeight.mode === "measured" ? composerHeight : undefined;
     const updateComposerHeightForText = measuredComposerHeight?.onTextChange;
     const resetComposerHeight = measuredComposerHeight?.reset;
@@ -1824,6 +1875,7 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
               focusHintLabel={t("composer.input.focusHint", {
                 shortcut: focusInputKeys ? formatShortcut(focusInputKeys[0], getShortcutOs()) : "",
               })}
+              wrapperStyle={composerHeightWrapperStyle}
             />
           </RenderProfile>
 
@@ -1954,6 +2006,11 @@ const styles = StyleSheet.create((theme: Theme) => ({
   textInputScrollWrapper: {
     flexShrink: 1,
     position: "relative",
+    // Matches `inputWrapper`'s own background. During a height-shrink ease (C1, `height.web.ts`
+    // sets an explicit `height` here on web) the textarea shrinks to its new size a frame before
+    // this wrapper's CSS transition catches down to it — an opaque background here means that
+    // gap reads as card, not a flash of whatever sits behind it.
+    backgroundColor: theme.colors.background,
   },
   focusHintText: {
     position: "absolute",
@@ -2041,6 +2098,15 @@ const styles = StyleSheet.create((theme: Theme) => ({
     alignItems: "center",
     justifyContent: "center",
     marginLeft: theme.spacing[1],
+    // Eases the idle <-> disabled-empty opacity[50] dim (§16) instead of snapping it, matching
+    // `inputWrapper`'s own focus-border-color transition above.
+    ...(isWeb
+      ? {
+          transitionProperty: "opacity",
+          transitionDuration: `${MOTION_DURATION.fast}ms`,
+          transitionTimingFunction: "ease-in-out",
+        }
+      : {}),
   },
   sendButtonLabeled: {
     width: "auto",

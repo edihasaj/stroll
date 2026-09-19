@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { RefObject } from "react";
+import type { TextStyle } from "react-native";
+import { useAppReducedMotion } from "@/hooks/use-app-reduced-motion";
+import { MOTION_DURATION } from "@/styles/theme";
 import type { ComposerHeightResult } from "./height.types";
 
 interface ComposerHeightArgs {
@@ -39,6 +42,7 @@ export function useComposerHeight({
 }: ComposerHeightArgs): ComposerHeightResult {
   const [height, setHeight] = useState(minHeight);
   const heightRef = useRef(minHeight);
+  const reducedMotion = useAppReducedMotion();
   const paramsRef = useRef({ value, minHeight, maxHeight });
   paramsRef.current = { value, minHeight, maxHeight };
   const mirrorRef = useRef<HTMLTextAreaElement | null>(null);
@@ -122,11 +126,31 @@ export function useComposerHeight({
     [measure],
   );
   const reset = useCallback(() => setBoundedHeight(minHeight), [minHeight, setBoundedHeight]);
+  // The textarea itself (`style`) always snaps to `height` instantly — the caret and text
+  // reflow it drives can never lag a frame behind what the user typed. `wrapperStyle` carries
+  // the same target height onto the surrounding card so the *visible* card eases into it
+  // (docs/design.md §17, docs/ui-gap-gpt.md C1): a plain CSS transition rather than a
+  // Reanimated shared value, since the card's height here is a DOM box size RN Web already
+  // renders as a CSS `height`, not an entering/exiting surface. `useAppReducedMotion()` still
+  // gates it — zero duration collapses it back to the instant behavior this hook always had.
   const style = useMemo(() => ({ height, minHeight, maxHeight }), [height, maxHeight, minHeight]);
+  const wrapperStyle = useMemo<TextStyle>(
+    () =>
+      ({
+        // `height` is already clamped to [minHeight, maxHeight] by `setBoundedHeight`.
+        height,
+        overflow: "hidden",
+        transitionProperty: "height",
+        transitionDuration: reducedMotion ? "0ms" : `${MOTION_DURATION.base}ms`,
+        transitionTimingFunction: "ease-in-out",
+      }) as TextStyle,
+    [height, reducedMotion],
+  );
 
   return {
     mode: "measured",
     style,
+    wrapperStyle,
     scrollEnabled: height >= maxHeight,
     onTextChange,
     reset,
