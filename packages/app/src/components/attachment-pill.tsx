@@ -1,9 +1,12 @@
 import { type ReactNode, useCallback, useMemo, useState } from "react";
 import { Image, Pressable, Text, View } from "react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
+import Animated from "react-native-reanimated";
 import { X } from "lucide-react-native";
 import { isNative } from "@/constants/platform";
 import { useIsCompactFormFactor } from "@/constants/layout";
+import { useAppReducedMotion, withMotion } from "@/hooks/use-app-reduced-motion";
+import { appearEntering, appearExiting } from "@/styles/motion";
 import type { AttachmentMetadata } from "@/attachments/types";
 import { useAttachmentPreviewUrl } from "@/attachments/use-attachment-preview-url";
 import type { Theme } from "@/styles/theme";
@@ -32,26 +35,33 @@ export function AttachmentPill({
   children,
 }: AttachmentPillProps) {
   const isCompact = useIsCompactFormFactor();
-  const [isBodyHovered, setIsBodyHovered] = useState(false);
-  const [isCloseHovered, setIsCloseHovered] = useState(false);
+  const reducedMotion = useAppReducedMotion();
+  // Hover lives on this one plain wrapper (docs/hover.md's canonical pattern), not on the two
+  // Pressables inside it — the close button pokes 8px outside the frame's own box, but it is
+  // still a DOM descendant of the wrapper, so `pointerleave` never fires while the cursor
+  // crosses onto it. The previous version tracked each Pressable's own hover independently and
+  // OR'd the two, which works but invites the two states to desync at the seam.
+  const [isHovered, setIsHovered] = useState(false);
   const alwaysShow = isNative || isCompact;
-  const showRemove = alwaysShow || isBodyHovered || isCloseHovered;
+  const showRemove = alwaysShow || isHovered;
   const closeButtonStyle = useMemo(
     () => [styles.closeButton, !showRemove && styles.closeButtonHidden],
     [showRemove],
   );
-  const handleBodyHoverIn = useCallback(() => setIsBodyHovered(true), []);
-  const handleBodyHoverOut = useCallback(() => setIsBodyHovered(false), []);
-  const handleCloseHoverIn = useCallback(() => setIsCloseHovered(true), []);
-  const handleCloseHoverOut = useCallback(() => setIsCloseHovered(false), []);
+  const handlePointerEnter = useCallback(() => setIsHovered(true), []);
+  const handlePointerLeave = useCallback(() => setIsHovered(false), []);
   return (
-    <View style={styles.wrapper}>
+    <Animated.View
+      style={styles.wrapper}
+      onPointerEnter={handlePointerEnter}
+      onPointerLeave={handlePointerLeave}
+      entering={withMotion(reducedMotion, appearEntering)}
+      exiting={withMotion(reducedMotion, appearExiting)}
+    >
       <Pressable
         testID={testID}
         onPress={onOpen}
         disabled={disabled}
-        onHoverIn={handleBodyHoverIn}
-        onHoverOut={handleBodyHoverOut}
         accessibilityRole="button"
         accessibilityLabel={openAccessibilityLabel}
         style={styles.frame}
@@ -61,8 +71,6 @@ export function AttachmentPill({
       <Pressable
         onPress={onRemove}
         disabled={disabled}
-        onHoverIn={handleCloseHoverIn}
-        onHoverOut={handleCloseHoverOut}
         hitSlop={8}
         accessibilityRole="button"
         accessibilityLabel={removeAccessibilityLabel}
@@ -70,7 +78,7 @@ export function AttachmentPill({
       >
         <ThemedX size={12} uniProps={iconForegroundMutedMapping} />
       </Pressable>
-    </View>
+    </Animated.View>
   );
 }
 
