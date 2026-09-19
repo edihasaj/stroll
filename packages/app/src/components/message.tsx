@@ -5,6 +5,7 @@ import {
   Text,
   Image,
   Pressable,
+  Platform,
   type GestureResponderEvent,
   type LayoutChangeEvent,
   StyleProp,
@@ -25,7 +26,7 @@ import {
   createContext,
   useContext,
 } from "react";
-import type { ComponentType, ReactNode } from "react";
+import type { ComponentProps, ComponentType, ReactNode } from "react";
 import type MarkdownIt from "markdown-it";
 import { type ASTNode, type RenderRules } from "react-native-markdown-display";
 import MaskedView from "@react-native-masked-view/masked-view";
@@ -44,11 +45,14 @@ import {
   FileSymlink,
 } from "lucide-react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
-import { ICON_SIZE, type Theme } from "@/styles/theme";
+import { ICON_SIZE, MOTION_DURATION, MOTION_EASING, type Theme } from "@/styles/theme";
 import { useIsCompactFormFactor } from "@/constants/layout";
+import { useAppReducedMotion, withMotion } from "@/hooks/use-app-reduced-motion";
 import Animated, {
   Easing,
+  FadeIn,
   cancelAnimation,
+  runOnJS,
   useAnimatedStyle,
   useSharedValue,
   withRepeat,
@@ -122,6 +126,31 @@ import { rewriteAssistantAnnotations } from "@/assistant-annotations/rewrite";
 export type { InlinePathTarget } from "@/assistant-file-links";
 export type { AssistantForkTarget };
 
+// M1 (docs/design.md "17. Motion", docs/ui-gap-gpt.md): new user/assistant message blocks fade
+// and rise in. This is the `appear` motion shape (fade, no scale) plus a small initial
+// translateY, built once at import time per docs/design.md's rule for module-scope Reanimated
+// builders. `agent-stream/view.tsx` only ever passes `animateEntrance: true` for a message whose
+// stream item id is genuinely new (`agent-stream/message-entrance.ts`) — never on re-render, list
+// replacement, history pagination, or reconnect recovery, and never for anything already on
+// screen when a chat is opened.
+const messageEntranceEntering = FadeIn.duration(MOTION_DURATION.slow).withInitialValues({
+  transform: [{ translateY: 8 }],
+});
+
+/**
+ * Shared gate for the two message entrance call sites (`UserMessage`, `AssistantMessage`).
+ * Entry/exit animations are also disabled on Android regardless of `animateEntrance`, matching
+ * `agent-stream/view.tsx`'s `shouldDisableEntryExitAnimations` — RN dispatchDraw crashes on
+ * Android with Reanimated entering animations (react-native-reanimated#8422).
+ */
+function useMessageEntranceAnimation(animateEntrance: boolean) {
+  const reducedMotion = useAppReducedMotion();
+  const disableEntryExitAnimations = Platform.OS === "android" || reducedMotion;
+  return animateEntrance
+    ? withMotion(disableEntryExitAnimations, messageEntranceEntering)
+    : undefined;
+}
+
 interface UserMessageProps {
   serverId?: string;
   agentId?: string;
@@ -136,6 +165,9 @@ interface UserMessageProps {
   isLastInGroup?: boolean;
   isPending?: boolean;
   disableOuterSpacing?: boolean;
+  /** Play the entrance fade+rise (M1). True only for a genuinely new message; see
+   * `agent-stream/view.tsx`'s `shouldAnimateMessageEntrance`. */
+  animateEntrance?: boolean;
 }
 
 const MessageOuterSpacingContext = createContext(false);
@@ -514,9 +546,11 @@ export const UserMessage = memo(function UserMessage({
   isLastInGroup = true,
   isPending = false,
   disableOuterSpacing,
+  animateEntrance = false,
 }: UserMessageProps) {
   const isCompact = useIsCompactFormFactor();
   const { t } = useTranslation();
+  const entranceEntering = useMessageEntranceAnimation(animateEntrance);
   const [isHovered, setIsHovered] = useState(false);
   const [lightboxMetadata, setLightboxMetadata] = useState<UserMessageImageAttachment | null>(null);
   const handleLightboxClose = useCallback(() => setLightboxMetadata(null), []);
@@ -585,7 +619,12 @@ export const UserMessage = memo(function UserMessage({
   );
 
   return (
-    <View style={containerStyle} testID="user-message" aria-busy={isPending}>
+    <Animated.View
+      entering={entranceEntering}
+      style={containerStyle}
+      testID="user-message"
+      aria-busy={isPending}
+    >
       <View
         style={userMessageStylesheet.content}
         onPointerEnter={handlePointerEnter}
@@ -655,7 +694,7 @@ export const UserMessage = memo(function UserMessage({
         ) : null}
       </View>
       <AttachmentLightbox source={lightboxSource} onClose={handleLightboxClose} />
-    </View>
+    </Animated.View>
   );
 });
 
@@ -667,7 +706,13 @@ interface AssistantTurnFooterProps {
 }
 
 const assistantTurnFooterStylesheet = StyleSheet.create((theme) => ({
+  // MS1 (docs/hover.md canonical pattern): the hover-tracking element carries nothing but
+  // `position: relative` — all real layout lives on `actionsRow` below, so the tracker's own
+  // bounding box never changes shape and can't cause a hover flicker.
   container: {
+    position: "relative",
+  },
+  actionsRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: theme.spacing[2],
@@ -709,9 +754,14 @@ export const AssistantTurnFooter = memo(function AssistantTurnFooter({
   durationMs,
   onFork,
 }: AssistantTurnFooterProps) {
-  const [hovered, setHovered] = useState(false);
+  // MS1: `isHovered` now drives the whole row's visibility (see the hover-tracking `View`
+  // below), not just the timestamp swap — so it has to live on that outer plain `View`, per
+  // docs/hover.md, rather than on the label's own `Pressable` as before. The label's swap
+  // behaviour (duration <-> timestamp) is unchanged; only the source of the hover signal moved.
+  const [isHovered, setIsHovered] = useState(false);
   const [pressedReveal, setPressedReveal] = useState(false);
   const revealTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reducedMotion = useAppReducedMotion();
 
   useEffect(() => {
     return () => {
@@ -736,10 +786,27 @@ export const AssistantTurnFooter = memo(function AssistantTurnFooter({
 
   const primaryLabel = durationLabel || timestampLabel;
   const canSwap = Boolean(durationLabel && timestampLabel);
-  const showTimestamp = canSwap && (isWeb ? hovered : pressedReveal);
+  const showTimestamp = canSwap && (isWeb ? isHovered : pressedReveal);
 
-  const handleHoverIn = useCallback(() => setHovered(true), []);
-  const handleHoverOut = useCallback(() => setHovered(false), []);
+  // MS1: copy / fork / timestamp are hover-revealed on web, always visible on native/touch —
+  // docs/hover.md's canonical `isHovered || isNative` (no separate compact case here: this row
+  // only ever renders on desktop web or native, never a touch-web layout).
+  const showActions = isHovered || isNative;
+  const actionsOpacity = useSharedValue(showActions ? 1 : 0);
+  useEffect(() => {
+    const target = showActions ? 1 : 0;
+    actionsOpacity.value = reducedMotion
+      ? target
+      : withTiming(target, { duration: MOTION_DURATION.fast, easing: MOTION_EASING.standard });
+  }, [showActions, reducedMotion, actionsOpacity]);
+  const actionsAnimatedStyle = useAnimatedStyle(() => ({ opacity: actionsOpacity.value }));
+  const actionsRowStyle = useMemo(
+    () => [assistantTurnFooterStylesheet.actionsRow, actionsAnimatedStyle],
+    [actionsAnimatedStyle],
+  );
+
+  const handlePointerEnter = useCallback(() => setIsHovered(true), []);
+  const handlePointerLeave = useCallback(() => setIsHovered(false), []);
   const handlePress = useCallback(() => {
     if (isWeb || !canSwap) return;
     if (revealTimerRef.current) {
@@ -760,32 +827,38 @@ export const AssistantTurnFooter = memo(function AssistantTurnFooter({
   const canFork = Boolean(onFork);
 
   return (
-    <View style={assistantTurnFooterStylesheet.container}>
-      <TurnCopyButton
-        getContent={getContent}
-        containerStyle={assistantTurnFooterStylesheet.copyButton}
-      />
-      {canFork ? <AssistantForkMenu onFork={handleFork} /> : null}
-      {primaryLabel ? (
-        <Pressable
-          onPress={handlePress}
-          onHoverIn={handleHoverIn}
-          onHoverOut={handleHoverOut}
-          accessibilityRole={canSwap ? "button" : undefined}
-          accessibilityLabel={canSwap ? `${durationLabel}, ended ${timestampLabel}` : primaryLabel}
-        >
-          <View style={assistantTurnFooterStylesheet.labelWrapper}>
-            {/* Sizer reserves space for whichever label is longer so the
-                container width is stable across hover transitions. */}
-            <Text style={assistantTurnFooterStylesheet.labelSizer} aria-hidden>
-              {primaryLabel.length >= timestampLabel.length ? primaryLabel : timestampLabel}
-            </Text>
-            <Text style={assistantTurnFooterStylesheet.labelOverlay}>
-              {showTimestamp ? timestampLabel : primaryLabel}
-            </Text>
-          </View>
-        </Pressable>
-      ) : null}
+    <View
+      style={assistantTurnFooterStylesheet.container}
+      onPointerEnter={handlePointerEnter}
+      onPointerLeave={handlePointerLeave}
+    >
+      <Animated.View style={actionsRowStyle} pointerEvents={showActions ? "auto" : "none"}>
+        <TurnCopyButton
+          getContent={getContent}
+          containerStyle={assistantTurnFooterStylesheet.copyButton}
+        />
+        {canFork ? <AssistantForkMenu onFork={handleFork} /> : null}
+        {primaryLabel ? (
+          <Pressable
+            onPress={handlePress}
+            accessibilityRole={canSwap ? "button" : undefined}
+            accessibilityLabel={
+              canSwap ? `${durationLabel}, ended ${timestampLabel}` : primaryLabel
+            }
+          >
+            <View style={assistantTurnFooterStylesheet.labelWrapper}>
+              {/* Sizer reserves space for whichever label is longer so the
+                  container width is stable across hover transitions. */}
+              <Text style={assistantTurnFooterStylesheet.labelSizer} aria-hidden>
+                {primaryLabel.length >= timestampLabel.length ? primaryLabel : timestampLabel}
+              </Text>
+              <Text style={assistantTurnFooterStylesheet.labelOverlay}>
+                {showTimestamp ? timestampLabel : primaryLabel}
+              </Text>
+            </View>
+          </Pressable>
+        ) : null}
+      </Animated.View>
     </View>
   );
 });
@@ -838,6 +911,9 @@ interface AssistantMessageProps {
   client?: DaemonClient | null;
   spacing?: "default" | "compactTop" | "compactBottom" | "compactBoth";
   phase: MarkdownPhase;
+  /** Play the entrance fade+rise (M1). True only for a genuinely new message; see
+   * `agent-stream/view.tsx`'s `shouldAnimateMessageEntrance`. */
+  animateEntrance?: boolean;
 }
 
 export const assistantMessageStylesheet = StyleSheet.create((theme) => ({
@@ -1623,9 +1699,11 @@ export const AssistantMessage = memo(function AssistantMessage({
   client,
   spacing = "default",
   phase,
+  animateEntrance = false,
 }: AssistantMessageProps) {
   const { t } = useTranslation();
   const isCompact = useIsCompactFormFactor();
+  const entranceEntering = useMessageEntranceAnimation(animateEntrance);
   const markdownParser = useMemo(createAssistantMarkdownParser, []);
   const streamingMarkdownParser = useMemo(
     () => createAssistantMarkdownParser({ streaming: true }),
@@ -2155,19 +2233,21 @@ export const AssistantMessage = memo(function AssistantMessage({
 
   return (
     <StreamingWords stream={stream}>
-      {isCompact ? (
-        prose
-      ) : (
-        // The mark bleeds into the row's own left padding instead of indenting the
-        // prose, so assistant text keeps the same left rail as the tool activity row
-        // and the user bubble's right rail — only the mark moves, never the column.
-        <View style={assistantMessageStylesheet.markRow}>
-          <View style={markColumnStyle}>
-            <ThemedStrollLogo size={20} uniProps={foregroundColorMapping} />
+      <Animated.View entering={entranceEntering}>
+        {isCompact ? (
+          prose
+        ) : (
+          // The mark bleeds into the row's own left padding instead of indenting the
+          // prose, so assistant text keeps the same left rail as the tool activity row
+          // and the user bubble's right rail — only the mark moves, never the column.
+          <View style={assistantMessageStylesheet.markRow}>
+            <View style={markColumnStyle}>
+              <ThemedStrollLogo size={20} uniProps={foregroundColorMapping} />
+            </View>
+            <View style={assistantMessageStylesheet.markProseColumn}>{prose}</View>
           </View>
-          <View style={assistantMessageStylesheet.markProseColumn}>{prose}</View>
-        </View>
-      )}
+        )}
+      </Animated.View>
     </StreamingWords>
   );
 });
@@ -2733,7 +2813,7 @@ function renderExpandableBadgeIconSlot({
   isInteractive: boolean;
   isHovered: boolean;
   isExpanded: boolean;
-  chevronStyle: StyleProp<ViewStyle>;
+  chevronStyle: ComponentProps<typeof Animated.View>["style"];
   iconNode: ReactNode;
 }): ReactNode {
   // The activity-summary row pins the leading glyph in place — it never swaps for
@@ -2743,9 +2823,9 @@ function renderExpandableBadgeIconSlot({
   }
   if (isInteractive && (isHovered || isExpanded)) {
     return (
-      <View style={chevronStyle}>
+      <Animated.View style={chevronStyle}>
         <ThemedChevronRightIcon size={12} uniProps={foregroundColorMapping} />
-      </View>
+      </Animated.View>
     );
   }
   return iconNode;
@@ -2909,8 +2989,106 @@ export const ExpandableBadge = memo(function ExpandableBadge({
   const [isPressed, setIsPressed] = useState(false);
   const isInteractive = Boolean(onToggle);
   const hasDetailContent = Boolean(renderDetails);
-  const detailContent = hasDetailContent && isExpanded ? renderDetails?.() : null;
   const detailWrapperRef = useRef<View | null>(null);
+  const reducedMotion = useAppReducedMotion();
+
+  // M2 (docs/design.md "17. Motion", docs/ui-gap-gpt.md): the detail block animates open/closed
+  // instead of snapping. `isDetailMounted` keeps the content (and this Pressable) in the tree for
+  // the duration of the collapse animation — the mount/unmount moment itself still matches the
+  // old behavior, just delayed until the shrink finishes. `detailHeight`/`detailOpacity` drive the
+  // wrapper; `isDetailHeightFree` switches the wrapper to natural (`auto`) height once an
+  // expansion settles, so content that grows afterwards (a streaming tool result) reflows without
+  // fighting a stale clamp — collapsing re-measures the live height before animating back to 0.
+  const [isDetailMounted, setIsDetailMounted] = useState(hasDetailContent && isExpanded);
+  // Starts "free" (natural height, no animation) when the badge mounts already expanded —
+  // e.g. a default-expanded tool-call group — so existing content never plays the open
+  // animation it would otherwise get from a height starting at 0. Only a later, genuine
+  // toggle (isExpanded flips) re-clamps and animates.
+  const [isDetailHeightFree, setIsDetailHeightFree] = useState(
+    () => hasDetailContent && isExpanded,
+  );
+  const detailHeight = useSharedValue(0);
+  const detailOpacity = useSharedValue(0);
+  const detailNaturalHeightRef = useRef(0);
+  const detailContent = hasDetailContent && isDetailMounted ? renderDetails?.() : null;
+
+  useEffect(() => {
+    if (!hasDetailContent) {
+      return;
+    }
+    if (isExpanded) {
+      setIsDetailMounted(true);
+      setIsDetailHeightFree(false);
+      return;
+    }
+    if (!isDetailMounted) {
+      return;
+    }
+    setIsDetailHeightFree(false);
+    // Re-clamp from the content's last known natural height (kept live by
+    // handleDetailContentLayout below, including while the height is "free") so collapsing
+    // out of a settled, auto-height expansion never visibly snaps before it shrinks.
+    detailHeight.value = detailNaturalHeightRef.current;
+    if (reducedMotion) {
+      detailHeight.value = 0;
+      detailOpacity.value = 0;
+      setIsDetailMounted(false);
+      return;
+    }
+    detailOpacity.value = withTiming(0, {
+      duration: MOTION_DURATION.base,
+      easing: MOTION_EASING.standard,
+    });
+    detailHeight.value = withTiming(
+      0,
+      { duration: MOTION_DURATION.base, easing: MOTION_EASING.standard },
+      (finished) => {
+        "worklet";
+        if (finished) {
+          runOnJS(setIsDetailMounted)(false);
+        }
+      },
+    );
+  }, [isExpanded, hasDetailContent, reducedMotion, isDetailMounted, detailHeight, detailOpacity]);
+
+  const handleDetailContentLayout = useCallback(
+    (event: LayoutChangeEvent) => {
+      const measured = event.nativeEvent.layout.height;
+      detailNaturalHeightRef.current = measured;
+      if (!isExpanded || isDetailHeightFree) {
+        return;
+      }
+      if (reducedMotion) {
+        detailHeight.value = measured;
+        detailOpacity.value = 1;
+        setIsDetailHeightFree(true);
+        return;
+      }
+      detailOpacity.value = withTiming(1, {
+        duration: MOTION_DURATION.base,
+        easing: MOTION_EASING.standard,
+      });
+      detailHeight.value = withTiming(
+        measured,
+        { duration: MOTION_DURATION.base, easing: MOTION_EASING.standard },
+        (finished) => {
+          "worklet";
+          if (finished) {
+            runOnJS(setIsDetailHeightFree)(true);
+          }
+        },
+      );
+    },
+    [isExpanded, isDetailHeightFree, reducedMotion, detailHeight, detailOpacity],
+  );
+
+  const detailAnimatedStyle = useAnimatedStyle(
+    () => ({
+      height: isDetailHeightFree ? undefined : detailHeight.value,
+      opacity: detailOpacity.value,
+    }),
+    [isDetailHeightFree],
+  );
 
   const handleHoverIn = useCallback(() => setIsHovered(true), []);
   const handleHoverOut = useCallback(() => {
@@ -3011,7 +3189,7 @@ export const ExpandableBadge = memo(function ExpandableBadge({
 
   useDetailWheelPropagationBlocker({
     detailWrapperRef,
-    enabled: !isNative && isExpanded && hasDetailContent,
+    enabled: !isNative && isDetailMounted && hasDetailContent,
   });
 
   const shimmerLabelStyle = useMemo<StyleProp<TextStyle>>(
@@ -3130,15 +3308,21 @@ export const ExpandableBadge = memo(function ExpandableBadge({
     [shimmerSecondaryStyle],
   );
 
+  // M2: the leading chevron (default badge only — the activity-summary row's trailing chevron
+  // stays fixed, see `renderExpandableBadgeTrailingChevron`) rotates instead of snapping.
+  const chevronRotationDegrees = useSharedValue(isExpanded ? 90 : 0);
+  useEffect(() => {
+    const target = isExpanded ? 90 : 0;
+    chevronRotationDegrees.value = reducedMotion
+      ? target
+      : withTiming(target, { duration: MOTION_DURATION.base, easing: MOTION_EASING.standard });
+  }, [isExpanded, reducedMotion, chevronRotationDegrees]);
+  const chevronAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: 1.3 }, { rotate: `${chevronRotationDegrees.value}deg` }],
+  }));
   const chevronStyle = useMemo(
-    () => [
-      expandableBadgeStylesheet.chevron,
-      LUCIDE_CHEVRON_NUDGE_LEFT,
-      inlineUnistylesStyle({
-        transform: isExpanded ? [{ scale: 1.3 }, { rotate: "90deg" }] : [{ scale: 1.3 }],
-      }),
-    ],
-    [isExpanded],
+    () => [expandableBadgeStylesheet.chevron, LUCIDE_CHEVRON_NUDGE_LEFT, chevronAnimatedStyle],
+    [chevronAnimatedStyle],
   );
 
   const ThemedIcon = useMemo(() => (icon ? withUnistyles(icon) : null), [icon]);
@@ -3205,14 +3389,16 @@ export const ExpandableBadge = memo(function ExpandableBadge({
         </View>
       </Pressable>
       {detailContent ? (
-        <Pressable
-          ref={detailWrapperRef}
-          style={detailWrapperStyle}
-          onHoverIn={handleDetailHoverIn}
-          onHoverOut={handleDetailHoverOut}
-        >
-          {detailContent}
-        </Pressable>
+        <Animated.View style={[detailWrapperStyle, detailAnimatedStyle]}>
+          <Pressable
+            ref={detailWrapperRef}
+            onHoverIn={handleDetailHoverIn}
+            onHoverOut={handleDetailHoverOut}
+            onLayout={handleDetailContentLayout}
+          >
+            {detailContent}
+          </Pressable>
+        </Animated.View>
       ) : null}
     </View>
   );
