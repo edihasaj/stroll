@@ -24,13 +24,14 @@ import {
   type StyleProp,
   type ViewStyle,
 } from "react-native";
-import { FadeIn, FadeOut } from "react-native-reanimated";
 import { StyleSheet } from "react-native-unistyles";
 import { useIsCompactFormFactor } from "@/constants/layout";
 import { FloatingSurface } from "@/components/ui/floating";
 import { isWeb } from "@/constants/platform";
 import { useAppReducedMotion, withMotion } from "@/hooks/use-app-reduced-motion";
 import { getOverlayRoot, OVERLAY_Z } from "@/lib/overlay-root";
+import { appearEntering, appearExiting } from "@/styles/motion";
+import { resolveTooltipOpenDelayMs, TOOLTIP_OPEN_DELAY_MS } from "@/components/ui/tooltip-delay";
 
 type Side = "top" | "bottom" | "left" | "right";
 type Align = "start" | "center" | "end";
@@ -82,6 +83,12 @@ if (isWeb && typeof window !== "undefined") {
 function shouldOpenOnFocus(): boolean {
   return !isWeb || lastInputWasKeyboard;
 }
+
+// Shared across every tooltip on screen, not per-instance: moving the pointer from one
+// toolbar icon's tooltip to the next should skip the delay, the same way macOS and ChatGPT's
+// desktop app do it. `resolveTooltipOpenDelayMs` (tooltip-delay.ts) is the pure rule; this is
+// just the one piece of mutable state it needs.
+let lastTooltipCloseAt: number | null = null;
 
 function isCallable(fn: unknown): fn is (...args: unknown[]) => void {
   return typeof fn === "function";
@@ -235,7 +242,7 @@ export function Tooltip({
   open,
   defaultOpen,
   onOpenChange,
-  delayDuration = 0,
+  delayDuration = TOOLTIP_OPEN_DELAY_MS,
   enabledOnDesktop = true,
   enabledOnMobile = false,
   children,
@@ -300,18 +307,26 @@ export function TooltipTrigger({
   const scheduleOpen = useCallback(() => {
     if (!ctx.enabled || disabled) return;
     clearOpenTimer();
-    if (ctx.delayDuration <= 0) {
+    const delay = resolveTooltipOpenDelayMs({
+      requestedDelayMs: ctx.delayDuration,
+      now: Date.now(),
+      lastCloseAt: lastTooltipCloseAt,
+    });
+    if (delay <= 0) {
       ctx.setOpen(true);
       return;
     }
     openTimerRef.current = setTimeout(() => {
       ctx.setOpen(true);
       openTimerRef.current = null;
-    }, ctx.delayDuration);
+    }, delay);
   }, [clearOpenTimer, ctx, disabled]);
 
   const close = useCallback(() => {
     clearOpenTimer();
+    // Hide immediately (docs/ui-gap-gpt.md B1) — no timer, no easing-out delay — and stamp the
+    // grace window so a hover landing on the next trigger shortly after skips its own delay.
+    lastTooltipCloseAt = Date.now();
     ctx.setOpen(false);
   }, [clearOpenTimer, ctx]);
 
@@ -539,8 +554,8 @@ export function TooltipContent({
       <View pointerEvents="none" style={styles.portalOverlay}>
         <FloatingSurface
           pointerEvents="none"
-          entering={withMotion(reducedMotion, FadeIn.duration(80))}
-          exiting={withMotion(reducedMotion, FadeOut.duration(80))}
+          entering={withMotion(reducedMotion, appearEntering)}
+          exiting={withMotion(reducedMotion, appearExiting)}
           collapsable={false}
           testID={testID}
           onLayout={handleLayout}
@@ -565,8 +580,8 @@ export function TooltipContent({
       <Pressable style={styles.overlay} onPress={handleDismiss}>
         <FloatingSurface
           pointerEvents="none"
-          entering={withMotion(reducedMotion, FadeIn.duration(80))}
-          exiting={withMotion(reducedMotion, FadeOut.duration(80))}
+          entering={withMotion(reducedMotion, appearEntering)}
+          exiting={withMotion(reducedMotion, appearExiting)}
           collapsable={false}
           testID={testID}
           onLayout={handleLayout}
