@@ -59,6 +59,8 @@ vi.mock("@/components/adaptive-modal-sheet", async () => {
 
 vi.mock("react-native-reanimated", () => ({
   default: { View: "div" },
+  // The shared reduced-motion seam reads this on every animated primitive.
+  useReducedMotion: () => false,
   Keyframe: class {
     duration() {
       return this;
