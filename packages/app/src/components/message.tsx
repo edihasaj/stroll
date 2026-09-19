@@ -706,7 +706,13 @@ interface AssistantTurnFooterProps {
 }
 
 const assistantTurnFooterStylesheet = StyleSheet.create((theme) => ({
+  // MS1 (docs/hover.md canonical pattern): the hover-tracking element carries nothing but
+  // `position: relative` — all real layout lives on `actionsRow` below, so the tracker's own
+  // bounding box never changes shape and can't cause a hover flicker.
   container: {
+    position: "relative",
+  },
+  actionsRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: theme.spacing[2],
@@ -748,9 +754,14 @@ export const AssistantTurnFooter = memo(function AssistantTurnFooter({
   durationMs,
   onFork,
 }: AssistantTurnFooterProps) {
-  const [hovered, setHovered] = useState(false);
+  // MS1: `isHovered` now drives the whole row's visibility (see the hover-tracking `View`
+  // below), not just the timestamp swap — so it has to live on that outer plain `View`, per
+  // docs/hover.md, rather than on the label's own `Pressable` as before. The label's swap
+  // behaviour (duration <-> timestamp) is unchanged; only the source of the hover signal moved.
+  const [isHovered, setIsHovered] = useState(false);
   const [pressedReveal, setPressedReveal] = useState(false);
   const revealTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reducedMotion = useAppReducedMotion();
 
   useEffect(() => {
     return () => {
@@ -775,10 +786,27 @@ export const AssistantTurnFooter = memo(function AssistantTurnFooter({
 
   const primaryLabel = durationLabel || timestampLabel;
   const canSwap = Boolean(durationLabel && timestampLabel);
-  const showTimestamp = canSwap && (isWeb ? hovered : pressedReveal);
+  const showTimestamp = canSwap && (isWeb ? isHovered : pressedReveal);
 
-  const handleHoverIn = useCallback(() => setHovered(true), []);
-  const handleHoverOut = useCallback(() => setHovered(false), []);
+  // MS1: copy / fork / timestamp are hover-revealed on web, always visible on native/touch —
+  // docs/hover.md's canonical `isHovered || isNative` (no separate compact case here: this row
+  // only ever renders on desktop web or native, never a touch-web layout).
+  const showActions = isHovered || isNative;
+  const actionsOpacity = useSharedValue(showActions ? 1 : 0);
+  useEffect(() => {
+    const target = showActions ? 1 : 0;
+    actionsOpacity.value = reducedMotion
+      ? target
+      : withTiming(target, { duration: MOTION_DURATION.fast, easing: MOTION_EASING.standard });
+  }, [showActions, reducedMotion, actionsOpacity]);
+  const actionsAnimatedStyle = useAnimatedStyle(() => ({ opacity: actionsOpacity.value }));
+  const actionsRowStyle = useMemo(
+    () => [assistantTurnFooterStylesheet.actionsRow, actionsAnimatedStyle],
+    [actionsAnimatedStyle],
+  );
+
+  const handlePointerEnter = useCallback(() => setIsHovered(true), []);
+  const handlePointerLeave = useCallback(() => setIsHovered(false), []);
   const handlePress = useCallback(() => {
     if (isWeb || !canSwap) return;
     if (revealTimerRef.current) {
@@ -799,32 +827,38 @@ export const AssistantTurnFooter = memo(function AssistantTurnFooter({
   const canFork = Boolean(onFork);
 
   return (
-    <View style={assistantTurnFooterStylesheet.container}>
-      <TurnCopyButton
-        getContent={getContent}
-        containerStyle={assistantTurnFooterStylesheet.copyButton}
-      />
-      {canFork ? <AssistantForkMenu onFork={handleFork} /> : null}
-      {primaryLabel ? (
-        <Pressable
-          onPress={handlePress}
-          onHoverIn={handleHoverIn}
-          onHoverOut={handleHoverOut}
-          accessibilityRole={canSwap ? "button" : undefined}
-          accessibilityLabel={canSwap ? `${durationLabel}, ended ${timestampLabel}` : primaryLabel}
-        >
-          <View style={assistantTurnFooterStylesheet.labelWrapper}>
-            {/* Sizer reserves space for whichever label is longer so the
-                container width is stable across hover transitions. */}
-            <Text style={assistantTurnFooterStylesheet.labelSizer} aria-hidden>
-              {primaryLabel.length >= timestampLabel.length ? primaryLabel : timestampLabel}
-            </Text>
-            <Text style={assistantTurnFooterStylesheet.labelOverlay}>
-              {showTimestamp ? timestampLabel : primaryLabel}
-            </Text>
-          </View>
-        </Pressable>
-      ) : null}
+    <View
+      style={assistantTurnFooterStylesheet.container}
+      onPointerEnter={handlePointerEnter}
+      onPointerLeave={handlePointerLeave}
+    >
+      <Animated.View style={actionsRowStyle} pointerEvents={showActions ? "auto" : "none"}>
+        <TurnCopyButton
+          getContent={getContent}
+          containerStyle={assistantTurnFooterStylesheet.copyButton}
+        />
+        {canFork ? <AssistantForkMenu onFork={handleFork} /> : null}
+        {primaryLabel ? (
+          <Pressable
+            onPress={handlePress}
+            accessibilityRole={canSwap ? "button" : undefined}
+            accessibilityLabel={
+              canSwap ? `${durationLabel}, ended ${timestampLabel}` : primaryLabel
+            }
+          >
+            <View style={assistantTurnFooterStylesheet.labelWrapper}>
+              {/* Sizer reserves space for whichever label is longer so the
+                  container width is stable across hover transitions. */}
+              <Text style={assistantTurnFooterStylesheet.labelSizer} aria-hidden>
+                {primaryLabel.length >= timestampLabel.length ? primaryLabel : timestampLabel}
+              </Text>
+              <Text style={assistantTurnFooterStylesheet.labelOverlay}>
+                {showTimestamp ? timestampLabel : primaryLabel}
+              </Text>
+            </View>
+          </Pressable>
+        ) : null}
+      </Animated.View>
     </View>
   );
 });
