@@ -370,12 +370,13 @@ export function AnchoredSurface({
         style={styles.content}
         frameStyle={frameStyle}
         entering={withMotion(reducedMotion, openCloseEntering)}
-        // Reduced motion drops the exit keyframe entirely, so `onExited` would not fire while
-        // it is on — no current caller passes `onExited`, revisit if one starts to.
+        // `FloatingSurface` strips `exiting` on web itself (see its doc comment), so the
+        // `onExited` callback below only ever runs on native. Reduced motion drops the exit
+        // keyframe entirely there too, so `onExited` would not fire while it is on — no current
+        // caller passes `onExited`, revisit if one starts to.
         exiting={
-          isWeb || !onExited
-            ? withMotion(reducedMotion, openCloseExiting)
-            : withMotion(
+          onExited
+            ? withMotion(
                 reducedMotion,
                 openCloseExiting.withCallback((finished) => {
                   "worklet";
@@ -384,6 +385,7 @@ export function AnchoredSurface({
                   }
                 }),
               )
+            : withMotion(reducedMotion, openCloseExiting)
         }
       >
         {scrollable ? (
