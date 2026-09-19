@@ -8,6 +8,7 @@ import {
   type ViewStyle,
 } from "react-native";
 import Animated from "react-native-reanimated";
+import { isWeb } from "@/constants/platform";
 import { inlineUnistylesStyle } from "@/styles/unistyles-inline-style";
 
 export interface FloatingSurfaceProps extends Omit<ComponentProps<typeof Animated.View>, "style"> {
@@ -15,8 +16,21 @@ export interface FloatingSurfaceProps extends Omit<ComponentProps<typeof Animate
   style?: StyleProp<ViewStyle>;
 }
 
+/**
+ * Every caller renders this behind an `if (!open) return null` one level up — `MenuOverlay`
+ * (`menu-overlay.tsx`), `Combobox`, `tooltip.tsx`'s trigger context, `workspace-hover-card.tsx`.
+ * That owner and this surface unmount in the same React commit, so on web an `exiting` Keyframe
+ * has no live parent left to intercept the removal: Reanimated's web layout-animation runtime
+ * clones the outgoing node out of a tree that React is still tearing down, and a later frame's
+ * `_updatePropsJS` throws `Cannot convert undefined or null to object` against the now-detached
+ * clone. That throw is untrapped (it fires from a rAF/animation callback, not from React's render
+ * or event path) and has been observed to swallow an unrelated click delivered right after.
+ * Fabric's native layout-animation runtime handles the same simultaneous ancestor+descendant
+ * removal without issue, so this only strips `exiting` on web. Entering is unaffected — mounting
+ * never races an ancestor's removal.
+ */
 export const FloatingSurface = forwardRef<View, FloatingSurfaceProps>(function FloatingSurface(
-  { frameStyle, style, ...props },
+  { frameStyle, style, exiting, ...props },
   ref,
 ): ReactElement {
   const inlineFrameStyle = useMemo(() => {
@@ -27,7 +41,14 @@ export const FloatingSurface = forwardRef<View, FloatingSurfaceProps>(function F
     () => appendStyle(style, inlineFrameStyle),
     [inlineFrameStyle, style],
   );
-  return <Animated.View {...props} ref={ref} style={surfaceStyle} />;
+  return (
+    <Animated.View
+      {...props}
+      exiting={isWeb ? undefined : exiting}
+      ref={ref}
+      style={surfaceStyle}
+    />
+  );
 });
 
 export interface FloatingScrollViewProps {
