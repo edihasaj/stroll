@@ -23,10 +23,36 @@ import {
   createControlGeometry,
   type ButtonControlSize,
 } from "@/components/ui/control-geometry";
-import type { Theme } from "@/styles/theme";
+import { isWeb } from "@/constants/platform";
+import { useAppReducedMotion } from "@/hooks/use-app-reduced-motion";
+import { MOTION_DURATION, type Theme } from "@/styles/theme";
 
 type ButtonVariant = "default" | "secondary" | "outline" | "ghost" | "destructive";
 type ButtonSize = ButtonControlSize;
+
+// Web-only CSS transitions (docs/ui-gap-gpt.md B3/M6) — press and hover snap on native RN
+// regardless, since there is no continuous style interpolation without Reanimated; on web the
+// underlying DOM node accepts plain `transition*` style keys the same way
+// `adaptive-modal-sheet.tsx`'s overlay fade does. Kept as module-scope constants, not inside
+// `StyleSheet.create`, so the reduced-motion check below can drop the duration to `0ms` without
+// re-deriving the object per theme.
+const WEB_PRESS_TRANSITION = isWeb
+  ? ({
+      transitionProperty: "opacity, transform",
+      transitionTimingFunction: "ease-out",
+    } as ViewStyle)
+  : null;
+
+const WEB_TEXT_TRANSITION = isWeb
+  ? ({
+      transitionProperty: "color",
+      transitionTimingFunction: "ease-out",
+    } as TextStyle)
+  : null;
+
+function webTransitionDuration(reducedMotion: boolean): string {
+  return reducedMotion ? "0ms" : `${MOTION_DURATION.fast}ms`;
+}
 
 type LeftIcon =
   | ReactElement
@@ -185,6 +211,7 @@ export function Button({
 >) {
   const [hovered, setHovered] = useState(false);
   const isDisabled = disabled || loading;
+  const reducedMotion = useAppReducedMotion();
 
   let variantStyle: ViewStyle;
   if (variant === "default") {
@@ -214,21 +241,40 @@ export function Button({
   const handleHoverIn = useCallback(() => setHovered(true), []);
   const handleHoverOut = useCallback(() => setHovered(false), []);
 
+  // Web transition duration lives here (not in the static `WEB_PRESS_TRANSITION` object) so
+  // reduced motion can drop it to `0ms` without re-deriving the transition property list.
+  const webPressTransition = useMemo(
+    () =>
+      WEB_PRESS_TRANSITION
+        ? { ...WEB_PRESS_TRANSITION, transitionDuration: webTransitionDuration(reducedMotion) }
+        : null,
+    [reducedMotion],
+  );
+  const webTextTransition = useMemo(
+    () =>
+      WEB_TEXT_TRANSITION
+        ? { ...WEB_TEXT_TRANSITION, transitionDuration: webTransitionDuration(reducedMotion) }
+        : null,
+    [reducedMotion],
+  );
+
   const pressableStyle = useCallback(
     ({ pressed }: PressableStateCallbackType): StyleProp<ViewStyle> => [
       styles.base,
+      webPressTransition,
       sizeStyle,
       variantStyle,
       pressed ? styles.pressed : null,
       isDisabled ? styles.disabled : null,
       style,
     ],
-    [sizeStyle, variantStyle, isDisabled, style],
+    [sizeStyle, variantStyle, isDisabled, style, webPressTransition],
   );
 
   const resolvedTextStyle = useMemo(
     () => [
       styles.text,
+      webTextTransition,
       size === "xs" ? styles.textXs : null,
       variant === "default" ? styles.textDefault : null,
       variant === "destructive" ? styles.textDestructive : null,
@@ -236,7 +282,7 @@ export function Button({
       textStyle,
       isGhostHovered ? styles.textGhostHovered : null,
     ],
-    [size, variant, textStyle, isGhostHovered],
+    [size, variant, textStyle, isGhostHovered, webTextTransition],
   );
 
   const accessibilityState = useMemo(
