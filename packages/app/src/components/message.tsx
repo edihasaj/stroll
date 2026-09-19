@@ -48,6 +48,7 @@ import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { ICON_SIZE, MOTION_DURATION, MOTION_EASING, type Theme } from "@/styles/theme";
 import { useIsCompactFormFactor } from "@/constants/layout";
 import { useAppReducedMotion, withMotion } from "@/hooks/use-app-reduced-motion";
+import { webAppearStyle } from "@/styles/motion";
 import Animated, {
   Easing,
   FadeIn,
@@ -133,22 +134,53 @@ export type { AssistantForkTarget };
 // stream item id is genuinely new (`agent-stream/message-entrance.ts`) — never on re-render, list
 // replacement, history pagination, or reconnect recovery, and never for anything already on
 // screen when a chat is opened.
+//
+// Native only. A streaming assistant message is exactly the in-flow, size-can-change element
+// `webAppearStyle`'s doc comment (`@/styles/motion`) warns about: it mounts near-empty and grows
+// as paced text arrives. Reanimated's web layout-animation runtime takes an `entering` element
+// out of flow (`position: absolute`, a size snapshot taken at mount) for the animation's
+// duration; for content that keeps growing during that window the snapshot goes stale and the
+// wrapper's parent collapses to it, so the turn footer that renders after it in flow draws on
+// top of the still-growing text instead of below it. Web drives the same fade+rise with a CSS
+// keyframe instead (`MESSAGE_ENTRANCE_RISE_BY` below), which only ever touches
+// `opacity`/`transform` and never takes the wrapper out of flow.
 const messageEntranceEntering = FadeIn.duration(MOTION_DURATION.slow).withInitialValues({
   transform: [{ translateY: 8 }],
 });
+const MESSAGE_ENTRANCE_RISE_BY = 8;
 
 /**
  * Shared gate for the two message entrance call sites (`UserMessage`, `AssistantMessage`).
  * Entry/exit animations are also disabled on Android regardless of `animateEntrance`, matching
  * `agent-stream/view.tsx`'s `shouldDisableEntryExitAnimations` — RN dispatchDraw crashes on
  * Android with Reanimated entering animations (react-native-reanimated#8422).
+ *
+ * Returns the native Reanimated `entering` prop (`undefined` on web — see the comment above
+ * `messageEntranceEntering`) plus the web CSS-keyframe style to merge onto the same wrapper.
  */
-function useMessageEntranceAnimation(animateEntrance: boolean) {
+function useMessageEntranceAnimation(animateEntrance: boolean): {
+  entering: typeof messageEntranceEntering | undefined;
+  webStyle: object | undefined;
+} {
   const reducedMotion = useAppReducedMotion();
   const disableEntryExitAnimations = Platform.OS === "android" || reducedMotion;
-  return animateEntrance
-    ? withMotion(disableEntryExitAnimations, messageEntranceEntering)
-    : undefined;
+  // `agent-stream/view.tsx`'s `shouldAnimateMessageEntrance` runs inline on every render of this
+  // item, and its entrance tracker marks the id "seen" (and starts returning `false`) the very
+  // first time it is asked — often within the same tick, well before a 200ms animation could
+  // finish, since a streaming message re-renders on nearly every arriving chunk. Reanimated's
+  // native `entering` prop tolerates that: it is captured once at the component's initial mount
+  // commit and ignores later prop changes. A plain web `style` prop has no such immunity — React
+  // re-diffs it on every render, so removing `animationName` mid-flight would cancel the CSS
+  // animation early. `useState`'s lazy initializer gives the web path the same "decided once at
+  // mount" semantics as Reanimated's native one.
+  const [shouldAnimate] = useState(animateEntrance);
+  if (!shouldAnimate) {
+    return { entering: undefined, webStyle: undefined };
+  }
+  return {
+    entering: isWeb ? undefined : withMotion(disableEntryExitAnimations, messageEntranceEntering),
+    webStyle: webAppearStyle(reducedMotion, { riseBy: MESSAGE_ENTRANCE_RISE_BY }),
+  };
 }
 
 interface UserMessageProps {
@@ -550,7 +582,8 @@ export const UserMessage = memo(function UserMessage({
 }: UserMessageProps) {
   const isCompact = useIsCompactFormFactor();
   const { t } = useTranslation();
-  const entranceEntering = useMessageEntranceAnimation(animateEntrance);
+  const { entering: entranceEntering, webStyle: entranceWebStyle } =
+    useMessageEntranceAnimation(animateEntrance);
   const [isHovered, setIsHovered] = useState(false);
   const [lightboxMetadata, setLightboxMetadata] = useState<UserMessageImageAttachment | null>(null);
   const handleLightboxClose = useCallback(() => setLightboxMetadata(null), []);
@@ -591,8 +624,9 @@ export const UserMessage = memo(function UserMessage({
         isLastInGroup ? userMessageStylesheet.containerLastInGroup : null,
         !isFirstInGroup || !isLastInGroup ? userMessageStylesheet.containerSpacing : null,
       ],
+      entranceWebStyle,
     ],
-    [resolvedDisableOuterSpacing, isFirstInGroup, isLastInGroup],
+    [resolvedDisableOuterSpacing, isFirstInGroup, isLastInGroup, entranceWebStyle],
   );
   const imagePreviewContainerStyle = useMemo(
     () => [
@@ -1703,7 +1737,8 @@ export const AssistantMessage = memo(function AssistantMessage({
 }: AssistantMessageProps) {
   const { t } = useTranslation();
   const isCompact = useIsCompactFormFactor();
-  const entranceEntering = useMessageEntranceAnimation(animateEntrance);
+  const { entering: entranceEntering, webStyle: entranceWebStyle } =
+    useMessageEntranceAnimation(animateEntrance);
   const markdownParser = useMemo(createAssistantMarkdownParser, []);
   const streamingMarkdownParser = useMemo(
     () => createAssistantMarkdownParser({ streaming: true }),
@@ -2233,7 +2268,7 @@ export const AssistantMessage = memo(function AssistantMessage({
 
   return (
     <StreamingWords stream={stream}>
-      <Animated.View entering={entranceEntering}>
+      <Animated.View entering={entranceEntering} style={entranceWebStyle}>
         {isCompact ? (
           prose
         ) : (

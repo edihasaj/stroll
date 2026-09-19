@@ -3,10 +3,10 @@ import { Image, Pressable, Text, View } from "react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import Animated from "react-native-reanimated";
 import { X } from "lucide-react-native";
-import { isNative } from "@/constants/platform";
+import { isNative, isWeb } from "@/constants/platform";
 import { useIsCompactFormFactor } from "@/constants/layout";
 import { useAppReducedMotion, withMotion } from "@/hooks/use-app-reduced-motion";
-import { appearEntering, appearExiting } from "@/styles/motion";
+import { appearEntering, appearExiting, webAppearStyle } from "@/styles/motion";
 import type { AttachmentMetadata } from "@/attachments/types";
 import { useAttachmentPreviewUrl } from "@/attachments/use-attachment-preview-url";
 import type { Theme } from "@/styles/theme";
@@ -52,10 +52,13 @@ export function AttachmentPill({
   const handlePointerLeave = useCallback(() => setIsHovered(false), []);
   return (
     <Animated.View
-      style={styles.wrapper}
+      // Pills sit in a flex-wrap row above the composer input — an in-flow shape where a
+      // collapsed entrance snapshot could shove the input around. Entering is CSS on web
+      // (`webAppearStyle`, `@/styles/motion`) instead of a Reanimated Keyframe.
+      style={[styles.wrapper, webAppearStyle(reducedMotion)]}
       onPointerEnter={handlePointerEnter}
       onPointerLeave={handlePointerLeave}
-      entering={withMotion(reducedMotion, appearEntering)}
+      entering={isWeb ? undefined : withMotion(reducedMotion, appearEntering)}
       exiting={withMotion(reducedMotion, appearExiting)}
     >
       <Pressable

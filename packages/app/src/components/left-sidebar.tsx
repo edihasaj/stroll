@@ -26,7 +26,8 @@ import {
   SIDEBAR_RAIL_WIDTH,
 } from "@/components/desktop-sidebar-layout";
 import { useAppReducedMotion, withMotion } from "@/hooks/use-app-reduced-motion";
-import { appearEntering, appearExiting } from "@/styles/motion";
+import { appearEntering, appearExiting, webAppearStyle } from "@/styles/motion";
+import { isWeb } from "@/constants/platform";
 import { MOTION_DURATION, MOTION_EASING } from "@/styles/theme";
 import {
   SIDEBAR_RESIZE_ACTIVATION_OFFSET,
@@ -729,6 +730,15 @@ function DesktopSidebar({
     () => [styles.sidebarHeaderGroup, ownsTopLeft && styles.sidebarHeaderGroupBelowChrome],
     [ownsTopLeft],
   );
+  // SB1's expanded content is `flex: 1` next to `SidebarFooter` below it — the same in-flow,
+  // parent-sized-by-content shape that made the M1 message entrance collapse on web (see
+  // `webAppearStyle`'s doc comment in `@/styles/motion`). The workspace list's height can change
+  // while it enters (skeleton -> loaded, filtered project count), so it gets the same web CSS
+  // treatment; entering stays a Reanimated Keyframe on native.
+  const expandedContentStyle = useMemo(
+    () => [staticStyles.expandedContent, webAppearStyle(reducedMotion)],
+    [reducedMotion],
+  );
   return (
     <Animated.View
       accessibilityElementsHidden={!active}
@@ -771,8 +781,8 @@ function DesktopSidebar({
             collapse and back in on expand (M3) instead of a hard cut. */}
         {!isRail ? (
           <Animated.View
-            style={staticStyles.expandedContent}
-            entering={withMotion(reducedMotion, appearEntering)}
+            style={expandedContentStyle}
+            entering={isWeb ? undefined : withMotion(reducedMotion, appearEntering)}
             exiting={withMotion(reducedMotion, appearExiting)}
           >
             {isInitialLoad && !hasActiveHostFilter ? (
