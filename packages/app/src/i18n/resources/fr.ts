@@ -1295,6 +1295,26 @@ export const fr: TranslationResources = {
     create: "Créer",
     chat: {
       placeholder: "Message Stroll",
+      greeting: {
+        morning: "Bonjour. Sur quoi travaillons-nous ?",
+        afternoon: "Bon après-midi. Sur quoi travaillons-nous ?",
+        evening: "Bonsoir. Sur quoi travaillons-nous ?",
+      },
+      suggestions: {
+        explainRepo: {
+          label: "Explique ce dépôt",
+        },
+        fixTests: {
+          label: "Corrige les tests en échec",
+        },
+        reviewCommit: {
+          label: "Relis mon dernier commit",
+        },
+        writePlan: {
+          label: "Écris un plan pour…",
+          prompt: "Écris un plan pour ",
+        },
+      },
     },
     isolation: {
       local: "Local",

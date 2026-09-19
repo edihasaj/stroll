@@ -1267,6 +1267,26 @@ export const ko: TranslationResources = {
     create: "생성",
     chat: {
       placeholder: "Message Stroll",
+      greeting: {
+        morning: "좋은 아침입니다. 무엇을 작업할까요?",
+        afternoon: "안녕하세요. 무엇을 작업할까요?",
+        evening: "좋은 저녁입니다. 무엇을 작업할까요?",
+      },
+      suggestions: {
+        explainRepo: {
+          label: "이 저장소 설명하기",
+        },
+        fixTests: {
+          label: "실패한 테스트 수정하기",
+        },
+        reviewCommit: {
+          label: "마지막 커밋 검토하기",
+        },
+        writePlan: {
+          label: "계획 작성하기…",
+          prompt: "다음에 대한 계획 작성: ",
+        },
+      },
     },
     isolation: {
       local: "로컬",

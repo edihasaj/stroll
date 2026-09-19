@@ -1285,6 +1285,26 @@ export const ptBR: TranslationResources = {
     create: "Criar",
     chat: {
       placeholder: "Message Stroll",
+      greeting: {
+        morning: "Bom dia. No que vamos trabalhar?",
+        afternoon: "Boa tarde. No que vamos trabalhar?",
+        evening: "Boa noite. No que vamos trabalhar?",
+      },
+      suggestions: {
+        explainRepo: {
+          label: "Explique este repositório",
+        },
+        fixTests: {
+          label: "Corrija os testes que estão falhando",
+        },
+        reviewCommit: {
+          label: "Revise meu último commit",
+        },
+        writePlan: {
+          label: "Escreva um plano para…",
+          prompt: "Escreva um plano para ",
+        },
+      },
     },
     isolation: {
       local: "Local",

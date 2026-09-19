@@ -1249,6 +1249,26 @@ export const zhCN: TranslationResources = {
     create: "创建",
     chat: {
       placeholder: "Message Stroll",
+      greeting: {
+        morning: "早上好，我们要做什么？",
+        afternoon: "下午好，我们要做什么？",
+        evening: "晚上好，我们要做什么？",
+      },
+      suggestions: {
+        explainRepo: {
+          label: "解释这个仓库",
+        },
+        fixTests: {
+          label: "修复失败的测试",
+        },
+        reviewCommit: {
+          label: "审查我最近的提交",
+        },
+        writePlan: {
+          label: "编写计划…",
+          prompt: "编写计划：",
+        },
+      },
     },
     isolation: {
       local: "本地",

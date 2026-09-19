@@ -1277,6 +1277,26 @@ export const ru: TranslationResources = {
     create: "Создать",
     chat: {
       placeholder: "Message Stroll",
+      greeting: {
+        morning: "Доброе утро. Над чем поработаем?",
+        afternoon: "Добрый день. Над чем поработаем?",
+        evening: "Добрый вечер. Над чем поработаем?",
+      },
+      suggestions: {
+        explainRepo: {
+          label: "Объясни этот репозиторий",
+        },
+        fixTests: {
+          label: "Исправь падающие тесты",
+        },
+        reviewCommit: {
+          label: "Проверь мой последний коммит",
+        },
+        writePlan: {
+          label: "Напиши план для…",
+          prompt: "Напиши план для ",
+        },
+      },
     },
     isolation: {
       local: "Локально",

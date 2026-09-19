@@ -1260,6 +1260,26 @@ export const ar: TranslationResources = {
     create: "يخلق",
     chat: {
       placeholder: "Message Stroll",
+      greeting: {
+        morning: "صباح الخير. على ماذا نعمل؟",
+        afternoon: "طاب يومك. على ماذا نعمل؟",
+        evening: "مساء الخير. على ماذا نعمل؟",
+      },
+      suggestions: {
+        explainRepo: {
+          label: "اشرح هذا المستودع",
+        },
+        fixTests: {
+          label: "أصلح الاختبارات الفاشلة",
+        },
+        reviewCommit: {
+          label: "راجع آخر commit لي",
+        },
+        writePlan: {
+          label: "اكتب خطة لـ…",
+          prompt: "اكتب خطة لـ ",
+        },
+      },
     },
     isolation: {
       local: "محلي",

@@ -1273,6 +1273,26 @@ export const ja: TranslationResources = {
     create: "作成",
     chat: {
       placeholder: "Message Stroll",
+      greeting: {
+        morning: "おはようございます。何に取り組みますか?",
+        afternoon: "こんにちは。何に取り組みますか?",
+        evening: "こんばんは。何に取り組みますか?",
+      },
+      suggestions: {
+        explainRepo: {
+          label: "このリポジトリを説明する",
+        },
+        fixTests: {
+          label: "失敗しているテストを修正する",
+        },
+        reviewCommit: {
+          label: "直前のコミットをレビューする",
+        },
+        writePlan: {
+          label: "計画を書く…",
+          prompt: "計画を書く: ",
+        },
+      },
     },
     isolation: {
       local: "ローカル",
