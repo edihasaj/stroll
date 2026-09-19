@@ -11,12 +11,23 @@ import {
   type PressableStateCallbackType,
 } from "react-native";
 import { Gesture } from "react-native-gesture-handler";
-import Animated, { runOnJS, useAnimatedStyle, useSharedValue } from "react-native-reanimated";
+import Animated, {
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from "react-native-reanimated";
 import { scheduleOnRN } from "react-native-worklets";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { TitlebarDragRegion } from "@/components/desktop/titlebar-drag-region";
-import { resolveDesktopSidebarWidth } from "@/components/desktop-sidebar-layout";
+import {
+  resolveDesktopSidebarWidth,
+  SIDEBAR_RAIL_WIDTH,
+} from "@/components/desktop-sidebar-layout";
+import { useAppReducedMotion, withMotion } from "@/hooks/use-app-reduced-motion";
+import { appearEntering, appearExiting } from "@/styles/motion";
+import { MOTION_DURATION, MOTION_EASING } from "@/styles/theme";
 import {
   SIDEBAR_RESIZE_ACTIVATION_OFFSET,
   SIDEBAR_RESIZE_FAIL_OFFSET,
@@ -324,9 +335,11 @@ function FooterIconButton({
 function SidebarFooterIdentity({
   onAddHost,
   onOpenHostSettings,
+  rail = false,
 }: {
   onAddHost: () => void;
   onOpenHostSettings: (serverId: string) => void;
+  rail?: boolean;
 }) {
   const { hosts, serverId, label } = useActiveHostSummary();
   const triggerRef = useRef<View | null>(null);
@@ -342,10 +355,37 @@ function SidebarFooterIdentity({
   const handleOpen = useCallback(() => setIsOpen(true), []);
   const triggerStyle = useCallback(
     ({ hovered = false }: PressableStateCallbackType & { hovered?: boolean }) => [
-      styles.footerIdentityTrigger,
+      rail ? styles.footerIdentityTriggerRail : styles.footerIdentityTrigger,
       hovered && styles.footerIdentityTriggerHovered,
     ],
-    [],
+    [rail],
+  );
+
+  const trigger = (
+    <Pressable
+      ref={triggerRef}
+      style={triggerStyle}
+      onPress={handleOpen}
+      testID="sidebar-hosts-trigger"
+      nativeID="sidebar-hosts-trigger"
+      accessible
+      accessibilityRole="button"
+      accessibilityLabel={label}
+    >
+      <View
+        style={[
+          styles.footerIdentityAvatar,
+          { backgroundColor: identityColor(deriveIdentityColorName(serverId ?? label)) },
+        ]}
+      >
+        <Text style={styles.footerIdentityInitial}>{label.charAt(0).toUpperCase()}</Text>
+      </View>
+      {rail ? null : (
+        <Text style={styles.footerIdentityLabel} numberOfLines={1}>
+          {label}
+        </Text>
+      )}
+    </Pressable>
   );
 
   return (
@@ -366,28 +406,16 @@ function SidebarFooterIdentity({
       addHostTestID="sidebar-host-add"
       hostOptionTestID={sidebarHostOptionTestID}
     >
-      <Pressable
-        ref={triggerRef}
-        style={triggerStyle}
-        onPress={handleOpen}
-        testID="sidebar-hosts-trigger"
-        nativeID="sidebar-hosts-trigger"
-        accessible
-        accessibilityRole="button"
-        accessibilityLabel={label}
-      >
-        <View
-          style={[
-            styles.footerIdentityAvatar,
-            { backgroundColor: identityColor(deriveIdentityColorName(serverId ?? label)) },
-          ]}
-        >
-          <Text style={styles.footerIdentityInitial}>{label.charAt(0).toUpperCase()}</Text>
-        </View>
-        <Text style={styles.footerIdentityLabel} numberOfLines={1}>
-          {label}
-        </Text>
-      </Pressable>
+      {rail ? (
+        <Tooltip delayDuration={300}>
+          <TooltipTrigger asChild>{trigger}</TooltipTrigger>
+          <TooltipContent side="right" align="center" offset={8}>
+            <Text style={styles.tooltipText}>{label}</Text>
+          </TooltipContent>
+        </Tooltip>
+      ) : (
+        trigger
+      )}
     </HostPicker>
   );
 }
@@ -414,6 +442,7 @@ function SidebarFooter({
   labels,
   handleAddHost,
   handleOpenHostSettings,
+  rail = false,
 }: {
   theme: SidebarTheme;
   handleImportSession: () => void;
@@ -427,16 +456,21 @@ function SidebarFooter({
   };
   handleAddHost: () => void;
   handleOpenHostSettings: (serverId: string) => void;
+  rail?: boolean;
 }) {
   const settingsKeys = useShortcutKeys("toggle-settings");
 
+  // The footer's Import/Help/Settings buttons are already icon-only with a
+  // tooltip in every mode, so only the layout direction and the identity
+  // trigger (avatar + host name) need to change for rail.
   return (
-    <View style={styles.sidebarFooter}>
+    <View style={rail ? styles.sidebarFooterRail : styles.sidebarFooter}>
       <SidebarFooterIdentity
         onAddHost={handleAddHost}
         onOpenHostSettings={handleOpenHostSettings}
+        rail={rail}
       />
-      <View style={styles.footerIconRow}>
+      <View style={rail ? styles.footerIconRowRail : styles.footerIconRow}>
         <FooterIconButton
           onPress={handleImportSession}
           testID="sidebar-import-session"
@@ -601,11 +635,16 @@ function DesktopSidebar({
   const hasActiveHostFilter = useSidebarViewStore((state) => state.hostFilters.length > 0);
   const sidebarWidth = usePanelStore((state) => state.sidebarWidth);
   const setSidebarWidth = usePanelStore((state) => state.setSidebarWidth);
+  // SB1: the sidebar's own inline collapse toggle. Independent of `active` — rail
+  // stays open, it just narrows to icons.
+  const isRail = usePanelStore((state) => state.desktop.sidebarRailMode);
+  const reducedMotion = useAppReducedMotion();
   const { width: viewportWidth } = useWindowDimensions();
-  const visibleSidebarWidth = resolveDesktopSidebarWidth({
+  const expandedWidth = resolveDesktopSidebarWidth({
     requestedWidth: sidebarWidth,
     viewportWidth,
   });
+  const visibleSidebarWidth = isRail ? SIDEBAR_RAIL_WIDTH : expandedWidth;
 
   const startWidthRef = useRef(visibleSidebarWidth);
   const resizeWidth = useSharedValue(visibleSidebarWidth);
@@ -613,9 +652,22 @@ function DesktopSidebar({
   const showResizeGrip = useCallback(() => setResizePressed(true), []);
   const hideResizeGrip = useCallback(() => setResizePressed(false), []);
 
+  // M3: expanded <-> rail eases the container width over `duration.slow`. Any
+  // other width change (drag-resize, a narrower viewport clamping the persisted
+  // width) tracks live instead of animating, so dragging never fights a tween.
+  const previousIsRailRef = useRef(isRail);
   useEffect(() => {
+    const modeChanged = previousIsRailRef.current !== isRail;
+    previousIsRailRef.current = isRail;
+    if (modeChanged && !reducedMotion) {
+      resizeWidth.value = withTiming(visibleSidebarWidth, {
+        duration: MOTION_DURATION.slow,
+        easing: MOTION_EASING.standard,
+      });
+      return;
+    }
     resizeWidth.value = visibleSidebarWidth;
-  }, [resizeWidth, visibleSidebarWidth]);
+  }, [isRail, reducedMotion, resizeWidth, visibleSidebarWidth]);
 
   const resizeGesture = useMemo(
     () =>
@@ -706,35 +758,49 @@ function DesktopSidebar({
           ) : (
             <TitlebarDragRegion />
           )}
-          <SidebarBrandRow onAddHost={handleAddHost} onOpenHostSettings={handleOpenHostSettings} />
-          <SidebarNavRows style={sidebarHeaderGroupStyle} />
+          <SidebarBrandRow
+            onAddHost={handleAddHost}
+            onOpenHostSettings={handleOpenHostSettings}
+            rail={isRail}
+          />
+          <SidebarNavRows style={sidebarHeaderGroupStyle} rail={isRail} />
           <SidebarSeparator />
         </View>
 
-        {isInitialLoad && !hasActiveHostFilter ? (
-          <SidebarAgentListSkeleton />
-        ) : (
-          <SidebarWorkspaceList
-            collapsedProjectKeys={collapsedProjectKeys}
-            onToggleProjectCollapsed={toggleProjectCollapsed}
-            shortcutIndexByWorkspaceKey={shortcutIndexByWorkspaceKey}
-            groupMode={groupMode}
-            workspaceGroups={workspaceGroups}
-            projectIconTargets={projectIconTargets}
-            pinnedGroups={pinnedGroups}
-            projects={projects}
-            hasProjectsBeforeFilter={hasProjectsBeforeFilter}
-            hasActiveProjectFilter={hasActiveProjectFilter}
-            workspaceEntriesByKey={workspaceEntriesByKey}
-            isRefreshing={isManualRefresh && isRevalidating}
-            onRefresh={handleRefresh}
-            onAddProject={handleOpenProject}
-            onImportSession={handleImportSession}
-            listHeaderComponent={workspacesSectionHeaderElement}
-          />
-        )}
+        {/* SB1: workspace rows are hidden in rail mode. Cross-fades out on
+            collapse and back in on expand (M3) instead of a hard cut. */}
+        {!isRail ? (
+          <Animated.View
+            style={staticStyles.expandedContent}
+            entering={withMotion(reducedMotion, appearEntering)}
+            exiting={withMotion(reducedMotion, appearExiting)}
+          >
+            {isInitialLoad && !hasActiveHostFilter ? (
+              <SidebarAgentListSkeleton />
+            ) : (
+              <SidebarWorkspaceList
+                collapsedProjectKeys={collapsedProjectKeys}
+                onToggleProjectCollapsed={toggleProjectCollapsed}
+                shortcutIndexByWorkspaceKey={shortcutIndexByWorkspaceKey}
+                groupMode={groupMode}
+                workspaceGroups={workspaceGroups}
+                projectIconTargets={projectIconTargets}
+                pinnedGroups={pinnedGroups}
+                projects={projects}
+                hasProjectsBeforeFilter={hasProjectsBeforeFilter}
+                hasActiveProjectFilter={hasActiveProjectFilter}
+                workspaceEntriesByKey={workspaceEntriesByKey}
+                isRefreshing={isManualRefresh && isRevalidating}
+                onRefresh={handleRefresh}
+                onAddProject={handleOpenProject}
+                onImportSession={handleImportSession}
+                listHeaderComponent={workspacesSectionHeaderElement}
+              />
+            )}
 
-        <SidebarCalloutSlot />
+            <SidebarCalloutSlot />
+          </Animated.View>
+        ) : null}
 
         <SidebarFooter
           theme={theme}
@@ -743,14 +809,17 @@ function DesktopSidebar({
           labels={labels}
           handleAddHost={handleAddHost}
           handleOpenHostSettings={handleOpenHostSettings}
+          rail={isRail}
         />
 
-        <SidebarResizeHandle
-          edge="right"
-          gesture={resizeGesture}
-          pressed={resizePressed}
-          testID="left-sidebar-resize-handle"
-        />
+        {!isRail ? (
+          <SidebarResizeHandle
+            edge="right"
+            gesture={resizeGesture}
+            pressed={resizePressed}
+            testID="left-sidebar-resize-handle"
+          />
+        ) : null}
       </View>
     </Animated.View>
   );
@@ -789,6 +858,10 @@ const staticStyles = RNStyleSheet.create({
   },
   desktopSidebarHidden: {
     display: "none",
+  },
+  expandedContent: {
+    flex: 1,
+    minHeight: 0,
   },
 });
 
@@ -895,8 +968,24 @@ const styles = StyleSheet.create((theme) => ({
     borderTopWidth: 1,
     borderTopColor: theme.colors.border,
   },
+  // Rail (SB1): the identity avatar and the icon row no longer fit side by
+  // side at 56px, so the footer stacks them instead.
+  sidebarFooterRail: {
+    flexDirection: "column",
+    alignItems: "center",
+    gap: theme.spacing[1.5],
+    paddingVertical: theme.spacing[2],
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.border,
+  },
   footerIconRow: {
     flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing[1],
+    flexShrink: 0,
+  },
+  footerIconRowRail: {
+    flexDirection: "column",
     alignItems: "center",
     gap: theme.spacing[1],
     flexShrink: 0,
@@ -909,6 +998,11 @@ const styles = StyleSheet.create((theme) => ({
     gap: theme.spacing[2],
     paddingVertical: theme.spacing[1],
     paddingHorizontal: theme.spacing[1],
+    borderRadius: theme.borderRadius.lg,
+  },
+  footerIdentityTriggerRail: {
+    alignItems: "center",
+    justifyContent: "center",
     borderRadius: theme.borderRadius.lg,
   },
   footerIdentityTriggerHovered: {

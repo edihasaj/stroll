@@ -6,6 +6,7 @@ import { HEADER_INNER_HEIGHT, HEADER_INNER_HEIGHT_MOBILE } from "@/constants/lay
 import { ICON_SIZE } from "@/styles/theme";
 import type { Theme } from "@/styles/theme";
 import { Shortcut } from "@/components/ui/shortcut";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { ShortcutKey } from "@/utils/format-shortcut";
 
 const foregroundColorMapping = (theme: Theme) => ({ color: theme.colors.foreground });
@@ -29,6 +30,12 @@ interface SidebarHeaderRowProps {
    */
   variant?: SidebarHeaderRowVariant;
   shortcutKeys?: ShortcutKey[][] | null;
+  /**
+   * SB1's icon-only rail: renders the icon alone, centered in a fixed square, with
+   * the label (and shortcut) moved into a tooltip since there is no room to show
+   * them inline.
+   */
+  rail?: boolean;
 }
 
 export function SidebarHeaderRow({
@@ -41,33 +48,40 @@ export function SidebarHeaderRow({
   accessibilityLabel,
   variant = "header",
   shortcutKeys = null,
+  rail = false,
 }: SidebarHeaderRowProps) {
   const ThemedIcon = useMemo(() => withUnistyles(Icon), [Icon]);
 
-  const containerStyle = useMemo(
-    () => (variant === "compact" ? styles.containerCompact : styles.container),
-    [variant],
-  );
+  const containerStyle = useMemo(() => {
+    if (rail) return styles.containerRail;
+    return variant === "compact" ? styles.containerCompact : styles.container;
+  }, [rail, variant]);
 
   const buttonStyle = useCallback(
     ({ hovered }: PressableStateCallbackType & { hovered?: boolean }) => [
-      styles.button,
-      variant === "compact" && styles.buttonCompact,
+      rail ? styles.buttonRail : styles.button,
+      !rail && variant === "compact" && styles.buttonCompact,
       Boolean(hovered) && !isActive && styles.buttonHovered,
       isActive && styles.buttonSelected,
     ],
-    [isActive, variant],
+    [isActive, rail, variant],
   );
 
   const renderChildren = useCallback(
     (state: PressableStateCallbackType & { hovered?: boolean }) => {
       const isHighlighted = Boolean(state.hovered) || isActive;
+      const icon = (
+        <ThemedIcon
+          size={ICON_SIZE.sm}
+          uniProps={isHighlighted ? foregroundColorMapping : foregroundMutedColorMapping}
+        />
+      );
+      if (rail) {
+        return icon;
+      }
       return (
         <>
-          <ThemedIcon
-            size={ICON_SIZE.sm}
-            uniProps={isHighlighted ? foregroundColorMapping : foregroundMutedColorMapping}
-          />
+          {icon}
           <SidebarHeaderRowLabel label={label} isHighlighted={isHighlighted} />
           {shortcutKeys && Boolean(state.hovered) ? (
             <Shortcut chord={shortcutKeys} style={styles.shortcut} />
@@ -75,24 +89,40 @@ export function SidebarHeaderRow({
         </>
       );
     },
-    [ThemedIcon, isActive, label, shortcutKeys],
+    [ThemedIcon, isActive, label, rail, shortcutKeys],
   );
 
-  return (
-    <View style={containerStyle}>
-      <Pressable
-        onPress={onPress}
-        testID={testID}
-        nativeID={nativeID}
-        accessible
-        accessibilityRole="button"
-        accessibilityLabel={accessibilityLabel ?? label}
-        style={buttonStyle}
-      >
-        {renderChildren}
-      </Pressable>
-    </View>
+  const pressable = (
+    <Pressable
+      onPress={onPress}
+      testID={testID}
+      nativeID={nativeID}
+      accessible
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel ?? label}
+      style={buttonStyle}
+    >
+      {renderChildren}
+    </Pressable>
   );
+
+  if (rail) {
+    return (
+      <View style={containerStyle}>
+        <Tooltip delayDuration={300}>
+          <TooltipTrigger asChild>{pressable}</TooltipTrigger>
+          <TooltipContent side="right" align="center" offset={8}>
+            <View style={styles.tooltipRow}>
+              <Text style={styles.tooltipText}>{label}</Text>
+              {shortcutKeys ? <Shortcut chord={shortcutKeys} /> : null}
+            </View>
+          </TooltipContent>
+        </Tooltip>
+      </View>
+    );
+  }
+
+  return <View style={containerStyle}>{pressable}</View>;
 }
 
 function SidebarHeaderRowLabel({
@@ -126,6 +156,12 @@ const styles = StyleSheet.create((theme) => ({
     justifyContent: "center",
     userSelect: "none",
   },
+  containerRail: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: theme.spacing[0.5],
+    userSelect: "none",
+  },
   button: {
     flexDirection: "row",
     alignItems: "center",
@@ -146,11 +182,29 @@ const styles = StyleSheet.create((theme) => ({
     // edge with the workspace list below (base button uses a wider spacing[3]).
     paddingHorizontal: theme.spacing[2],
   },
+  // Matches the footer's icon-only buttons (left-sidebar.tsx `footerIconButton`)
+  // so rail icons read as one consistent icon-button size top to bottom.
+  buttonRail: {
+    width: 28,
+    height: 28,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: theme.borderRadius.md,
+  },
   buttonHovered: {
     backgroundColor: theme.colors.interactionHighlight,
   },
   buttonSelected: {
     backgroundColor: theme.colors.surface2,
+  },
+  tooltipRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing[2],
+  },
+  tooltipText: {
+    fontSize: theme.fontSize.base,
+    color: theme.colors.popoverForeground,
   },
   label: {
     fontSize: theme.fontSize.base,

@@ -1185,6 +1185,8 @@ export const fr: TranslationResources = {
       hosts: "Hôtes",
       settings: "Paramètres",
       closeSidebar: "Fermer la barre latérale",
+      collapseToRail: "Collapse to rail",
+      expandSidebar: "Expand sidebar",
     },
     help: {
       trigger: "Aide et assistance",

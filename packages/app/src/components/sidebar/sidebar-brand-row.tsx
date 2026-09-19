@@ -3,11 +3,14 @@ import { useCallback, useRef, useState, type ComponentType, type RefObject } fro
 import { useTranslation } from "react-i18next";
 import { ChevronDown, MessageSquarePlus, PanelLeft, Search } from "lucide-react-native";
 import { Pressable, Text, View, type PressableStateCallbackType } from "react-native";
+import Animated from "react-native-reanimated";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { HostPicker } from "@/components/hosts/host-picker";
 import { StrollLogo } from "@/components/icons/stroll-logo";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { useAppReducedMotion, withMotion } from "@/hooks/use-app-reduced-motion";
 import { builtinSidebarNavLabelKey } from "@/sidebar-nav/model";
+import { appearEntering, appearExiting } from "@/styles/motion";
 import { useKeyboardShortcutsStore } from "@/stores/keyboard-shortcuts-store";
 import { usePanelStore } from "@/stores/panel-store";
 import type { Theme } from "@/styles/theme";
@@ -31,27 +34,32 @@ const GHOST_ICON_SIZE = 16;
  * most often. Converges on `<HostPicker>` rather than a second switcher implementation — this
  * is a different trigger for the same menu the footer's host button opens, and the ghost icons
  * call the same navigation and store actions the nav rows and footer already use.
+ *
+ * `rail` (SB1) swaps the horizontal row for a vertical icon-only column: brand mark on top,
+ * the collapse toggle underneath (now pointed the other way, expanding back out). The search
+ * and new-workspace ghost icons drop out in rail — they duplicate nav rows entries already
+ * shown there — so the toggle stays the sole idle affordance besides the mark itself.
  */
 export function SidebarBrandRow({
   onAddHost,
   onOpenHostSettings,
+  rail = false,
 }: {
   onAddHost: () => void;
   onOpenHostSettings: (serverId: string) => void;
+  rail?: boolean;
 }) {
   const { t } = useTranslation();
   const { hosts, label: hostLabel } = useActiveHostSummary();
+  const reducedMotion = useAppReducedMotion();
 
   const triggerRef = useRef<View | null>(null);
   const [isOpen, setIsOpen] = useState(false);
   const handleOpen = useCallback(() => setIsOpen(true), []);
   const handleSelect = useCallback((id: string) => onOpenHostSettings(id), [onOpenHostSettings]);
 
-  const toggleAgentListForLayout = usePanelStore((state) => state.toggleAgentListForLayout);
-  const handleCollapse = useCallback(
-    () => toggleAgentListForLayout({ isCompact: false }),
-    [toggleAgentListForLayout],
-  );
+  const toggleSidebarRailMode = usePanelStore((state) => state.toggleDesktopSidebarRailMode);
+  const handleToggleRail = useCallback(() => toggleSidebarRailMode(), [toggleSidebarRailMode]);
 
   const setCommandCenterOpen = useKeyboardShortcutsStore((state) => state.setCommandCenterOpen);
   const handleSearch = useCallback(() => setCommandCenterOpen(true), [setCommandCenterOpen]);
@@ -60,25 +68,62 @@ export function SidebarBrandRow({
     router.push(buildNewWorkspaceRoute());
   }, []);
 
-  return (
-    <View style={styles.row}>
-      <HostPicker
-        hosts={hosts}
-        value=""
-        onSelect={handleSelect}
-        open={isOpen}
-        onOpenChange={setIsOpen}
-        anchorRef={triggerRef}
-        includeAddHost
-        onAddHost={onAddHost}
-        showActiveConnection
-        onOpenHostSettings={onOpenHostSettings}
-        searchable
-        desktopPlacement="bottom-start"
-        desktopMinWidth={240}
-      >
+  const toggleLabel = rail
+    ? t("sidebar.actions.expandSidebar")
+    : t("sidebar.actions.collapseToRail");
+
+  const hostPicker = (
+    <HostPicker
+      hosts={hosts}
+      value=""
+      onSelect={handleSelect}
+      open={isOpen}
+      onOpenChange={setIsOpen}
+      anchorRef={triggerRef}
+      includeAddHost
+      onAddHost={onAddHost}
+      showActiveConnection
+      onOpenHostSettings={onOpenHostSettings}
+      searchable
+      desktopPlacement="bottom-start"
+      desktopMinWidth={240}
+    >
+      {rail ? (
+        <RailIconButton triggerRef={triggerRef} onPress={handleOpen} label={hostLabel}>
+          <StrollLogo size={BRAND_MARK_SIZE} />
+        </RailIconButton>
+      ) : (
         <BrandTrigger triggerRef={triggerRef} onPress={handleOpen} label={hostLabel} />
-      </HostPicker>
+      )}
+    </HostPicker>
+  );
+
+  if (rail) {
+    return (
+      <Animated.View
+        style={styles.railColumn}
+        entering={withMotion(reducedMotion, appearEntering)}
+        exiting={withMotion(reducedMotion, appearExiting)}
+      >
+        {hostPicker}
+        <GhostIconButton
+          icon={ThemedPanelLeft}
+          label={toggleLabel}
+          testID="sidebar-brand-collapse"
+          onPress={handleToggleRail}
+          side="right"
+        />
+      </Animated.View>
+    );
+  }
+
+  return (
+    <Animated.View
+      style={styles.row}
+      entering={withMotion(reducedMotion, appearEntering)}
+      exiting={withMotion(reducedMotion, appearExiting)}
+    >
+      {hostPicker}
       <View style={styles.ghostGroup}>
         <GhostIconButton
           icon={ThemedSearch}
@@ -94,12 +139,12 @@ export function SidebarBrandRow({
         />
         <GhostIconButton
           icon={ThemedPanelLeft}
-          label={t("shell.menu.toggleSidebar")}
+          label={toggleLabel}
           testID="sidebar-brand-collapse"
-          onPress={handleCollapse}
+          onPress={handleToggleRail}
         />
       </View>
-    </View>
+    </Animated.View>
   );
 }
 
@@ -138,6 +183,47 @@ function BrandTrigger({
   );
 }
 
+/** Rail-mode brand mark: icon-only trigger, tooltip carries the host name. */
+function RailIconButton({
+  triggerRef,
+  onPress,
+  label,
+  children,
+}: {
+  triggerRef: RefObject<View | null>;
+  onPress: () => void;
+  label: string;
+  children: React.ReactNode;
+}) {
+  const triggerStyle = useCallback(
+    ({ hovered = false }: PressableStateCallbackType & { hovered?: boolean }) => [
+      styles.railBrandButton,
+      hovered && styles.railBrandButtonHovered,
+    ],
+    [],
+  );
+  return (
+    <Tooltip delayDuration={300}>
+      <TooltipTrigger asChild>
+        <Pressable
+          ref={triggerRef}
+          style={triggerStyle}
+          onPress={onPress}
+          testID="sidebar-brand-trigger"
+          accessible
+          accessibilityRole="button"
+          accessibilityLabel={label}
+        >
+          {children}
+        </Pressable>
+      </TooltipTrigger>
+      <TooltipContent side="right" align="center" offset={8}>
+        <Text style={styles.tooltipText}>{label}</Text>
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
 type ThemedIcon = ComponentType<{
   size: number;
   uniProps: (theme: Theme) => { color: string };
@@ -148,11 +234,13 @@ function GhostIconButton({
   label,
   testID,
   onPress,
+  side = "bottom",
 }: {
   icon: ThemedIcon;
   label: string;
   testID: string;
   onPress: () => void;
+  side?: "bottom" | "right";
 }) {
   return (
     <Tooltip delayDuration={300}>
@@ -173,7 +261,7 @@ function GhostIconButton({
           )}
         </Pressable>
       </TooltipTrigger>
-      <TooltipContent side="bottom" align="center" offset={8}>
+      <TooltipContent side={side} align="center" offset={8}>
         <Text style={styles.tooltipText}>{label}</Text>
       </TooltipContent>
     </Tooltip>
@@ -187,6 +275,12 @@ const styles = StyleSheet.create((theme) => ({
     justifyContent: "space-between",
     gap: theme.spacing[1],
     paddingHorizontal: theme.spacing[2],
+    paddingVertical: theme.spacing[1.5],
+  },
+  railColumn: {
+    flexDirection: "column",
+    alignItems: "center",
+    gap: theme.spacing[1.5],
     paddingVertical: theme.spacing[1.5],
   },
   trigger: {
@@ -208,6 +302,16 @@ const styles = StyleSheet.create((theme) => ({
     color: theme.colors.foreground,
     fontSize: theme.fontSize.base,
     fontWeight: theme.fontWeight.normal,
+  },
+  railBrandButton: {
+    width: 36,
+    height: 36,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: theme.borderRadius.lg,
+  },
+  railBrandButtonHovered: {
+    backgroundColor: theme.colors.interactionHighlight,
   },
   ghostGroup: {
     flexDirection: "row",

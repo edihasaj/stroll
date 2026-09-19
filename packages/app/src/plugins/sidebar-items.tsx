@@ -23,9 +23,11 @@ function selectTarget(
 export function PluginSidebarItemRow({
   group,
   onBeforeNavigate,
+  rail = false,
 }: {
   group: PluginSidebarGroup;
   onBeforeNavigate?: () => void;
+  rail?: boolean;
 }) {
   const pathname = usePathname();
   const target = selectTarget(group, hostIdFromPathname(pathname));
@@ -54,6 +56,7 @@ export function PluginSidebarItemRow({
       isActive={isActive}
       testID={`plugin-sidebar-${group.pluginId}-${group.contributionId}`}
       variant="compact"
+      rail={rail}
     />
   );
 }

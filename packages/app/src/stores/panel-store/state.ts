@@ -17,6 +17,10 @@ export interface MobilePanelSelection {
 export interface DesktopSidebarState {
   agentListOpen: boolean;
   focusModeEnabled: boolean;
+  // SB1: the sidebar's own inline collapse toggle (expanded <-> icon-only rail).
+  // Independent of `agentListOpen` — collapsing to rail never hides the sidebar,
+  // and hiding then reopening it restores whichever of the two was last chosen.
+  sidebarRailMode: boolean;
 }
 
 export type SortOption = "name" | "modified" | "size";
@@ -120,6 +124,7 @@ const ExplorerTabSchema = z.enum(["changes", "files", "pr"]);
 const DesktopSidebarStorageSchema = z.strictObject({
   agentListOpen: z.boolean().optional(),
   focusModeEnabled: z.boolean().optional(),
+  sidebarRailMode: z.boolean().optional(),
   zoomed: z.boolean().optional(),
   focused: z.boolean().optional(),
   // Accepted only so migration can discard the former docked explorer sidebar.
@@ -194,6 +199,19 @@ function migratePanelDesktopFocusMode(state: MigratablePanelState): void {
   }
 }
 
+// New optional field (SB1). Unconditional, like `explorerShowHiddenFiles`/
+// `fileTreeVisible` below — no version gate needed since the default (expanded)
+// is correct for every persisted state that predates the rail.
+function migratePanelDesktopRailMode(state: MigratablePanelState): void {
+  const desktop = state.desktop;
+  if (!desktop) {
+    return;
+  }
+  if (typeof desktop.sidebarRailMode !== "boolean") {
+    desktop.sidebarRailMode = false;
+  }
+}
+
 // v16 narrowed the rail. Existing installs almost all carry the old 320 default,
 // so the reset is what makes the narrower rail visible to anyone but a new user.
 function migrateTreeRailWidth(state: MigratablePanelState, version: number): void {
@@ -220,6 +238,7 @@ export function migratePanelState(persistedState: unknown, version: number): Mig
     state.explorerTab = "changes";
   }
   migratePanelExplorerTabByCheckout(state, version);
+  migratePanelDesktopRailMode(state);
   if (version < 8) {
     migratePanelDesktopFocusMode(state);
   }
