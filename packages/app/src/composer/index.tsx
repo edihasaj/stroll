@@ -59,7 +59,7 @@ import {
   type MessageInputRef,
 } from "./input/input";
 import type { ImageAttachment, MessagePayload, TextReplacement } from "./types";
-import { ICON_SIZE, type Theme } from "@/styles/theme";
+import { ICON_SIZE, MOTION_DURATION, type Theme } from "@/styles/theme";
 import type { DraftCommandConfig } from "@/hooks/use-agent-commands-query";
 import { encodeImages } from "@/utils/encode-images";
 import { focusWithRetries } from "@/utils/web-focus";
@@ -2675,6 +2675,15 @@ const styles = StyleSheet.create((theme: Theme) => ({
     backgroundColor: theme.colors.destructive,
     alignItems: "center",
     justifyContent: "center",
+    // Eases the disabled opacity[50] dim (disconnected/cancelling) instead of snapping it,
+    // matching the send button's own transition (`composer/input/input.tsx`'s `sendButton`).
+    ...(isWeb
+      ? {
+          transitionProperty: "opacity",
+          transitionDuration: `${MOTION_DURATION.fast}ms`,
+          transitionTimingFunction: "ease-in-out",
+        }
+      : {}),
   },
   cancelButtonWrapper: {
     width: 32,
