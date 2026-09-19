@@ -38,6 +38,7 @@ import { useHoverSafeZone } from "@/hooks/use-hover-safe-zone";
 import { useIsCompactFormFactor } from "@/constants/layout";
 import { FloatingSurface } from "@/components/ui/floating";
 import { isWeb } from "@/constants/platform";
+import { useAppReducedMotion, withMotion } from "@/hooks/use-app-reduced-motion";
 import { useHosts } from "@/runtime/host-runtime";
 import {
   COUNTED_CHECK_PRESENTATIONS,
@@ -227,6 +228,7 @@ function WorkspaceHoverCardContent({
   contentRef: React.RefObject<View | null>;
 }): ReactElement | null {
   const { t } = useTranslation();
+  const reducedMotion = useAppReducedMotion();
   const bottomSheetInternal = useBottomSheetModalInternal(true);
   const [triggerRect, setTriggerRect] = useState<Rect | null>(null);
   const [contentSize, setContentSize] = useState<{ width: number; height: number } | null>(null);
@@ -284,8 +286,8 @@ function WorkspaceHoverCardContent({
       <View pointerEvents="box-none" style={styles.portalOverlay}>
         <FloatingSurface
           ref={contentRef}
-          entering={FadeIn.duration(80)}
-          exiting={FadeOut.duration(80)}
+          entering={withMotion(reducedMotion, FadeIn.duration(80))}
+          exiting={withMotion(reducedMotion, FadeOut.duration(80))}
           collapsable={false}
           onLayout={handleLayout}
           accessibilityRole="menu"

@@ -4,13 +4,13 @@ import Animated, {
   Easing,
   cancelAnimation,
   useAnimatedStyle,
-  useReducedMotion,
   useSharedValue,
   withRepeat,
   withTiming,
 } from "react-native-reanimated";
 import Svg, { Circle } from "react-native-svg";
 import { withUnistyles } from "react-native-unistyles";
+import { useAppReducedMotion } from "@/hooks/use-app-reduced-motion";
 import type { Theme } from "@/styles/theme";
 
 interface LoadingSpinnerProps {
@@ -54,7 +54,7 @@ export function LoadingSpinner({ color, size = "small", style }: LoadingSpinnerP
   const circumference = 2 * Math.PI * radius;
   const arcLength = circumference * ARC_FRACTION;
 
-  const reduceMotion = useReducedMotion();
+  const reduceMotion = useAppReducedMotion();
   const rotation = useSharedValue(0);
 
   useEffect(() => {

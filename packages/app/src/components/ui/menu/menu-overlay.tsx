@@ -19,10 +19,11 @@ import {
   type StyleProp,
   type ViewStyle,
 } from "react-native";
-import { Keyframe, runOnJS } from "react-native-reanimated";
+import { runOnJS } from "react-native-reanimated";
 import { StyleSheet } from "react-native-unistyles";
 import { FloatingScrollView, FloatingSurface } from "@/components/ui/floating";
 import { isWeb } from "@/constants/platform";
+import { useAppReducedMotion, withMotion } from "@/hooks/use-app-reduced-motion";
 import type { KeyboardFocusScope } from "@/keyboard/actions";
 import {
   getOverlayRoot,
@@ -30,6 +31,8 @@ import {
   useOverlayLayer,
   useWebOverlayRegistration,
 } from "@/lib/overlay-root";
+import { openCloseEntering, openCloseExiting } from "@/styles/motion";
+import { MOTION_DURATION } from "@/styles/theme";
 import {
   computePosition,
   getTransformOrigin,
@@ -41,17 +44,6 @@ import {
 } from "./menu-anchor";
 
 const SCROLL_CONTENT_STYLE = { flexGrow: 1 } as const;
-const CONTENT_ENTERING_DURATION_MS = 150;
-
-const contentEntering = new Keyframe({
-  0: { opacity: 0, transform: [{ scale: 0.97 }] },
-  100: { opacity: 1, transform: [{ scale: 1 }] },
-}).duration(CONTENT_ENTERING_DURATION_MS);
-
-const contentExiting = new Keyframe({
-  0: { opacity: 1, transform: [{ scale: 1 }] },
-  100: { opacity: 0, transform: [{ scale: 0.97 }] },
-}).duration(100);
 
 function releaseFixedMenuHeight(surfaceNativeID: string): void {
   if (!isWeb) return;
@@ -86,9 +78,7 @@ function useReleaseFixedMenuHeight({
         requestAnimationFrame(() => releaseFixedMenuHeight(surfaceNativeID));
       }
     };
-    const timers: ReturnType<typeof setTimeout>[] = [
-      setTimeout(release, CONTENT_ENTERING_DURATION_MS),
-    ];
+    const timers: ReturnType<typeof setTimeout>[] = [setTimeout(release, MOTION_DURATION.base)];
 
     if (contentSize) {
       timers.push(setTimeout(release, 0));
@@ -273,6 +263,7 @@ export function AnchoredSurface({
 }: AnchoredSurfaceProps): ReactElement | null {
   const { t } = useTranslation();
   const surfaceNativeID = useId();
+  const reducedMotion = useAppReducedMotion();
   const { position, actualPlacement, contentSize, visibleContentSize, onContentLayout } =
     useAnchoredPosition({
       open,
@@ -378,16 +369,21 @@ export function AnchoredSurface({
         dataSet={surfaceDataSet}
         style={styles.content}
         frameStyle={frameStyle}
-        entering={contentEntering}
+        entering={withMotion(reducedMotion, openCloseEntering)}
+        // Reduced motion drops the exit keyframe entirely, so `onExited` would not fire while
+        // it is on — no current caller passes `onExited`, revisit if one starts to.
         exiting={
           isWeb || !onExited
-            ? undefined
-            : contentExiting.withCallback((finished) => {
-                "worklet";
-                if (finished) {
-                  runOnJS(onExited)();
-                }
-              })
+            ? withMotion(reducedMotion, openCloseExiting)
+            : withMotion(
+                reducedMotion,
+                openCloseExiting.withCallback((finished) => {
+                  "worklet";
+                  if (finished) {
+                    runOnJS(onExited)();
+                  }
+                }),
+              )
         }
       >
         {scrollable ? (

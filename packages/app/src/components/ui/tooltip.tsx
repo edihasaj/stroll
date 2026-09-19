@@ -29,6 +29,7 @@ import { StyleSheet } from "react-native-unistyles";
 import { useIsCompactFormFactor } from "@/constants/layout";
 import { FloatingSurface } from "@/components/ui/floating";
 import { isWeb } from "@/constants/platform";
+import { useAppReducedMotion, withMotion } from "@/hooks/use-app-reduced-motion";
 import { getOverlayRoot, OVERLAY_Z } from "@/lib/overlay-root";
 
 type Side = "top" | "bottom" | "left" | "right";
@@ -464,6 +465,7 @@ export function TooltipContent({
   maxWidth?: number;
 }>): ReactElement | null {
   const ctx = useTooltipContext("TooltipContent");
+  const reducedMotion = useAppReducedMotion();
   const [triggerRect, setTriggerRect] = useState<Rect | null>(null);
   const [contentSize, setContentSize] = useState<{ width: number; height: number } | null>(null);
   const [position, setPosition] = useState<{ x: number; y: number } | null>(null);
@@ -537,8 +539,8 @@ export function TooltipContent({
       <View pointerEvents="none" style={styles.portalOverlay}>
         <FloatingSurface
           pointerEvents="none"
-          entering={FadeIn.duration(80)}
-          exiting={FadeOut.duration(80)}
+          entering={withMotion(reducedMotion, FadeIn.duration(80))}
+          exiting={withMotion(reducedMotion, FadeOut.duration(80))}
           collapsable={false}
           testID={testID}
           onLayout={handleLayout}
@@ -563,8 +565,8 @@ export function TooltipContent({
       <Pressable style={styles.overlay} onPress={handleDismiss}>
         <FloatingSurface
           pointerEvents="none"
-          entering={FadeIn.duration(80)}
-          exiting={FadeOut.duration(80)}
+          entering={withMotion(reducedMotion, FadeIn.duration(80))}
+          exiting={withMotion(reducedMotion, FadeOut.duration(80))}
           collapsable={false}
           testID={testID}
           onLayout={handleLayout}

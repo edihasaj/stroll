@@ -1,3 +1,4 @@
+import { Easing } from "react-native-reanimated";
 import { describe, expect, it } from "vitest";
 import {
   darkPureBlackTheme,
@@ -8,6 +9,8 @@ import {
   FONT_SIZE,
   getNextThemePreference,
   lightTheme,
+  MOTION_DURATION,
+  MOTION_EASING,
   THEME_OPTIONS,
 } from "./theme";
 
@@ -24,6 +27,22 @@ describe("Typography scale", () => {
       "3xl": 22,
       "4xl": 26,
     });
+  });
+});
+
+describe("Motion tokens", () => {
+  it("names the three durations every entering/exiting call site shares", () => {
+    expect(MOTION_DURATION).toEqual({ fast: 100, base: 150, slow: 200 });
+  });
+
+  it("names the menu overlay's implicit Keyframe curve (Reanimated's Linear default)", () => {
+    expect(MOTION_EASING.standard).toBe(Easing.linear);
+  });
+
+  it("is available on every registered theme, alongside spacing/radius/opacity", () => {
+    expect(darkTheme.motion.duration).toBe(MOTION_DURATION);
+    expect(lightTheme.motion.duration).toBe(MOTION_DURATION);
+    expect(darkTheme.motion.easing).toBe(MOTION_EASING);
   });
 });
 

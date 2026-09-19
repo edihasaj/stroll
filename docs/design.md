@@ -337,3 +337,26 @@ A bordered "Task progress" card (`packages/app/src/composer/task-list/index.tsx`
 `ComposerTrackBar` floats over the transcript on a fixed clearance estimated from one pill row (`resolveComposerTrackTailClearance`), not a measured one. The card starts collapsed for that reason — the header alone fits the reserved space — and its row list scrolls past a handful of rows rather than growing unbounded when expanded.
 
 The queued-message track (`packages/app/src/composer/index.tsx`) uses the same quiet row anatomy as everywhere else in the app: leading glyph, text, trailing actions revealed on hover (`isHovered || isNative || isCompactLayout`, per [hover.md](hover.md)) rather than always visible.
+
+---
+
+## 17. Motion
+
+One animation library — `react-native-reanimated` — and one set of tokens. `theme.motion` (`packages/app/src/styles/theme.ts`, alongside `spacing`/`radius`/`opacity`) holds `duration: { fast: 100, base: 150, slow: 200 }` and `easing.standard`, the `Easing.linear` curve Reanimated's `Keyframe` already applies by default. Read the exported `MOTION_DURATION`/`MOTION_EASING` constants directly in a module-scope animation builder (a `Keyframe`, a `FadeIn.duration(...)`) rather than through `theme` — durations don't vary by theme, and Reanimated builders are constructed once at import time, before any `StyleSheet.create` factory runs.
+
+Every `entering`/`exiting`/`withTiming` call site reads reduced motion through one seam, `useAppReducedMotion()` (`packages/app/src/hooks/use-app-reduced-motion.ts`), not Reanimated's `useReducedMotion()` directly — that keeps one place to change if the app ever layers its own "reduce motion" setting on top of the OS preference. Pair it with `withMotion(reducedMotion, animation)`, which returns `animation` unchanged or `undefined`, so a call site stays a one-liner:
+
+```tsx
+const reducedMotion = useAppReducedMotion();
+<Animated.View
+  entering={withMotion(reducedMotion, appearEntering)}
+  exiting={withMotion(reducedMotion, appearExiting)}
+/>;
+```
+
+Two recipes, exported from `packages/app/src/styles/motion.ts`, cover every animated surface in the app:
+
+- **`openCloseEntering`/`openCloseExiting`** — an anchored surface opening or closing in place: menus, popovers, comboboxes, tooltips, hover cards. Scale 0.97 → 1 plus opacity, `duration.base`/`duration.fast`. Reference implementation: the menu overlay (`packages/app/src/components/ui/menu/menu-overlay.tsx`), which imports these recipes rather than defining its own.
+- **`appearEntering`/`appearExiting`** — a surface fading in or out with no scale change: the scroll-to-bottom pill, message entrances. `FadeIn`/`FadeOut` at `duration.slow`. Reference implementation: `packages/app/src/agent-stream/view.tsx`.
+
+New motion is one of these two shapes, not a third. If neither fits, that's a sign the interaction needs its own review, not a bespoke `withTiming` call.

@@ -1,3 +1,5 @@
+import { Easing } from "react-native-reanimated";
+
 const testTheme = {
   colorScheme: "light",
   colors: {
@@ -56,6 +58,10 @@ const testTheme = {
   letterSpacing: { wide: 0.4 },
   iconSize: { xs: 12, sm: 16, md: 20 },
   opacity: { 50: 0.5 },
+  motion: {
+    duration: { fast: 100, base: 150, slow: 200 },
+    easing: { standard: Easing.linear },
+  },
   shadow: {
     sm: {
       shadowColor: "rgba(0, 0, 0, 0.02)",

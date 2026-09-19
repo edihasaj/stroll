@@ -34,6 +34,7 @@ import {
   BottomSheetBackgroundProps,
 } from "@gorhom/bottom-sheet";
 import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
+import { useAppReducedMotion, withMotion } from "@/hooks/use-app-reduced-motion";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { Check, File, Folder, Search } from "lucide-react-native";
 import {
@@ -1173,6 +1174,7 @@ function DesktopComboboxOptionsBody(props: {
 }
 
 function DesktopComboboxBody(props: DesktopBodyProps): ReactElement {
+  const reducedMotion = useAppReducedMotion();
   const handleDesktopKey = props.handleDesktopKey;
   const handleWebOverlayKeyDown = useCallback(
     (event: KeyboardEvent) => {
@@ -1208,8 +1210,14 @@ function DesktopComboboxBody(props: DesktopBodyProps): ReactElement {
         <Pressable style={styles.desktopBackdrop} onPress={props.handleClose} />
         <FloatingSurface
           testID="combobox-desktop-container"
-          entering={props.shouldUseDesktopFade ? FadeIn.duration(100) : undefined}
-          exiting={props.shouldUseDesktopFade ? FadeOut.duration(100) : undefined}
+          entering={
+            props.shouldUseDesktopFade ? withMotion(reducedMotion, FadeIn.duration(100)) : undefined
+          }
+          exiting={
+            props.shouldUseDesktopFade
+              ? withMotion(reducedMotion, FadeOut.duration(100))
+              : undefined
+          }
           style={styles.desktopContainer}
           frameStyle={props.desktopFrameStyle}
           ref={setFloatingRef}
