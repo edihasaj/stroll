@@ -23,13 +23,28 @@ vi.mock("@gorhom/bottom-sheet", () => ({
   useBottomSheetModalInternal: () => null,
 }));
 
-vi.mock("react-native-reanimated", () => ({
-  default: {
-    View: "div",
-  },
-  FadeIn: {},
-  FadeOut: {},
-}));
+// `tooltip.tsx` pulls in `@/styles/motion` (for the `appear*` fade recipe) and
+// `@/hooks/use-app-reduced-motion`, both of which import from `react-native-reanimated` at
+// module scope — `Keyframe`/`Easing` build the menu-open recipe, `useReducedMotion` backs the
+// reduced-motion seam. None of that runs conditionally, so the mock has to cover it even though
+// this test never renders `<TooltipContent>`.
+vi.mock("react-native-reanimated", () => {
+  const chainableAnimation = { duration: () => chainableAnimation };
+  return {
+    default: {
+      View: "div",
+    },
+    FadeIn: chainableAnimation,
+    FadeOut: chainableAnimation,
+    Keyframe: class MockKeyframe {
+      duration() {
+        return this;
+      }
+    },
+    Easing: { linear: "linear" },
+    useReducedMotion: () => false,
+  };
+});
 
 vi.mock("react-native-unistyles", () => ({
   StyleSheet: {

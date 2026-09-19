@@ -32,7 +32,9 @@ import {
 } from "@/components/adaptive-modal-sheet-layout";
 import { ScrollView } from "@/components/ui/scroll-view";
 import { isWeb } from "@/constants/platform";
+import { useAppReducedMotion } from "@/hooks/use-app-reduced-motion";
 import { useKeyboardVisibility } from "@/hooks/use-keyboard-visibility";
+import { MOTION_DURATION } from "@/styles/theme";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AdaptiveTextInput } from "@/components/adaptive-text-input";
 export { AdaptiveTextInput, type AdaptiveTextInputProps } from "@/components/adaptive-text-input";
@@ -230,7 +232,15 @@ const styles = StyleSheet.create((theme) => ({
   },
 }));
 
-const WEB_EXIT_DURATION_MS = 160;
+// The desktop web overlay's fade duration (docs/ui-gap-gpt.md O1) — `duration.base`, the same
+// token the menu overlay's open/close keyframe uses. One constant drives both the CSS
+// `transitionDuration` and the unmount timeout below, so they can't drift apart into a flash of
+// unstyled backdrop.
+const OVERLAY_FADE_DURATION_MS = MOTION_DURATION.base;
+// Subtle: enough to separate the dialog from the app behind it without turning the backdrop into
+// a feature of its own. Degrades gracefully — `backdrop-filter` is simply ignored where
+// unsupported, leaving the flat scrim underneath.
+const OVERLAY_BACKDROP_BLUR = "blur(8px)";
 
 function SheetBackground({ style }: BottomSheetBackgroundProps) {
   const { theme } = useUnistyles();
@@ -534,6 +544,12 @@ export function AdaptiveModalSheet({
   });
   const [shouldRenderWeb, setShouldRenderWeb] = useState(visible);
   const [isWebClosing, setIsWebClosing] = useState(false);
+  // True for the first paint after mounting, before the effect below flips it back to `false` on
+  // the next frame — the two-frame technique the backdrop fade needs to play at all (a node that
+  // mounts already at its target opacity has no prior frame for the CSS transition to animate
+  // from). See docs/floating-panels.md Gotcha 5 for the same shape solving a different problem.
+  const [isWebEntering, setIsWebEntering] = useState(false);
+  const reducedMotion = useAppReducedMotion();
   const modalLayer = useGlobalWebOverlayLayer("modal", isWeb && !isMobile && shouldRenderWeb);
   const nativeModalDismissNotifiedRef = useRef(!visible);
   const handleDismiss = useCallback(() => {
@@ -568,13 +584,17 @@ export function AdaptiveModalSheet({
       styles.desktopOverlay,
       isWeb && {
         zIndex: modalLayer,
-        opacity: isWebClosing ? 0 : 1,
-        transitionDuration: `${WEB_EXIT_DURATION_MS}ms`,
+        opacity: isWebClosing || isWebEntering ? 0 : 1,
+        transitionDuration: reducedMotion ? "0ms" : `${OVERLAY_FADE_DURATION_MS}ms`,
         transitionProperty: "opacity",
         transitionTimingFunction: "ease",
+        // Light blur where the browser supports it (docs/ui-gap-gpt.md O1); both prefixed and
+        // unprefixed forms are set because Safari only recognizes `-webkit-backdrop-filter`.
+        backdropFilter: OVERLAY_BACKDROP_BLUR,
+        WebkitBackdropFilter: OVERLAY_BACKDROP_BLUR,
       },
     ],
-    [isWebClosing, modalLayer],
+    [isWebClosing, isWebEntering, modalLayer, reducedMotion],
   );
 
   const handleWebOverlayKeyDown = useCallback(
@@ -604,17 +624,26 @@ export function AdaptiveModalSheet({
     if (visible) {
       setShouldRenderWeb(true);
       setIsWebClosing(false);
-      return;
+      if (reducedMotion) {
+        setIsWebEntering(false);
+        return;
+      }
+      // Mount at opacity 0, then flip on the next frame so the CSS transition has a prior frame
+      // to animate from — see the `isWebEntering` comment above.
+      setIsWebEntering(true);
+      const frame = requestAnimationFrame(() => setIsWebEntering(false));
+      return () => cancelAnimationFrame(frame);
     }
     if (!shouldRenderWeb) return;
     setIsWebClosing(true);
+    const exitDuration = reducedMotion ? 0 : OVERLAY_FADE_DURATION_MS;
     const timeout = window.setTimeout(() => {
       setShouldRenderWeb(false);
       setIsWebClosing(false);
       onDismiss?.();
-    }, WEB_EXIT_DURATION_MS);
+    }, exitDuration);
     return () => window.clearTimeout(timeout);
-  }, [visible, isMobile, onDismiss, shouldRenderWeb]);
+  }, [visible, isMobile, onDismiss, shouldRenderWeb, reducedMotion]);
 
   useEffect(() => {
     if (isWeb || isMobile || visible || Platform.OS !== "android") return;
