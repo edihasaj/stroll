@@ -89,6 +89,7 @@ export interface PanelState {
   openDesktopAgentList: () => void;
   closeDesktopAgentList: () => void;
   toggleDesktopAgentList: () => void;
+  toggleDesktopSidebarRailMode: () => void;
   openAgentListForLayout: (input: PanelLayoutInput) => void;
   closeAgentListForLayout: (input: PanelLayoutInput) => void;
   toggleAgentListForLayout: (input: PanelLayoutInput) => void;
@@ -129,6 +130,7 @@ export const usePanelStore = create<PanelState>()(
       desktop: {
         agentListOpen: DEFAULT_DESKTOP_OPEN,
         focusModeEnabled: false,
+        sidebarRailMode: false,
       },
 
       // File explorer defaults
@@ -186,6 +188,14 @@ export const usePanelStore = create<PanelState>()(
       toggleDesktopAgentList: () =>
         set((state) => ({
           desktop: { ...state.desktop, agentListOpen: !state.desktop.agentListOpen },
+        })),
+
+      // SB1: the sidebar's own inline collapse toggle. Independent of
+      // `agentListOpen` — never hides the sidebar, only switches it between
+      // expanded and icon-only rail.
+      toggleDesktopSidebarRailMode: () =>
+        set((state) => ({
+          desktop: { ...state.desktop, sidebarRailMode: !state.desktop.sidebarRailMode },
         })),
 
       openAgentListForLayout: ({ isCompact }) =>

@@ -3,8 +3,11 @@ import {
   canDesktopAppSidebarShare,
   resolveDesktopAppChromeLayout,
   resolveDesktopAppContentMinimum,
+  resolveDesktopSidebarEffectiveWidth,
+  resolveDesktopSidebarMode,
   resolveDesktopSidebarVisibility,
   resolveDesktopSidebarWidth,
+  SIDEBAR_RAIL_WIDTH,
 } from "@/components/desktop-sidebar-layout";
 
 describe("desktop sidebar layout", () => {
@@ -99,5 +102,64 @@ describe("desktop sidebar layout", () => {
         viewportWidth: 751,
       }),
     ).toBe(true);
+  });
+
+  describe("resolveDesktopSidebarMode (SB1 state machine)", () => {
+    it("is hidden whenever the sidebar is not visible, regardless of rail preference", () => {
+      expect(resolveDesktopSidebarMode({ visible: false, railPreferred: false })).toBe("hidden");
+      expect(resolveDesktopSidebarMode({ visible: false, railPreferred: true })).toBe("hidden");
+    });
+
+    it("is expanded when visible and rail is not preferred", () => {
+      expect(resolveDesktopSidebarMode({ visible: true, railPreferred: false })).toBe("expanded");
+    });
+
+    it("is rail when visible and rail is preferred", () => {
+      expect(resolveDesktopSidebarMode({ visible: true, railPreferred: true })).toBe("rail");
+    });
+
+    it("restores whichever of expanded/rail was last chosen once visible again", () => {
+      // Hiding the sidebar and reopening it does not reset the rail preference —
+      // the hide affordance and the rail toggle are independent booleans.
+      const wasRailBeforeHiding = true;
+      expect(
+        resolveDesktopSidebarMode({ visible: false, railPreferred: wasRailBeforeHiding }),
+      ).toBe("hidden");
+      expect(resolveDesktopSidebarMode({ visible: true, railPreferred: wasRailBeforeHiding })).toBe(
+        "rail",
+      );
+    });
+  });
+
+  describe("resolveDesktopSidebarEffectiveWidth (M3)", () => {
+    it("is zero while hidden", () => {
+      expect(
+        resolveDesktopSidebarEffectiveWidth({
+          mode: "hidden",
+          requestedWidth: 320,
+          viewportWidth: 1440,
+        }),
+      ).toBe(0);
+    });
+
+    it("is the fixed rail width regardless of the persisted expanded width", () => {
+      expect(
+        resolveDesktopSidebarEffectiveWidth({
+          mode: "rail",
+          requestedWidth: 600,
+          viewportWidth: 1440,
+        }),
+      ).toBe(SIDEBAR_RAIL_WIDTH);
+    });
+
+    it("matches the clamped expanded width when expanded", () => {
+      expect(
+        resolveDesktopSidebarEffectiveWidth({
+          mode: "expanded",
+          requestedWidth: 600,
+          viewportWidth: 751,
+        }),
+      ).toBe(resolveDesktopSidebarWidth({ requestedWidth: 600, viewportWidth: 751 }));
+    });
   });
 });
