@@ -1271,6 +1271,26 @@ export const en = {
     create: "Create",
     chat: {
       placeholder: "Message Stroll",
+      greeting: {
+        morning: "Good morning. What are we working on?",
+        afternoon: "Good afternoon. What are we working on?",
+        evening: "Good evening. What are we working on?",
+      },
+      suggestions: {
+        explainRepo: {
+          label: "Explain this repository",
+        },
+        fixTests: {
+          label: "Fix the failing tests",
+        },
+        reviewCommit: {
+          label: "Review my last commit",
+        },
+        writePlan: {
+          label: "Write a plan for…",
+          prompt: "Write a plan for ",
+        },
+      },
     },
     isolation: {
       local: "Local",

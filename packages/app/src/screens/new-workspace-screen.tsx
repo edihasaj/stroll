@@ -99,6 +99,9 @@ import type { DaemonClient } from "@getpaseo/client/internal/daemon-client";
 import type { AgentProvider } from "@getpaseo/protocol/agent-types";
 import type { WorkspaceDraftTabSetup, WorkspaceTabTarget } from "@/workspace-tabs/model";
 import { isEmptyWorkspaceSubmission, runCreateEmptyWorkspace } from "./new-workspace-empty";
+import { ChatHeroGreeting, ChatHeroSuggestions } from "./new-workspace/chat-hero";
+import { waitForChatHeroExit } from "./new-workspace/chat-hero-transition";
+import { useAppReducedMotion } from "@/hooks/use-app-reduced-motion";
 import { CHAT_SOURCE_AGENT_CWD_PLACEHOLDER, createChatSourceWorkspace } from "./new-chat-workspace";
 import type { WorkspaceCreationResult } from "./new-workspace/creation-result";
 import { buildFirstAgentContext } from "./new-workspace/first-agent-context";
@@ -195,6 +198,49 @@ function resolveNewWorkspaceModeValue<T>(
   values: { workspace: T; chat: T },
 ): T {
   return isChatMode ? values.chat : values.workspace;
+}
+
+/**
+ * The scroll-area content above the composer: the blank-chat hero greeting in chat mode (hidden
+ * once dismissed for the first send), or the "New workspace" title and form stack otherwise. Kept
+ * out of `NewWorkspaceScreen`'s JSX for the same reason as `resolveNewWorkspaceModeValue` above —
+ * its branches would otherwise count against that function's complexity.
+ */
+function renderNewWorkspaceScrollContent(input: {
+  isChatMode: boolean;
+  chatHeroVisible: boolean;
+  formStack: ReactElement | null;
+  title: string;
+}): ReactElement | null {
+  if (input.isChatMode) {
+    return input.chatHeroVisible ? <ChatHeroGreeting testID="new-chat-hero-greeting" /> : null;
+  }
+  return (
+    <>
+      <View style={styles.composerTitleContainer}>
+        <Text style={styles.composerTitle}>{input.title}</Text>
+      </View>
+      {input.formStack}
+    </>
+  );
+}
+
+/** The suggestion-chip row below the composer on a blank chat, hidden once the hero is dismissed
+ * or outside chat mode. */
+function renderNewWorkspaceChatSuggestions(input: {
+  isChatMode: boolean;
+  chatHeroVisible: boolean;
+  disabled: boolean;
+  onSelect: (promptText: string) => void;
+}): ReactElement | null {
+  if (!input.isChatMode || !input.chatHeroVisible) return null;
+  return (
+    <ChatHeroSuggestions
+      onSelect={input.onSelect}
+      disabled={input.disabled}
+      testID="new-chat-hero-suggestions"
+    />
+  );
 }
 
 // A terminal launch sends argv, not a message: there is nothing to attach and
@@ -787,6 +833,7 @@ interface SubmitDraftInput {
   supportsForgeSearch: boolean;
   resolveClient: () => DaemonClient;
   isStillOnCreateScreen: () => boolean;
+  readyToNavigate?: Promise<void>;
 }
 
 type NewWorkspaceComposerState = NonNullable<
@@ -880,6 +927,12 @@ interface CreateChatAgentInput {
   supportsForgeSearch: boolean;
   resolveClient: () => DaemonClient;
   isStillOnCreateScreen: () => boolean;
+  /**
+   * Resolved by the caller when the blank-chat hero has had time to fade out. When present, the
+   * navigation that follows workspace creation waits for it instead of firing the instant the
+   * daemon confirms the workspace — see `chat-hero-transition.ts`.
+   */
+  readyToNavigate?: Promise<void>;
   labels: {
     composerStateRequired: string;
     selectModel: string;
@@ -1024,6 +1077,7 @@ async function createWorkspaceChatAgent(input: CreateChatAgentInput): Promise<Su
           composerState,
           supportsForgeSearch: input.supportsForgeSearch,
           agentCreation,
+          readyToNavigate: input.readyToNavigate,
         });
       },
     });
@@ -1164,11 +1218,21 @@ function submitWorkspaceDraft(input: SubmitDraftInput): SubmitOutcome {
     agentCreation: input.agentCreation,
   });
   clearDraft("sent");
-  navigateToWorkspace({
-    serverId,
-    workspaceId,
-    target: submission.target,
-  });
+  const navigate = () => {
+    // Re-check presence: `readyToNavigate` can add a short delay (the hero's exit animation),
+    // and the user may have left this screen in the meantime.
+    if (!input.isStillOnCreateScreen()) return;
+    navigateToWorkspace({
+      serverId,
+      workspaceId,
+      target: submission.target,
+    });
+  };
+  if (input.readyToNavigate) {
+    void input.readyToNavigate.then(navigate);
+  } else {
+    navigate();
+  }
   return "navigated";
 }
 
@@ -1642,6 +1706,12 @@ export function NewWorkspaceScreen({
   const insets = useSafeAreaInsets();
   const isCompact = useIsCompactFormFactor();
   const toast = useToast();
+  const reducedMotion = useAppReducedMotion();
+  // The blank-chat hero (greeting + suggestion chips) is visible until the first prompt is
+  // submitted. It never reappears once dismissed, except after a failed submission puts the
+  // user back on this same blank screen (see the catch block in handleSubmitNewWorkspace).
+  const [chatHeroVisible, setChatHeroVisible] = useState(true);
+  const [chatSuggestionFocusKey, setChatSuggestionFocusKey] = useState(0);
   const mergeWorkspaces = useCallback(
     (targetServerId: string, workspaces: Iterable<WorkspaceDescriptor>) => {
       getHostRuntimeStore().acceptWorkspaceSnapshots(targetServerId, Array.from(workspaces));
@@ -1776,6 +1846,13 @@ export function NewWorkspaceScreen({
     }),
   });
   const composerState = chatDraft.composerState;
+  const handleSelectChatSuggestion = useCallback(
+    (promptText: string) => {
+      chatDraft.replaceText(promptText);
+      setChatSuggestionFocusKey((key) => key + 1);
+    },
+    [chatDraft],
+  );
   const [pickerSelection, dispatchPickerSelection] = useReducer(
     reducePickerSelection,
     initialPickerSelectionState,
@@ -2149,6 +2226,15 @@ export function NewWorkspaceScreen({
         }
 
         setPendingAction("chat");
+        // First send: start the hero's fade-out immediately and give the exit animation a
+        // chance to finish before the deferred navigation below actually swaps the route. This
+        // never delays the creation request itself — `runCreateChatAgent` fires it right away;
+        // only the navigation that follows the daemon's creation event is held back.
+        const dismissingHero = isChatMode && chatHeroVisible;
+        if (dismissingHero) {
+          setChatHeroVisible(false);
+        }
+        const readyToNavigate = dismissingHero ? waitForChatHeroExit(reducedMotion) : undefined;
         const outcome = await runCreateChatAgent({
           payload,
           composerState,
@@ -2162,6 +2248,7 @@ export function NewWorkspaceScreen({
           supportsForgeSearch,
           resolveClient: withConnectedClient,
           isStillOnCreateScreen,
+          readyToNavigate,
           labels: {
             composerStateRequired: t("newWorkspace.errors.composerStateRequired"),
             selectModel: t("newWorkspace.errors.selectModel"),
@@ -2175,9 +2262,14 @@ export function NewWorkspaceScreen({
         setPendingAction(null);
         setErrorMessage(message);
         toast.error(message);
+        // Nothing was created: bring the hero back so the blank screen doesn't look abandoned.
+        if (isChatMode) {
+          setChatHeroVisible(true);
+        }
       }
     },
     [
+      chatHeroVisible,
       composerState,
       draftContextScopeKey,
       creationIdentity,
@@ -2185,8 +2277,10 @@ export function NewWorkspaceScreen({
       draftKey,
       ensureWorkspace,
       forkDraftSetup,
+      isChatMode,
       isStillOnCreateScreen,
       launchTarget,
+      reducedMotion,
       selectedServerId,
       supportsForgeSearch,
       t,
@@ -2402,17 +2496,12 @@ export function NewWorkspaceScreen({
         <KeyboardTranslateView style={animatedStaticStyles.centered}>
           <ComposerViewportContent style={animatedStaticStyles.form}>
             <ScrollView style={animatedStaticStyles.setup} keyboardShouldPersistTaps="handled">
-              <View style={styles.composerTitleContainer}>
-                <Text style={styles.composerTitle}>
-                  {t(
-                    resolveNewWorkspaceModeValue(isChatMode, {
-                      workspace: "newWorkspace.title",
-                      chat: "sidebar.actions.newChat",
-                    }),
-                  )}
-                </Text>
-              </View>
-              {resolveNewWorkspaceModeValue(isChatMode, { workspace: formStack, chat: null })}
+              {renderNewWorkspaceScrollContent({
+                isChatMode,
+                chatHeroVisible,
+                formStack,
+                title: t("newWorkspace.title"),
+              })}
             </ScrollView>
             {resolveNewWorkspaceModeValue(isChatMode, {
               workspace: isTerminalLaunch,
@@ -2479,11 +2568,20 @@ export function NewWorkspaceScreen({
                 })}
                 clearDraft={handleClearDraft}
                 autoFocus
-                autoFocusKey={launchFocusKey}
+                autoFocusKey={resolveNewWorkspaceModeValue(isChatMode, {
+                  workspace: launchFocusKey,
+                  chat: `chat:${chatSuggestionFocusKey}`,
+                })}
                 commandDraftConfig={composerState?.commandDraftConfig}
                 agentControls={agentControlsWithDisabled}
               />
             )}
+            {renderNewWorkspaceChatSuggestions({
+              isChatMode,
+              chatHeroVisible,
+              disabled: isPending,
+              onSelect: handleSelectChatSuggestion,
+            })}
             {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
           </ComposerViewportContent>
         </KeyboardTranslateView>

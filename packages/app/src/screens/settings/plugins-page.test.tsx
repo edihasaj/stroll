@@ -64,6 +64,16 @@ vi.mock("react-native-reanimated", () => ({
       return this;
     }
   },
+  FadeIn: {
+    duration() {
+      return this;
+    },
+  },
+  FadeOut: {
+    duration() {
+      return this;
+    },
+  },
   Easing: { ease: "ease", inOut: (value: unknown) => value },
   interpolateColor: (value: number, _input: number[], output: string[]) =>
     value >= 1 ? output[1] : output[0],

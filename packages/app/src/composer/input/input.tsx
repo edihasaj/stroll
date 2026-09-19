@@ -607,6 +607,18 @@ function MessageInputOverlay({
   return null;
 }
 
+/**
+ * The `⌘L to focus` hint only makes sense where a physical keyboard shortcut exists: web, and
+ * wide enough that the layout isn't the touch-first compact one (E2, docs/ui-gap-gpt.md).
+ */
+function resolveFocusHintVisible(input: {
+  isCompact: boolean;
+  isInputFocused: boolean;
+  value: string;
+}): boolean {
+  return isWeb && !input.isCompact && !input.isInputFocused && !input.value;
+}
+
 function FocusHint({
   visible,
   focusInputKeys,
@@ -1819,7 +1831,7 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
               onSelectionChange={handleSelectionChange}
               onPasteImages={onPasteImages}
               onPasteError={handlePasteError}
-              focusHintVisible={isWeb && !isInputFocused && !value}
+              focusHintVisible={resolveFocusHintVisible({ isCompact, isInputFocused, value })}
               focusInputKeys={focusInputKeys}
               focusHintLabel={t("composer.input.focusHint", {
                 shortcut: focusInputKeys ? formatShortcut(focusInputKeys[0], getShortcutOs()) : "",
