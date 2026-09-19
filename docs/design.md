@@ -358,7 +358,23 @@ const reducedMotion = useAppReducedMotion();
 
 Two recipes, exported from `packages/app/src/styles/motion.ts`, cover every animated surface in the app:
 
-- **`openCloseEntering`/`openCloseExiting`** — an anchored surface opening or closing in place: menus, popovers, comboboxes, tooltips, hover cards. Scale 0.97 → 1 plus opacity, `duration.base`/`duration.fast`. Reference implementation: the menu overlay (`packages/app/src/components/ui/menu/menu-overlay.tsx`), which imports these recipes rather than defining its own.
+- **`openCloseEntering`/`openCloseExiting`** — an anchored surface opening or closing in place: menus, popovers, comboboxes, tooltips, hover cards. Scale 0.97 → 1 plus opacity, `duration.base`/`duration.fast`. Reference implementation: the menu overlay (`packages/app/src/components/ui/menu/menu-overlay.tsx`), which imports these recipes rather than defining its own. These are floating surfaces (see `FloatingSurface`, `packages/app/src/components/ui/floating.tsx`) — out of flow by construction, so the web hazard below doesn't apply, and `FloatingSurface` strips `exiting` on web itself for an unrelated reason (a simultaneous ancestor+descendant unmount throws inside Reanimated's web runtime).
 - **`appearEntering`/`appearExiting`** — a surface fading in or out with no scale change: the scroll-to-bottom pill, message entrances. `FadeIn`/`FadeOut` at `duration.slow`. Reference implementation: `packages/app/src/agent-stream/view.tsx`.
 
 New motion is one of these two shapes, not a third. If neither fits, that's a sign the interaction needs its own review, not a bespoke `withTiming` call.
+
+### Reanimated layout animations are native-only
+
+Reanimated's web layout-animation runtime takes an `entering`/`exiting` element out of normal flow (`position: absolute`, a size snapshot taken at mount) for the animation's duration, then hands it back to static flow once its own bookkeeping decides the animation finished. That is safe for a floating surface (already out of flow) or a child inside a hard-sized parent (the composer's 32px send-button circle, `packages/app/src/composer/input/input.tsx`'s `SendButtonContent`/`PrimaryAction`). It breaks for an **in-flow element whose size can change**: the parent collapses to the stale snapshot instead of the live content height, and whatever renders after it in flow draws on top of it instead of below it. This shipped for real as the M1 message entrance rendering the live turn footer over still-streaming assistant text, and again for the sidebar's rail-mode workspace list.
+
+On web, animate these in-flow elements with CSS keyframes on `opacity`/`transform` instead — never `position` or `height`. Use `webAppearStyle(reducedMotion, { riseBy? })` (`packages/app/src/styles/motion.ts`): it returns a style object driving the same fade (+ optional rise) via an injected `@keyframes` rule, or `undefined` on native (use the Reanimated `entering` prop there) and when `reducedMotion` is on. Keep native on the Reanimated recipe and drop `entering` on web:
+
+```tsx
+const reducedMotion = useAppReducedMotion();
+<Animated.View
+  entering={isWeb ? undefined : withMotion(reducedMotion, appearEntering)}
+  style={[containerStyle, webAppearStyle(reducedMotion)]}
+/>;
+```
+
+`exiting` isn't part of this helper — an element leaving the tree doesn't have the "keeps growing while off-flow" hazard, so it stays a plain Reanimated `exiting` on every platform (`FloatingSurface`'s web strip is the one exception, and it's for a different, unrelated crash). Message entrances (`packages/app/src/components/message.tsx`), the sidebar's expanded workspace list (`packages/app/src/components/left-sidebar.tsx`), the sidebar brand row (`packages/app/src/components/sidebar/sidebar-brand-row.tsx`), the chat hero greeting/suggestions (`packages/app/src/screens/new-workspace/chat-hero.tsx`), and attachment pills (`packages/app/src/components/attachment-pill.tsx`) all follow this pattern.

@@ -4,8 +4,9 @@ import { Text } from "react-native";
 import Animated from "react-native-reanimated";
 import { StyleSheet } from "react-native-unistyles";
 import { Button } from "@/components/ui/button";
+import { isWeb } from "@/constants/platform";
 import { useAppReducedMotion, withMotion } from "@/hooks/use-app-reduced-motion";
-import { appearEntering, appearExiting } from "@/styles/motion";
+import { appearEntering, appearExiting, webAppearStyle } from "@/styles/motion";
 import { resolveChatGreetingPeriod } from "./chat-hero-greeting";
 import {
   CHAT_SUGGESTIONS,
@@ -53,9 +54,12 @@ export function ChatHeroGreeting({ testID }: ChatHeroGreetingProps) {
   const reducedMotion = useAppReducedMotion();
   return (
     <Animated.View
-      entering={withMotion(reducedMotion, appearEntering)}
+      // This sits above the composer in a content-sized (not flex:1) scroll area — the same
+      // in-flow shape that made the M1 message entrance collapse on web. Entering is CSS on
+      // web (`webAppearStyle`, `@/styles/motion`) instead of a Reanimated Keyframe.
+      entering={isWeb ? undefined : withMotion(reducedMotion, appearEntering)}
       exiting={withMotion(reducedMotion, appearExiting)}
-      style={styles.greetingContainer}
+      style={[styles.greetingContainer, webAppearStyle(reducedMotion)]}
       testID={testID}
     >
       <Text style={styles.greetingText}>{greeting}</Text>
@@ -74,9 +78,9 @@ export function ChatHeroSuggestions({ disabled, onSelect, testID }: ChatHeroSugg
   const reducedMotion = useAppReducedMotion();
   return (
     <Animated.View
-      entering={withMotion(reducedMotion, appearEntering)}
+      entering={isWeb ? undefined : withMotion(reducedMotion, appearEntering)}
       exiting={withMotion(reducedMotion, appearExiting)}
-      style={styles.chipsContainer}
+      style={[styles.chipsContainer, webAppearStyle(reducedMotion)]}
       testID={testID}
     >
       {CHAT_SUGGESTIONS.map((suggestion) => (

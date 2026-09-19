@@ -8,9 +8,10 @@ import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { HostPicker } from "@/components/hosts/host-picker";
 import { StrollLogo } from "@/components/icons/stroll-logo";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { isWeb } from "@/constants/platform";
 import { useAppReducedMotion, withMotion } from "@/hooks/use-app-reduced-motion";
 import { builtinSidebarNavLabelKey } from "@/sidebar-nav/model";
-import { appearEntering, appearExiting } from "@/styles/motion";
+import { appearEntering, appearExiting, webAppearStyle } from "@/styles/motion";
 import { useKeyboardShortcutsStore } from "@/stores/keyboard-shortcuts-store";
 import { usePanelStore } from "@/stores/panel-store";
 import type { Theme } from "@/styles/theme";
@@ -101,8 +102,12 @@ export function SidebarBrandRow({
   if (rail) {
     return (
       <Animated.View
-        style={styles.railColumn}
-        entering={withMotion(reducedMotion, appearEntering)}
+        // This row sits above `SidebarNavRows`/`expandedContent`/`SidebarFooter` in the sidebar's
+        // column — the same in-flow, content-sized shape that made the M1 message entrance
+        // collapse on web. Entering is CSS on web (`webAppearStyle`, `@/styles/motion`) instead
+        // of a Reanimated Keyframe.
+        style={[styles.railColumn, webAppearStyle(reducedMotion)]}
+        entering={isWeb ? undefined : withMotion(reducedMotion, appearEntering)}
         exiting={withMotion(reducedMotion, appearExiting)}
       >
         {hostPicker}
@@ -119,8 +124,8 @@ export function SidebarBrandRow({
 
   return (
     <Animated.View
-      style={styles.row}
-      entering={withMotion(reducedMotion, appearEntering)}
+      style={[styles.row, webAppearStyle(reducedMotion)]}
+      entering={isWeb ? undefined : withMotion(reducedMotion, appearEntering)}
       exiting={withMotion(reducedMotion, appearExiting)}
     >
       {hostPicker}
