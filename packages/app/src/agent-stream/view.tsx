@@ -27,6 +27,11 @@ import { useMutation } from "@tanstack/react-query";
 import Animated from "react-native-reanimated";
 import { useAppReducedMotion, withMotion } from "@/hooks/use-app-reduced-motion";
 import { appearEntering, appearExiting } from "@/styles/motion";
+import {
+  getMessageEntranceTracker,
+  shouldPlayMessageEntrance,
+  type AgentEntranceTrackerRef,
+} from "./message-entrance";
 import { Check, ChevronDown, X } from "lucide-react-native";
 import { buildWorkspaceTabPersistenceKey } from "@/workspace-tabs/model";
 import { openExplorerSidebarView } from "@/workspace-tabs/explorer-sidebar";
@@ -378,6 +383,11 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
     const toolCallDetailLevel = useSettings((settings) => settings.toolCallDetailLevel);
     const chatOutlineEnabled = useSettings((settings) => settings.chatOutlineEnabled);
     const viewportRef = useRef<StreamViewportHandle | null>(null);
+    // M1 message entrance (see below, near `baseRenderModel`): one tracker per viewed agent
+    // conversation, plus the current live-head id set read by the renderers without joining
+    // their dependency arrays.
+    const entranceTrackerRef = useRef<AgentEntranceTrackerRef["current"]>(null);
+    const liveHeadItemIdsRef = useRef<Set<string>>(new Set());
     const pendingClientMessageIds = useMemo(
       () => new Set(pendingMessageSubmissions.map((submission) => submission.clientMessageId)),
       [pendingMessageSubmissions],
@@ -610,6 +620,20 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
       effectiveTurnPresentation.startedAt,
       historyWindowStart,
     ]);
+    // M1 entrance gate (docs/design.md "17. Motion"): a tracker per viewed conversation, reset
+    // only when `agentId` changes. Reseeding happens synchronously here, during render, with
+    // every id already visible for the (possibly new) agent, so a freshly opened chat or a
+    // chat resumed mid-stream never animates content that was already on screen. See
+    // `message-entrance.ts` for why only live-head ids are ever allowed to ask this tracker.
+    const entranceTracker = getMessageEntranceTracker(
+      entranceTrackerRef,
+      agentId,
+      [...baseRenderModel.history, ...baseRenderModel.segments.liveHead].map((item) => item.id),
+    );
+    // Read outside of any dependency array (see renderUserMessageItem/renderAssistantMessageItem
+    // below) so recomputing this on every stream tick never changes those callbacks' identity —
+    // the live-head renderer is deliberately kept stable across ticks (`useStableEvent` below).
+    liveHeadItemIdsRef.current = new Set(baseRenderModel.segments.liveHead.map((item) => item.id));
     const streamLayout = useMemo(
       () =>
         layoutStream({
@@ -708,6 +732,21 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
       });
     }, []);
 
+    // M1 entrance gate: only ever true for an id currently in the live head (the in-flight
+    // tail of the active turn), and only the first time it is asked. Reads `liveHeadItemIdsRef`
+    // directly instead of through a dependency array so this function's identity does not depend
+    // on per-tick state — see the ref's comment above. `entranceTracker` itself only changes
+    // identity when `agentId` changes, so it is a cheap, meaningful dependency.
+    const shouldAnimateMessageEntrance = useCallback(
+      (itemId: string): boolean => {
+        if (!liveHeadItemIdsRef.current.has(itemId)) {
+          return false;
+        }
+        return shouldPlayMessageEntrance(entranceTracker, itemId);
+      },
+      [entranceTracker],
+    );
+
     const renderUserMessageItem = useCallback(
       (layoutItem: StreamLayoutItem, item: Extract<StreamItem, { kind: "user_message" }>) => {
         return (
@@ -727,10 +766,18 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
               item.clientMessageId !== undefined &&
               pendingClientMessageIds.has(item.clientMessageId)
             }
+            animateEntrance={shouldAnimateMessageEntrance(item.id)}
           />
         );
       },
-      [context.capabilities, agentId, client, pendingClientMessageIds, resolvedServerId],
+      [
+        context.capabilities,
+        agentId,
+        client,
+        pendingClientMessageIds,
+        resolvedServerId,
+        shouldAnimateMessageEntrance,
+      ],
     );
 
     const renderAssistantMessageItem = useCallback(
@@ -752,11 +799,20 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
               client={client}
               spacing={layoutItem.assistantSpacing}
               phase={layoutItem.phase}
+              animateEntrance={shouldAnimateMessageEntrance(item.id)}
             />
           </AssistantFileLinkResolverProvider>
         );
       },
-      [agentId, client, handleInlinePathPress, resolvedServerId, toast, workspaceRoot],
+      [
+        agentId,
+        client,
+        handleInlinePathPress,
+        resolvedServerId,
+        toast,
+        workspaceRoot,
+        shouldAnimateMessageEntrance,
+      ],
     );
 
     const renderThoughtItem = useCallback(
