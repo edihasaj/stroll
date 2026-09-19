@@ -1163,6 +1163,8 @@ export const ja: TranslationResources = {
       hosts: "ホスト",
       settings: "設定",
       closeSidebar: "サイドバーを閉じる",
+      collapseToRail: "Collapse to rail",
+      expandSidebar: "Expand sidebar",
     },
     help: {
       trigger: "ヘルプとサポート",

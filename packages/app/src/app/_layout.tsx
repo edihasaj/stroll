@@ -55,6 +55,7 @@ import {
   resolveDesktopAppChromeLayout,
   resolveDesktopAppContentMinimum,
   resolveDesktopSidebarVisibility,
+  SIDEBAR_RAIL_WIDTH,
 } from "@/components/desktop-sidebar-layout";
 import { isNative, isWeb } from "@/constants/platform";
 import { HorizontalScrollProvider } from "@/contexts/horizontal-scroll-context";
@@ -466,6 +467,7 @@ function AppContainer({ children, chromeEnabled: chromeEnabledOverride }: AppCon
   const exitFocusMode = usePanelStore((state) => state.exitFocusMode);
   const isFocusModeEnabled = usePanelStore((state) => state.desktop.focusModeEnabled);
   const isDesktopAgentListOpen = usePanelStore((state) => state.desktop.agentListOpen);
+  const isDesktopSidebarRail = usePanelStore((state) => state.desktop.sidebarRailMode);
   const sidebarWidth = usePanelStore((state) => state.sidebarWidth);
   const { width: viewportWidth } = useWindowDimensions();
 
@@ -524,9 +526,12 @@ function AppContainer({ children, chromeEnabled: chromeEnabledOverride }: AppCon
     isCompactLayout,
     isMounted: desktopSidebarMounted,
     isOpen: isDesktopAgentListOpen,
+    // The rail (SB1) needs far less width to share with the center pane than
+    // the full expanded sidebar — check against whichever the sidebar's own
+    // collapse toggle currently prefers, not always the persisted expanded width.
     canShare: canDesktopAppSidebarShare({
       contentMinimumWidth: appContentMinimumWidth,
-      requestedSidebarWidth: sidebarWidth,
+      requestedSidebarWidth: isDesktopSidebarRail ? SIDEBAR_RAIL_WIDTH : sidebarWidth,
       viewportWidth,
     }),
   });

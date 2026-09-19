@@ -1159,6 +1159,8 @@ export const en = {
       hosts: "Hosts",
       settings: "Settings",
       closeSidebar: "Close sidebar",
+      collapseToRail: "Collapse to rail",
+      expandSidebar: "Expand sidebar",
     },
     help: {
       trigger: "Help and support",

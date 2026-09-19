@@ -1175,6 +1175,8 @@ export const ptBR: TranslationResources = {
       hosts: "Hosts",
       settings: "Configurações",
       closeSidebar: "Fechar barra lateral",
+      collapseToRail: "Collapse to rail",
+      expandSidebar: "Expand sidebar",
     },
     help: {
       trigger: "Ajuda e suporte",

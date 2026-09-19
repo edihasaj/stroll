@@ -1150,6 +1150,8 @@ export const ar: TranslationResources = {
       hosts: "المضيفون",
       settings: "إعدادات",
       closeSidebar: "إغلاق الشريط الجانبي",
+      collapseToRail: "Collapse to rail",
+      expandSidebar: "Expand sidebar",
     },
     help: {
       trigger: "المساعدة والدعم",

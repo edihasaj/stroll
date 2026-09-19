@@ -27,6 +27,8 @@ import {
 
 interface SidebarNavRowProps {
   onBeforeNavigate?: () => void;
+  /** SB1's icon-only rail — see `SidebarHeaderRow`'s `rail` prop. */
+  rail?: boolean;
 }
 
 interface SidebarNavRowsProps extends SidebarNavRowProps {
@@ -39,7 +41,7 @@ interface SidebarNavRowsProps extends SidebarNavRowProps {
  * `sidebarNavItems` preference. Renders nothing — not even the bordered group
  * wrapper — when every item is hidden.
  */
-export function SidebarNavRows({ style, onBeforeNavigate }: SidebarNavRowsProps) {
+export function SidebarNavRows({ style, onBeforeNavigate, rail = false }: SidebarNavRowsProps) {
   const { items } = useSidebarNavItems();
   const visibleItems = useMemo(() => items.filter((item) => item.visible), [items]);
 
@@ -54,11 +56,12 @@ export function SidebarNavRows({ style, onBeforeNavigate }: SidebarNavRowsProps)
               key={item.key}
               group={item.group}
               onBeforeNavigate={onBeforeNavigate}
+              rail={rail}
             />
           );
         }
         const Row = BUILTIN_ROWS[item.id];
-        return <Row key={item.key} onBeforeNavigate={onBeforeNavigate} />;
+        return <Row key={item.key} onBeforeNavigate={onBeforeNavigate} rail={rail} />;
       })}
     </View>
   );
@@ -66,6 +69,7 @@ export function SidebarNavRows({ style, onBeforeNavigate }: SidebarNavRowsProps)
 
 const SidebarNewWorkspaceRow = memo(function SidebarNewWorkspaceRow({
   onBeforeNavigate,
+  rail,
 }: SidebarNavRowProps) {
   const { t } = useTranslation();
   const shortcutKeys = useShortcutKeys(builtinSidebarNavShortcutAction("new-workspace"));
@@ -107,6 +111,7 @@ const SidebarNewWorkspaceRow = memo(function SidebarNewWorkspaceRow({
       testID="sidebar-global-new-workspace"
       variant="compact"
       shortcutKeys={shortcutKeys}
+      rail={rail}
     />
   );
 });
@@ -118,6 +123,7 @@ const SidebarNewWorkspaceRow = memo(function SidebarNewWorkspaceRow({
  */
 const SidebarNewChatRow = memo(function SidebarNewChatRow({
   onBeforeNavigate,
+  rail,
 }: SidebarNavRowProps) {
   const { t } = useTranslation();
   // A chat needs a host, not a workspace. Keying this off the active selection hid the row on a
@@ -143,11 +149,12 @@ const SidebarNewChatRow = memo(function SidebarNewChatRow({
       testID="sidebar-global-new-chat"
       variant="compact"
       shortcutKeys={null}
+      rail={rail}
     />
   );
 });
 
-function SidebarHistoryRow({ onBeforeNavigate }: SidebarNavRowProps) {
+function SidebarHistoryRow({ onBeforeNavigate, rail }: SidebarNavRowProps) {
   const { t } = useTranslation();
   const pathname = usePathname();
   const handlePress = useCallback(() => {
@@ -163,11 +170,12 @@ function SidebarHistoryRow({ onBeforeNavigate }: SidebarNavRowProps) {
       isActive={pathname.includes("/sessions")}
       testID="sidebar-sessions"
       variant="compact"
+      rail={rail}
     />
   );
 }
 
-function SidebarSearchRow({ onBeforeNavigate }: SidebarNavRowProps) {
+function SidebarSearchRow({ onBeforeNavigate, rail }: SidebarNavRowProps) {
   const { t } = useTranslation();
   const shortcutKeys = useShortcutKeys(builtinSidebarNavShortcutAction("search"));
   const setCommandCenterOpen = useKeyboardShortcutsStore((state) => state.setCommandCenterOpen);
@@ -184,11 +192,12 @@ function SidebarSearchRow({ onBeforeNavigate }: SidebarNavRowProps) {
       testID="sidebar-search"
       variant="compact"
       shortcutKeys={shortcutKeys}
+      rail={rail}
     />
   );
 }
 
-function SidebarSchedulesRow({ onBeforeNavigate }: SidebarNavRowProps) {
+function SidebarSchedulesRow({ onBeforeNavigate, rail }: SidebarNavRowProps) {
   const { t } = useTranslation();
   const pathname = usePathname();
   const handlePress = useCallback(() => {
@@ -204,6 +213,7 @@ function SidebarSchedulesRow({ onBeforeNavigate }: SidebarNavRowProps) {
       isActive={pathname.includes("/schedules")}
       testID="sidebar-schedules"
       variant="compact"
+      rail={rail}
     />
   );
 }
