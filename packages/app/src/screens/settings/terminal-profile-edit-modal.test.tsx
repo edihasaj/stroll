@@ -6,19 +6,28 @@ import { TerminalProfileEditModal, type ProfileDraft } from "./terminal-profile-
 
 const { theme } = vi.hoisted(() => ({
   theme: {
+    colorScheme: "dark",
     spacing: { 2: 8, 3: 12, 4: 16, 6: 24 },
     fontSize: { sm: 13, base: 15, xs: 11 },
     fontWeight: { medium: 500 },
     borderRadius: { md: 6, lg: 8, xl: 12 },
     borderWidth: { 1: 1 },
     opacity: { 50: 0.5 },
+    motion: { duration: { fast: 100 } },
+    shadow: {
+      xs: "0 1px 2px rgba(16, 16, 16, 0.05)",
+      focusRing: "0 0 0 3px rgba(10, 132, 255, 0.22)",
+    },
     colors: {
+      surface0: "#000",
+      surface1: "#111",
       surface2: "#222",
       foreground: "#fff",
       foregroundMuted: "#aaa",
       border: "#555",
       accent: "#0a84ff",
       borderAccent: "#555",
+      focusBorder: "#0a84ff",
       palette: { red: { 300: "#f87171" } },
     },
   },

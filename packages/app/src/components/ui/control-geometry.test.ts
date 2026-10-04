@@ -7,6 +7,7 @@ import {
 import type { Theme } from "@/styles/theme";
 
 const theme = {
+  colorScheme: "light" as const,
   borderRadius: {
     md: 6,
     lg: 8,
@@ -19,6 +20,14 @@ const theme = {
   colors: {
     accent: "#20744A",
     borderAccent: "#2F3534",
+    border: "#1A1A1A",
+    focusBorder: "#4A9A6E",
+    surface0: "#ffffff",
+    surface1: "#f7f7f5",
+  },
+  shadow: {
+    xs: "0 1px 2px rgba(16, 16, 16, 0.05)",
+    focusRing: "0 0 0 3px rgba(32, 116, 74, 0.22)",
   },
   fontSize: {
     xs: 10,
@@ -35,32 +44,48 @@ const theme = {
     4: 16,
     6: 24,
   },
+  motion: {
+    duration: {
+      fast: 100,
+    },
+  },
 } as unknown as Theme;
 
 describe("control geometry", () => {
-  it("keeps resting control borders transparent while preserving border geometry", () => {
+  it("fills the field with its scheme's surface and a hairline border at rest", () => {
     const geometry = createControlGeometry(theme);
 
     expect(geometry.controlRest).toMatchObject({
       borderWidth: 1,
-      borderColor: "transparent",
+      borderColor: "#1A1A1A",
+      backgroundColor: "#ffffff",
+      boxShadow: "0 1px 2px rgba(16, 16, 16, 0.05)",
       outlineColor: "transparent",
       outlineWidth: 0,
     });
   });
 
-  it("uses the shared hover border and active focus ring values", () => {
+  it("uses a recessed inset shadow and surface1 fill for a dark-scheme field", () => {
+    const geometry = createControlGeometry({ ...theme, colorScheme: "dark" } as Theme);
+
+    expect(geometry.controlRest).toMatchObject({
+      backgroundColor: "#f7f7f5",
+      boxShadow: "inset 0 1px 2px rgba(0, 0, 0, 0.25)",
+    });
+  });
+
+  it("uses the shared hover border and active focus-ring values", () => {
     const geometry = createControlGeometry(theme);
 
     expect(geometry.controlHover).toEqual({
       borderColor: "#2F3534",
     });
     expect(geometry.controlActive).toEqual({
-      borderColor: "#2F3534",
-      outlineColor: "#20744A",
-      outlineOffset: 1,
-      outlineStyle: "solid",
-      outlineWidth: 2,
+      borderColor: "#4A9A6E",
+      boxShadow: "0 0 0 3px rgba(32, 116, 74, 0.22)",
+    });
+    expect(geometry.controlFocusRingColor).toEqual({
+      outlineColor: "#4A9A6E",
     });
   });
 

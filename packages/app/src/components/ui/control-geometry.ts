@@ -1,4 +1,5 @@
 import type { StyleProp, ViewStyle } from "react-native";
+import { isWeb } from "@/constants/platform";
 import { ICON_SIZE, type Theme } from "@/styles/theme";
 
 export type ButtonControlSize = "xs" | "sm" | "md" | "lg";
@@ -32,8 +33,6 @@ const SEGMENTED_FIELD_INSET = 3;
 const SWITCH_TRACK_WIDTH = 34;
 const SWITCH_TRACK_HEIGHT = 20;
 const SWITCH_THUMB_SIZE = 16;
-const CONTROL_FOCUS_RING_WIDTH = 2;
-const CONTROL_FOCUS_RING_OFFSET = 1;
 const CONTROL_CENTER_JUSTIFY_CONTENT = "center";
 const FIELD_TEXT_LINE_HEIGHT_RATIO = 1.4;
 
@@ -117,6 +116,23 @@ export function resolveControlInteractionStyles(
 
 export function createControlGeometry(theme: Theme) {
   const controlBorderWidth = theme.borderWidth[1];
+  const isDarkField = theme.colorScheme === "dark";
+  // Field fill and rest-state elevation (docs/design.md "Finish"): light sits on `surface0`
+  // with the shared `shadow.xs` drop shadow; dark sits one step deeper on `surface1` with a
+  // recessed look instead — a drop shadow barely reads against a dark surface, so dark gets a
+  // literal inset value pinned here rather than a shared `theme.shadow` step (no other surface
+  // in the app wants a recessed look, so it isn't worth promoting to a token).
+  const fieldFill = isDarkField ? theme.colors.surface1 : theme.colors.surface0;
+  const fieldRestShadow = isDarkField ? "inset 0 1px 2px rgba(0, 0, 0, 0.25)" : theme.shadow.xs;
+  // Border/shadow transitions only — web-only since native has no continuous style
+  // interpolation without Reanimated (same rule as `button.tsx`'s `WEB_PRESS_TRANSITION`).
+  const fieldWebTransition = isWeb
+    ? {
+        transitionProperty: "border-color, box-shadow",
+        transitionDuration: `${theme.motion.duration.fast}ms`,
+        transitionTimingFunction: "ease-out",
+      }
+    : null;
   const fieldTextSmLineHeight = fieldLineHeight(theme.fontSize.base);
   const fieldTextMdLineHeight = fieldLineHeight(theme.fontSize.base);
   const fieldControlSm = {
@@ -195,24 +211,32 @@ export function createControlGeometry(theme: Theme) {
     fieldControlMd,
     fieldTextSm,
     fieldTextMd,
+    // Rest-state field chrome: filled surface + hairline border + (on web) eased
+    // border/shadow transitions. Hover and active layer their own border/shadow on top; neither
+    // touches `backgroundColor`, so the fill never flickers between interaction states.
     controlRest: {
       borderWidth: controlBorderWidth,
-      borderColor: "transparent",
+      borderColor: theme.colors.border,
+      backgroundColor: fieldFill,
+      boxShadow: fieldRestShadow,
       outlineWidth: 0,
       outlineColor: "transparent",
+      ...fieldWebTransition,
     },
     controlHover: {
       borderColor: theme.colors.borderAccent,
     },
+    // Focus is a ring, not a border-color swap (docs/design.md "Finish"): `focusBorder` for the
+    // 1px edge, `shadow.focusRing` for the glow — no additional shadow layered underneath.
     controlActive: {
-      borderColor: theme.colors.borderAccent,
-      outlineColor: theme.colors.accent,
-      outlineOffset: CONTROL_FOCUS_RING_OFFSET,
-      outlineStyle: "solid" as const,
-      outlineWidth: CONTROL_FOCUS_RING_WIDTH,
+      borderColor: theme.colors.focusBorder,
+      boxShadow: theme.shadow.focusRing,
     },
+    // Colors the browser's native focus outline for a raw `EditingTextInput` used without the
+    // `controlRest`/`controlActive` chrome above (e.g. `AdaptiveTextInput` call sites that own
+    // their own box styling) — the same `focusBorder` edge token, not the brighter `accent`.
     controlFocusRingColor: {
-      outlineColor: theme.colors.accent,
+      outlineColor: theme.colors.focusBorder,
     },
     controlDisabled: {
       opacity: theme.opacity[50],

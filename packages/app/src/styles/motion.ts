@@ -49,14 +49,21 @@ export const appearExiting = FadeOut.duration(MOTION_DURATION.slow);
  * layout-animation runtime takes the animated element out of normal flow (`position: absolute`,
  * a size snapshot taken at mount) for the duration of the animation, then hands it back to
  * static flow once the animation's own bookkeeping decides it finished. That is invisible for a
- * surface whose size is fixed before the animation starts — the menu/popover `openClose*` shapes,
- * or a child inside a hard-sized parent like the composer's 32px send-button circle. It breaks
- * for an **in-flow element whose size can change**: a streaming message that mounts near-empty
- * and grows, or a list that loads content after the entrance starts. The snapshot goes stale, the
- * parent collapses to the snapshot's height instead of the live content height, and whatever
- * renders after it in flow (a turn footer, a sidebar footer) draws on top of it. This shipped
- * once already for the M1 message entrance (`packages/app/src/components/message.tsx`) and again
- * for the sidebar's rail-mode workspace list (`packages/app/src/components/left-sidebar.tsx`).
+ * surface whose size is fixed before the animation starts AND whose surrounding layout is not
+ * itself animating — the menu/popover `openClose*` shapes. It breaks for an **in-flow element
+ * whose size can change**: a streaming message that mounts near-empty and grows, or a list that
+ * loads content after the entrance starts. The snapshot goes stale, the parent collapses to the
+ * snapshot's height instead of the live content height, and whatever renders after it in flow (a
+ * turn footer, a sidebar footer) draws on top of it. This shipped once already for the M1 message
+ * entrance (`packages/app/src/components/message.tsx`) and again for the sidebar's rail-mode
+ * workspace list (`packages/app/src/components/left-sidebar.tsx`). It also breaks for a
+ * fixed-size child whose *ancestor* is mid-resize — the composer's 32px send/stop button is a
+ * hard-sized circle, but it sits inside the composer card's own eased height change right as a
+ * run starts or ends; the entering snapshot freezes the button's (and its running ring's) screen
+ * position at the pre-resize coordinate for the animation's duration, so it visibly detaches from
+ * the card until the snapshot hands back to static flow (`packages/app/src/composer/input/input.tsx`'s
+ * `PrimaryAction`, fixed by switching its web `entering` to this helper with a `durationMs`
+ * override matching its faster native duration).
  *
  * The fix is not a bigger Reanimated workaround — it is not using Reanimated's layout-animation
  * runtime on web for these elements at all. `webAppearStyle` returns a plain style object driving
@@ -80,7 +87,7 @@ export const appearExiting = FadeOut.duration(MOTION_DURATION.slow);
  */
 export function webAppearStyle(
   reducedMotion: boolean,
-  options?: { riseBy?: number },
+  options?: { riseBy?: number; durationMs?: number },
 ): object | undefined {
   if (!isWeb || reducedMotion) return undefined;
   const riseBy = options?.riseBy ?? 0;
@@ -88,7 +95,7 @@ export function webAppearStyle(
     riseBy > 0 ? ensureWebAppearRiseKeyframe(riseBy) : ensureWebAppearKeyframe();
   return inlineUnistylesStyle({
     animationName,
-    animationDuration: `${MOTION_DURATION.slow}ms`,
+    animationDuration: `${options?.durationMs ?? MOTION_DURATION.slow}ms`,
     // Keyframe steps elsewhere in this module carry no per-property easing, so Reanimated
     // applies its documented default (linear) between them — see the comment above
     // `openCloseEntering`. Match that here so the web and native curves agree.

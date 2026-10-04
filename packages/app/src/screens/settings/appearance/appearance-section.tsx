@@ -17,6 +17,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { SegmentedControl, type SegmentedControlOption } from "@/components/ui/segmented-control";
+import { createControlGeometry } from "@/components/ui/control-geometry";
 import { SettingsCard, SettingsSwitch } from "@/components/settings";
 import { SettingsSection } from "@/components/settings/headings/settings-section";
 import { useContributedThemes } from "@/appearance/provider";
@@ -805,81 +806,83 @@ export function AppearanceSection() {
   );
 }
 
-const styles = StyleSheet.create((theme) => ({
-  preview: {
-    marginTop: theme.spacing[4],
-  },
-  rowWithBorder: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingVertical: theme.spacing[4],
-    paddingHorizontal: theme.spacing[4],
-    borderTopWidth: theme.borderWidth[1],
-    borderTopColor: theme.colors.border,
-  },
-  trigger: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: theme.spacing[1],
-    paddingVertical: theme.spacing[1],
-    paddingHorizontal: theme.spacing[2],
-    borderRadius: theme.borderRadius.md,
-    borderWidth: theme.borderWidth[1],
-    borderColor: theme.colors.border,
-  },
-  triggerPressed: {
-    opacity: 0.85,
-  },
-  triggerText: {
-    color: theme.colors.foreground,
-    fontSize: theme.fontSize.base,
-  },
-  swatch: {
-    width: ICON_SIZE.md,
-    height: ICON_SIZE.md,
-    borderRadius: ICON_SIZE.md / 2,
-    borderWidth: theme.borderWidth[1],
-    borderColor: theme.colors.border,
-  },
-  fontFamilyInput: {
-    flexGrow: 1,
-    flexShrink: 1,
-    maxWidth: 280,
-    minHeight: 36,
-    paddingVertical: theme.spacing[2],
-    paddingHorizontal: theme.spacing[3],
-    borderRadius: theme.borderRadius.md,
-    borderWidth: theme.borderWidth[1],
-    borderColor: theme.colors.border,
-    backgroundColor: theme.colors.surface2,
-    color: theme.colors.foreground,
-    fontSize: theme.fontSize.base,
-    textAlign: "left",
-  },
-  sizeField: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: theme.spacing[2],
-  },
-  sizeInput: {
-    width: 64,
-    minHeight: 36,
-    paddingVertical: theme.spacing[2],
-    paddingHorizontal: theme.spacing[3],
-    borderRadius: theme.borderRadius.md,
-    borderWidth: theme.borderWidth[1],
-    borderColor: theme.colors.border,
-    backgroundColor: theme.colors.surface2,
-    color: theme.colors.foreground,
-    fontSize: theme.fontSize.base,
-    textAlign: "right",
-  },
-  unit: {
-    color: theme.colors.foregroundMuted,
-    fontSize: theme.fontSize.base,
-  },
-  placeholderColor: {
-    color: theme.colors.foregroundMuted,
-  },
-}));
+const styles = StyleSheet.create((theme) => {
+  const geometry = createControlGeometry(theme);
+
+  return {
+    preview: {
+      marginTop: theme.spacing[4],
+    },
+    rowWithBorder: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      paddingVertical: theme.spacing[4],
+      paddingHorizontal: theme.spacing[4],
+      borderTopWidth: theme.borderWidth[1],
+      borderTopColor: theme.colors.border,
+    },
+    trigger: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: theme.spacing[1],
+      paddingVertical: theme.spacing[1],
+      paddingHorizontal: theme.spacing[2],
+      borderRadius: theme.borderRadius.md,
+      borderWidth: theme.borderWidth[1],
+      borderColor: theme.colors.border,
+    },
+    triggerPressed: {
+      opacity: 0.85,
+    },
+    triggerText: {
+      color: theme.colors.foreground,
+      fontSize: theme.fontSize.base,
+    },
+    swatch: {
+      width: ICON_SIZE.md,
+      height: ICON_SIZE.md,
+      borderRadius: ICON_SIZE.md / 2,
+      borderWidth: theme.borderWidth[1],
+      borderColor: theme.colors.border,
+    },
+    // Fill, hairline border, and elevation come from the shared field geometry
+    // (docs/design.md "Finish") — this sheet only owns size/color.
+    fontFamilyInput: {
+      ...geometry.controlRest,
+      flexGrow: 1,
+      flexShrink: 1,
+      maxWidth: 280,
+      minHeight: 36,
+      paddingVertical: theme.spacing[2],
+      paddingHorizontal: theme.spacing[3],
+      borderRadius: theme.borderRadius.lg,
+      color: theme.colors.foreground,
+      fontSize: theme.fontSize.base,
+      textAlign: "left",
+    },
+    sizeField: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: theme.spacing[2],
+    },
+    sizeInput: {
+      ...geometry.controlRest,
+      width: 64,
+      minHeight: 36,
+      paddingVertical: theme.spacing[2],
+      paddingHorizontal: theme.spacing[3],
+      borderRadius: theme.borderRadius.lg,
+      color: theme.colors.foreground,
+      fontSize: theme.fontSize.base,
+      textAlign: "right",
+    },
+    unit: {
+      color: theme.colors.foregroundMuted,
+      fontSize: theme.fontSize.base,
+    },
+    placeholderColor: {
+      color: theme.colors.foregroundMuted,
+    },
+  };
+});

@@ -131,17 +131,10 @@ export function SelectFieldTrigger({
 }: SelectFieldTriggerProps): ReactElement {
   const sizeStyle = size === "sm" ? styles.triggerSm : styles.triggerMd;
   const textSizeStyle = size === "sm" ? styles.triggerTextSm : styles.triggerTextMd;
-  // Quiet ghost pill at rest; the open/active state is the only one that earns a fill, matching
-  // the dropdown and combobox triggers. See docs/design.md §6.
-  let triggerBackgroundStyle:
-    | (typeof styles)["triggerBgOpen"]
-    | (typeof styles)["triggerBgHover"]
-    | null = null;
-  if (!disabled && (active || focused)) {
-    triggerBackgroundStyle = styles.triggerBgOpen;
-  } else if (!disabled && hovered) {
-    triggerBackgroundStyle = styles.triggerBgHover;
-  }
+  // SelectField stands alone as a form control (docs/design.md §6) — it always takes the full
+  // text-input field chrome, not the toolbar/composer ghost-pill look that `ComboboxTrigger` and
+  // `DropdownTrigger` keep. Fill comes from `controlRest` and never changes on hover/open; only
+  // the border and shadow move.
   const triggerStyle = useMemo(
     () => [
       styles.trigger,
@@ -155,9 +148,8 @@ export function SelectFieldTrigger({
         },
         { hovered, focused, active, disabled },
       ),
-      triggerBackgroundStyle,
     ],
-    [active, disabled, focused, hovered, sizeStyle, triggerBackgroundStyle],
+    [active, disabled, focused, hovered, sizeStyle],
   );
   const label = explicitLabel ?? display?.label ?? placeholder;
   const isPlaceholder = explicitIsPlaceholder ?? display == null;
@@ -361,13 +353,6 @@ const styles = StyleSheet.create((theme) => {
       flexDirection: "row",
       alignItems: "center",
       gap: theme.spacing[2],
-      backgroundColor: "transparent",
-    },
-    triggerBgHover: {
-      backgroundColor: theme.colors.interactionHighlight,
-    },
-    triggerBgOpen: {
-      backgroundColor: theme.colors.surface2,
     },
     triggerSm: {
       ...geometry.fieldControlSm,

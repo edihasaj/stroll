@@ -56,6 +56,7 @@ import type { MessageInputKeyboardActionKind } from "@/keyboard/actions";
 import { isImeComposingKeyboardEvent } from "@/utils/keyboard-ime";
 import { isWeb } from "@/constants/platform";
 import { useIsCompactFormFactor } from "@/constants/layout";
+import { webAppearStyle } from "@/styles/motion";
 import { useComposerKeyboardScope } from "@/composer/keyboard-scope";
 import { RenderProfile } from "@/utils/render-profiler";
 import { useComposerHeight } from "./height";
@@ -879,8 +880,22 @@ function PrimaryAction({
   // `kind` and letting the outgoing one play `exiting` while the incoming plays `entering`
   // cross-fades arrow <-> stop in place instead of the instant swap `PrimaryAction` used to do
   // by returning a different subtree outright.
+  //
+  // `entering` is native-only here even though the swapped-in content is a fixed 32px circle —
+  // the composer card eases its own height at the exact moment a run starts/stops, and
+  // Reanimated's web layout-animation freezes this element at a `position: absolute` snapshot of
+  // its pre-resize screen coordinate for the animation's duration. The frozen stop button (and
+  // its running ring) visibly detached from the card until the snapshot expired. `webAppearStyle`
+  // keeps the element in normal flow on web, so it always tracks the card's live position; see
+  // `styles/motion.ts`'s `webAppearStyle` doc for the general hazard. `durationMs` matches this
+  // call site's faster-than-default fade (see `sendButtonMorphEntering` above).
   return (
-    <Animated.View key={kind} entering={entering} exiting={exiting}>
+    <Animated.View
+      key={kind}
+      entering={isWeb ? undefined : entering}
+      exiting={exiting}
+      style={webAppearStyle(reducedMotion, { durationMs: MOTION_DURATION.fast })}
+    >
       {kind === "active" ? activeActionContent : <SendButtonTooltip {...sendButtonProps} />}
     </Animated.View>
   );
@@ -1972,193 +1987,208 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
   },
 );
 
-const styles = StyleSheet.create((theme: Theme) => ({
-  container: {
-    flexShrink: 1,
-    position: "relative",
-  },
-  inputWrapper: {
-    flexShrink: 1,
-    flexDirection: "column",
-    gap: theme.spacing[3],
-    backgroundColor: theme.colors.background,
-    borderWidth: theme.borderWidth[1],
-    borderColor: theme.colors.border,
-    borderRadius: theme.borderRadius["2xl"],
-    boxShadow: theme.shadow.sm,
-    paddingTop: {
-      xs: theme.spacing[2],
-      md: theme.spacing[3],
+const styles = StyleSheet.create((theme: Theme) => {
+  // Composer card fill/elevation (docs/design.md "Finish" + "16. Composer"): light sits on
+  // `surface0` with `shadow.sm`; dark sits one step deeper on `surface1` with `insetHighlight`
+  // layered alongside `shadow.sm` — the same raised-surface recipe `theme.shadow.insetHighlight`
+  // documents, not a second ad hoc shadow.
+  const isDarkComposer = theme.colorScheme === "dark";
+  const composerFill = isDarkComposer ? theme.colors.surface1 : theme.colors.background;
+  const composerRestShadow = isDarkComposer
+    ? [theme.shadow.sm, theme.shadow.insetHighlight].join(", ")
+    : theme.shadow.sm;
+
+  return {
+    container: {
+      flexShrink: 1,
+      position: "relative",
     },
-    paddingBottom: {
-      xs: theme.spacing[2],
-      md: theme.spacing[4],
+    inputWrapper: {
+      flexShrink: 1,
+      flexDirection: "column",
+      gap: theme.spacing[3],
+      backgroundColor: composerFill,
+      borderWidth: theme.borderWidth[1],
+      borderColor: theme.colors.border,
+      borderRadius: theme.borderRadius["2xl"],
+      boxShadow: composerRestShadow,
+      paddingTop: {
+        xs: theme.spacing[2],
+        md: theme.spacing[3],
+      },
+      paddingBottom: {
+        xs: theme.spacing[2],
+        md: theme.spacing[4],
+      },
+      paddingHorizontal: {
+        xs: theme.spacing[3],
+        md: theme.spacing[4],
+      },
+      ...(isWeb
+        ? {
+            transitionProperty: "border-color, box-shadow",
+            transitionDuration: `${theme.motion.duration.fast}ms`,
+            transitionTimingFunction: "ease-out",
+          }
+        : {}),
     },
-    paddingHorizontal: {
-      xs: theme.spacing[3],
-      md: theme.spacing[4],
+    // Focus-within raises the border to `focusBorder` and layers a softer, wider ring
+    // (`focusRingSoft`) on top of the rest-state shadow, rather than the full input
+    // `focusRing` — the card already reads as one surface, not a bare field.
+    inputWrapperFocused: {
+      borderColor: theme.colors.focusBorder,
+      boxShadow: [composerRestShadow, theme.shadow.focusRingSoft].join(", "),
     },
-    ...(isWeb
-      ? {
-          transitionProperty: "border-color",
-          transitionDuration: "200ms",
-          transitionTimingFunction: "ease-in-out",
-        }
-      : {}),
-  },
-  // Focus raises the border to the accent tone only — no glow, no shadow change.
-  inputWrapperFocused: {
-    borderColor: theme.colors.borderAccent,
-  },
-  // Dotted says "this surface is the same box, but there is nothing to type
-  // into it" without swapping the border colour, which reads as an error state.
-  inputWrapperReadOnly: {
-    borderStyle: "dotted",
-  },
-  textInputScrollWrapper: {
-    flexShrink: 1,
-    position: "relative",
-    // Matches `inputWrapper`'s own background. During a height-shrink ease (C1, `height.web.ts`
-    // sets an explicit `height` here on web) the textarea shrinks to its new size a frame before
-    // this wrapper's CSS transition catches down to it — an opaque background here means that
-    // gap reads as card, not a flash of whatever sits behind it.
-    backgroundColor: theme.colors.background,
-  },
-  focusHintText: {
-    position: "absolute",
-    top: 0,
-    right: 0,
-    fontSize: theme.fontSize.sm,
-    color: theme.colors.foregroundMuted,
-    opacity: 0.5,
-  },
-  textInput: {
-    // Preserve the controls when an ancestor constrains an overlong draft.
-    flexShrink: 1,
-    width: "100%",
-    color: theme.colors.foreground,
-    fontSize: theme.fontSize.content,
-    fontWeight: theme.fontWeight.normal,
-    lineHeight: theme.fontSize.content * 1.4,
-    ...(isWeb
-      ? ({
-          outlineStyle: "none",
-          outlineWidth: 0,
-          outlineColor: "transparent",
-        } as object)
-      : {}),
-  },
-  textInputMonospace: {
-    fontFamily: theme.fontFamily.mono,
-  },
-  readOnlyText: {
-    minHeight: MIN_INPUT_HEIGHT,
-    color: theme.colors.foregroundMuted,
-  },
-  buttonRow: {
-    flexShrink: 0,
-    flexDirection: "row",
-    alignItems: "flex-end",
-    justifyContent: "space-between",
-    marginHorizontal: -6,
-  },
-  leftButtonGroup: {
-    minWidth: 0,
-    flexShrink: 1,
-    flexGrow: 1,
-    flexDirection: "row",
-    alignItems: "flex-end",
-    gap: theme.spacing[0],
-  },
-  rightButtonGroup: {
-    flexShrink: 0,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: theme.spacing[1],
-  },
-  attachButton: {
-    width: 28,
-    height: 28,
-    borderRadius: theme.borderRadius.full,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  attachButtonAnchor: {
-    width: 28,
-    height: 28,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  voiceButton: {
-    width: 28,
-    height: 28,
-    borderRadius: theme.borderRadius.full,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  voiceButtonRecording: {
-    backgroundColor: theme.colors.destructive,
-  },
-  // 32px circle, one size step up from the 28px ghost pills either side of it —
-  // the composer's one committed action. Filled foreground with a background-
-  // colour glyph (Codex); dims to opacity[50] instead of recolouring when idle-empty.
-  sendButton: {
-    width: 32,
-    height: 32,
-    borderRadius: theme.borderRadius.full,
-    backgroundColor: theme.colors.foreground,
-    alignItems: "center",
-    justifyContent: "center",
-    marginLeft: theme.spacing[1],
-    // Eases the idle <-> disabled-empty opacity[50] dim (§16) instead of snapping it, matching
-    // `inputWrapper`'s own focus-border-color transition above.
-    ...(isWeb
-      ? {
-          transitionProperty: "opacity",
-          transitionDuration: `${MOTION_DURATION.fast}ms`,
-          transitionTimingFunction: "ease-in-out",
-        }
-      : {}),
-  },
-  sendButtonLabeled: {
-    width: "auto",
-    minWidth: 32,
-    paddingHorizontal: theme.spacing[3],
-    borderRadius: theme.borderRadius.full,
-  },
-  sendButtonLabel: {
-    fontSize: theme.fontSize.base,
-    fontWeight: theme.fontWeight.medium,
-    color: theme.colors.background,
-  },
-  iconButtonHovered: {
-    backgroundColor: theme.colors.interactionHighlight,
-  },
-  tooltipRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: theme.spacing[2],
-  },
-  tooltipText: {
-    fontSize: theme.fontSize.base,
-    color: theme.colors.popoverForeground,
-  },
-  buttonDisabled: {
-    opacity: 0.5,
-  },
-  overlayContainer: {
-    position: "absolute",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    top: 0,
-    left: 0,
-    width: "100%",
-    height: "100%",
-    right: 0,
-    bottom: 0,
-  },
-})) as unknown as Record<string, object>;
+    // Dotted says "this surface is the same box, but there is nothing to type
+    // into it" without swapping the border colour, which reads as an error state.
+    inputWrapperReadOnly: {
+      borderStyle: "dotted",
+    },
+    textInputScrollWrapper: {
+      flexShrink: 1,
+      position: "relative",
+      // Matches `inputWrapper`'s own fill. During a height-shrink ease (C1, `height.web.ts`
+      // sets an explicit `height` here on web) the textarea shrinks to its new size a frame before
+      // this wrapper's CSS transition catches down to it — an opaque background here means that
+      // gap reads as card, not a flash of whatever sits behind it.
+      backgroundColor: composerFill,
+    },
+    focusHintText: {
+      position: "absolute",
+      top: 0,
+      right: 0,
+      fontSize: theme.fontSize.sm,
+      color: theme.colors.foregroundMuted,
+      opacity: 0.5,
+    },
+    textInput: {
+      // Preserve the controls when an ancestor constrains an overlong draft.
+      flexShrink: 1,
+      width: "100%",
+      color: theme.colors.foreground,
+      fontSize: theme.fontSize.content,
+      fontWeight: theme.fontWeight.normal,
+      lineHeight: theme.fontSize.content * 1.4,
+      ...(isWeb
+        ? ({
+            outlineStyle: "none",
+            outlineWidth: 0,
+            outlineColor: "transparent",
+          } as object)
+        : {}),
+    },
+    textInputMonospace: {
+      fontFamily: theme.fontFamily.mono,
+    },
+    readOnlyText: {
+      minHeight: MIN_INPUT_HEIGHT,
+      color: theme.colors.foregroundMuted,
+    },
+    buttonRow: {
+      flexShrink: 0,
+      flexDirection: "row",
+      alignItems: "flex-end",
+      justifyContent: "space-between",
+      marginHorizontal: -6,
+    },
+    leftButtonGroup: {
+      minWidth: 0,
+      flexShrink: 1,
+      flexGrow: 1,
+      flexDirection: "row",
+      alignItems: "flex-end",
+      gap: theme.spacing[0],
+    },
+    rightButtonGroup: {
+      flexShrink: 0,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: theme.spacing[1],
+    },
+    attachButton: {
+      width: 28,
+      height: 28,
+      borderRadius: theme.borderRadius.full,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    attachButtonAnchor: {
+      width: 28,
+      height: 28,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    voiceButton: {
+      width: 28,
+      height: 28,
+      borderRadius: theme.borderRadius.full,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    voiceButtonRecording: {
+      backgroundColor: theme.colors.destructive,
+    },
+    // 32px circle, one size step up from the 28px ghost pills either side of it —
+    // the composer's one committed action. Filled foreground with a background-
+    // colour glyph (Codex); dims to opacity[50] instead of recolouring when idle-empty.
+    sendButton: {
+      width: 32,
+      height: 32,
+      borderRadius: theme.borderRadius.full,
+      backgroundColor: theme.colors.foreground,
+      alignItems: "center",
+      justifyContent: "center",
+      marginLeft: theme.spacing[1],
+      // Eases the idle <-> disabled-empty opacity[50] dim (§16) instead of snapping it, matching
+      // `inputWrapper`'s own focus-border-color transition above.
+      ...(isWeb
+        ? {
+            transitionProperty: "opacity",
+            transitionDuration: `${MOTION_DURATION.fast}ms`,
+            transitionTimingFunction: "ease-in-out",
+          }
+        : {}),
+    },
+    sendButtonLabeled: {
+      width: "auto",
+      minWidth: 32,
+      paddingHorizontal: theme.spacing[3],
+      borderRadius: theme.borderRadius.full,
+    },
+    sendButtonLabel: {
+      fontSize: theme.fontSize.base,
+      fontWeight: theme.fontWeight.medium,
+      color: theme.colors.background,
+    },
+    iconButtonHovered: {
+      backgroundColor: theme.colors.interactionHighlight,
+    },
+    tooltipRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: theme.spacing[2],
+    },
+    tooltipText: {
+      fontSize: theme.fontSize.base,
+      color: theme.colors.popoverForeground,
+    },
+    buttonDisabled: {
+      opacity: 0.5,
+    },
+    overlayContainer: {
+      position: "absolute",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      top: 0,
+      left: 0,
+      width: "100%",
+      height: "100%",
+      right: 0,
+      bottom: 0,
+    },
+  };
+}) as unknown as Record<string, object>;
 
 const ThemedPlus = withUnistyles(Plus);
 const ThemedMic = withUnistyles(Mic);
