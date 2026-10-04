@@ -8,6 +8,7 @@ import type { Theme } from "@/styles/theme";
 
 const theme = {
   borderRadius: {
+    base: 4,
     md: 6,
     lg: 8,
     xl: 12,
@@ -110,15 +111,21 @@ describe("control geometry", () => {
     expect(geometry.formTextInputMd.paddingVertical).toBe(11);
   });
 
-  it("keeps segmented controls ghost with button-radius segments in a button-sized track", () => {
+  it("keeps segmented controls ghost in a button-sized track with one-step-tighter segments", () => {
     const geometry = createControlGeometry(theme);
 
     expect(geometry.segmentedContainerXs.padding).toBe(0);
     expect(geometry.segmentedContainerSm.padding).toBe(0);
     expect(geometry.segmentedContainerMd.padding).toBe(0);
-    expect(geometry.segmentedSegmentXs.borderRadius).toBe(geometry.buttonXs.borderRadius);
-    expect(geometry.segmentedSegmentSm.borderRadius).toBe(geometry.buttonSm.borderRadius);
-    expect(geometry.segmentedSegmentMd.borderRadius).toBe(geometry.buttonMd.borderRadius);
+    // Every button size shares one `md` radius; the selected segment sits one step
+    // tighter at `base`, since it's inset inside the track's own padding (docs/design.md
+    // "Finish").
+    expect(geometry.buttonXs.borderRadius).toBe(theme.borderRadius.md);
+    expect(geometry.buttonSm.borderRadius).toBe(theme.borderRadius.md);
+    expect(geometry.buttonMd.borderRadius).toBe(theme.borderRadius.md);
+    expect(geometry.segmentedSegmentXs.borderRadius).toBe(theme.borderRadius.base);
+    expect(geometry.segmentedSegmentSm.borderRadius).toBe(theme.borderRadius.base);
+    expect(geometry.segmentedSegmentMd.borderRadius).toBe(theme.borderRadius.base);
     expect(geometry.segmentedContainerXs.minHeight).toBe(geometry.buttonXs.minHeight);
     expect(geometry.segmentedContainerSm.minHeight).toBe(geometry.buttonSm.minHeight);
     expect(geometry.segmentedContainerMd.minHeight).toBe(geometry.buttonMd.minHeight);

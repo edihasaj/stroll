@@ -166,12 +166,14 @@ export function createControlGeometry(theme: Theme) {
     buttonMd: {
       minHeight: buttonControlHeight.md,
       paddingHorizontal: theme.spacing[4],
-      borderRadius: theme.borderRadius.lg,
+      // Every button size shares one radius (docs/design.md "Finish") — `md` (8), not a
+      // size-scaled step. Only height and padding grow with size.
+      borderRadius: theme.borderRadius.md,
     },
     buttonLg: {
       minHeight: buttonControlHeight.lg,
       paddingHorizontal: theme.spacing[6],
-      borderRadius: theme.borderRadius.xl,
+      borderRadius: theme.borderRadius.md,
     },
     buttonText: {
       fontSize: theme.fontSize.base,
@@ -233,17 +235,20 @@ export function createControlGeometry(theme: Theme) {
     segmentedSegmentXs: {
       minHeight: CONTROL_HEIGHTS.tight - SEGMENTED_TIGHT_INSET * 2,
       paddingHorizontal: theme.spacing[2],
-      borderRadius: theme.borderRadius.md,
+      // One step tighter than the track's own `md` radius (docs/design.md "Finish") — the
+      // selected segment is inset inside the track's padding, so a matching radius reads as
+      // too loose for its smaller box.
+      borderRadius: theme.borderRadius.base,
     },
     segmentedSegmentSm: {
       minHeight: CONTROL_HEIGHTS.compact - SEGMENTED_COMPACT_INSET * 2,
       paddingHorizontal: theme.spacing[2],
-      borderRadius: theme.borderRadius.md,
+      borderRadius: theme.borderRadius.base,
     },
     segmentedSegmentMd: {
       minHeight: CONTROL_HEIGHTS.field - SEGMENTED_FIELD_INSET * 2,
       paddingHorizontal: theme.spacing[3],
-      borderRadius: theme.borderRadius.lg,
+      borderRadius: theme.borderRadius.base,
     },
     segmentedLabelXs: {
       fontSize: theme.fontSize.sm,

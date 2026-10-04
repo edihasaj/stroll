@@ -36,6 +36,9 @@ export interface IconButtonChromeState {
   pressed?: boolean;
   open?: boolean;
   active?: boolean;
+  /** Keyboard (or native) focus — draws `theme.shadow.focusRing` around the circle without
+   * changing its fill, so a tabbed-to icon button stays legible on its own hover/open state. */
+  focused?: boolean;
 }
 
 function resolveIconButtonFrame(size: IconButtonChromeSize, compact: boolean) {
@@ -76,6 +79,10 @@ export function iconButtonChromeStyle({
     // B3): a circular icon button reads a fill-only press as no feedback at all, since the fill
     // is often already there from hover.
     state?.pressed ? styles.pressed : null,
+    // Focus draws a ring, not a fill change (docs/design.md "Finish") — it composes on top of
+    // the highlighted/pressed fill instead of replacing it, so tabbing to an already-hovered
+    // button doesn't look like it lost its hover state.
+    state?.focused ? styles.focused : null,
     disabled ? styles.disabled : null,
   ];
 }
@@ -147,6 +154,9 @@ const styles = StyleSheet.create((theme) => ({
   // (docs/ui-gap-gpt.md B3). Disabled stays opacity-only and never combines with this.
   pressed: {
     transform: [{ scale: 0.98 }],
+  },
+  focused: {
+    boxShadow: theme.shadow.focusRing,
   },
   disabled: {
     opacity: theme.opacity[50],
