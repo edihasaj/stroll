@@ -25,7 +25,7 @@ import {
   Plus,
   X,
 } from "lucide-react-native";
-import { StyleSheet, withUnistyles } from "react-native-unistyles";
+import { StyleSheet, UnistylesRuntime, withUnistyles } from "react-native-unistyles";
 import Animated from "react-native-reanimated";
 import { useTranslation } from "react-i18next";
 import { SortableInlineList } from "@/components/sortable-inline-list";
@@ -639,7 +639,15 @@ function useMiddleClickClose(onClose: () => void) {
   return ref;
 }
 
-/** The chip fill the running-status ring has to knock out of. Mirrors `styles.tab*` exactly. */
+/**
+ * The chip fill the running-status ring has to knock out of. Mirrors `styles.tab*`
+ * exactly — including the active tab's fill, which is scheme-dependent (see
+ * docs/design.md "Finish"): light has nowhere brighter than the bar itself to lift
+ * to, so the active chip stays `surface0` and lifts with a shadow instead; dark
+ * lifts onto `surface2`. `UnistylesRuntime.getTheme()` is a direct, non-reactive
+ * read used only to pick the right prop value (docs/unistyles.md "Alternative 3"),
+ * not a style — the surrounding row re-renders on every theme change regardless.
+ */
 function resolveChipBackdrop({
   isActiveFocused,
   isFilled,
@@ -647,7 +655,9 @@ function resolveChipBackdrop({
   isActiveFocused: boolean;
   isFilled: boolean;
 }): SurfaceBackdrop {
-  if (isActiveFocused) return "surface2";
+  if (isActiveFocused) {
+    return UnistylesRuntime.getTheme().colorScheme === "dark" ? "surface2" : "surface0";
+  }
   return isFilled ? "surface1" : "surface0";
 }
 
@@ -1537,7 +1547,9 @@ const styles = StyleSheet.create((theme) => ({
     minWidth: 0,
     height: WORKSPACE_SECONDARY_HEADER_HEIGHT,
     borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
+    // The in-surface divider under the tab strip, not the app's outer chrome edge
+    // — see docs/design.md "Finish".
+    borderBottomColor: theme.colors.borderDivider,
     backgroundColor: theme.colors.surface0,
     flexDirection: "row",
     alignItems: "center",
@@ -1595,8 +1607,12 @@ const styles = StyleSheet.create((theme) => ({
   tabHovered: {
     backgroundColor: theme.colors.surface1,
   },
+  // Light has nowhere brighter than the bar itself (`surface0`) to lift the active
+  // tab to, so it lifts with `shadow.xs` instead; dark lifts onto `surface2` with
+  // an inset highlight. See docs/design.md "Finish".
   tabActive: {
-    backgroundColor: theme.colors.surface2,
+    backgroundColor: theme.colorScheme === "dark" ? theme.colors.surface2 : theme.colors.surface0,
+    boxShadow: theme.colorScheme === "dark" ? theme.shadow.insetHighlight : theme.shadow.xs,
   },
   tabActiveUnfocused: {
     backgroundColor: theme.colors.surface1,

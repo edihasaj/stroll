@@ -199,7 +199,11 @@ export function createMarkdownStyles(theme: Theme) {
       backgroundColor: theme.colors.surface2,
       color: theme.colors.foreground,
       padding: theme.spacing[3],
-      borderRadius: theme.borderRadius.md,
+      // Code block chrome sits one step looser than the row/control scale — see
+      // docs/design.md "Finish" radius mapping.
+      borderRadius: theme.borderRadius.lg,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
       fontFamily: theme.fontFamily.mono,
       fontSize: theme.fontSize.code,
       marginVertical: theme.spacing[2],
@@ -210,7 +214,7 @@ export function createMarkdownStyles(theme: Theme) {
       backgroundColor: theme.colors.surface2,
       color: theme.colors.foreground,
       padding: theme.spacing[3],
-      borderRadius: theme.borderRadius.md,
+      borderRadius: theme.borderRadius.lg,
       borderWidth: 1,
       borderColor: theme.colors.border,
       fontFamily: theme.fontFamily.mono,

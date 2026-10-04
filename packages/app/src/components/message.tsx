@@ -429,7 +429,13 @@ const userMessageStylesheet = StyleSheet.create((theme) => ({
     backgroundColor: theme.colors.secondary,
     // Uniform corners. The clipped top-right corner read as a speech-bubble tail, which is a
     // messaging-app idiom this transcript does not otherwise use.
-    borderRadius: theme.borderRadius["2xl"],
+    //
+    // `xl` — the card/surface radius, not the composer's looser `2xl` (docs/design.md
+    // "Finish") — plus a hairline border so the tint reads as a bounded surface rather
+    // than a flat color wash.
+    borderRadius: theme.borderRadius.xl,
+    borderWidth: theme.borderWidth[1],
+    borderColor: theme.colors.border,
     paddingHorizontal: theme.spacing[3.5],
     paddingVertical: theme.spacing[2.5],
     minWidth: 0,
@@ -765,6 +771,7 @@ const assistantTurnFooterStylesheet = StyleSheet.create((theme) => ({
     color: theme.colors.foregroundMuted,
     fontSize: STREAM_METADATA_FONT_SIZE,
     opacity: 0,
+    ...theme.tabularNums,
   },
   labelOverlay: {
     position: "absolute",
@@ -772,6 +779,7 @@ const assistantTurnFooterStylesheet = StyleSheet.create((theme) => ({
     left: 0,
     color: theme.colors.foregroundMuted,
     fontSize: STREAM_METADATA_FONT_SIZE,
+    ...theme.tabularNums,
   },
 }));
 
@@ -1332,8 +1340,10 @@ const expandableBadgeStylesheet = StyleSheet.create((theme) => ({
   containerLastInSequence: {
     marginBottom: theme.spacing[4],
   },
+  // `md` — the row radius (docs/design.md "Finish") — the activity row expands in
+  // place rather than navigating, so it reads as a row, not a card.
   pressable: {
-    borderRadius: theme.borderRadius.lg,
+    borderRadius: theme.borderRadius.md,
     borderWidth: theme.borderWidth[1],
     borderColor: "transparent",
     paddingHorizontal: theme.spacing[2],
@@ -1415,8 +1425,9 @@ const expandableBadgeStylesheet = StyleSheet.create((theme) => ({
     height: 14,
   },
   detailWrapper: {
-    borderBottomLeftRadius: theme.borderRadius.lg,
-    borderBottomRightRadius: theme.borderRadius.lg,
+    // Matches `pressable`'s radius so the expanded detail traces the same shape.
+    borderBottomLeftRadius: theme.borderRadius.md,
+    borderBottomRightRadius: theme.borderRadius.md,
     borderWidth: theme.borderWidth[1],
     borderTopWidth: 0,
     borderColor: theme.colors.border,
