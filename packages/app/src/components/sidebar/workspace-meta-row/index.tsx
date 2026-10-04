@@ -387,12 +387,14 @@ const styles = StyleSheet.create((theme) => ({
     fontSize: theme.fontSize.sm,
     lineHeight: 16,
     flexShrink: 0,
+    ...theme.tabularNums,
   },
   prTextHovered: {
     color: theme.colors.foreground,
     fontSize: theme.fontSize.sm,
     lineHeight: 16,
     flexShrink: 0,
+    ...theme.tabularNums,
   },
   // Matches the indicator — see COLOR_MAPPINGS in check-indicator.tsx.
   checksTextPassed: {

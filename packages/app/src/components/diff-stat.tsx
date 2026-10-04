@@ -29,10 +29,12 @@ const styles = StyleSheet.create((theme) => ({
     fontSize: theme.fontSize.sm,
     fontWeight: theme.fontWeight.normal,
     color: theme.colors.statusSuccess,
+    ...theme.tabularNums,
   },
   deletions: {
     fontSize: theme.fontSize.sm,
     fontWeight: theme.fontWeight.normal,
     color: theme.colors.statusDanger,
+    ...theme.tabularNums,
   },
 }));

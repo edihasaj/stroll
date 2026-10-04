@@ -976,7 +976,9 @@ const styles = StyleSheet.create((theme) => ({
     paddingHorizontal: theme.spacing[2],
     paddingVertical: theme.spacing[2],
     borderTopWidth: 1,
-    borderTopColor: theme.colors.border,
+    // The footer separator is an in-surface divider, not the sidebar's outer edge
+    // — see docs/design.md "Finish".
+    borderTopColor: theme.colors.borderDivider,
   },
   // Rail (SB1): the identity avatar and the icon row no longer fit side by
   // side at 56px, so the footer stacks them instead.
@@ -986,7 +988,7 @@ const styles = StyleSheet.create((theme) => ({
     gap: theme.spacing[1.5],
     paddingVertical: theme.spacing[2],
     borderTopWidth: 1,
-    borderTopColor: theme.colors.border,
+    borderTopColor: theme.colors.borderDivider,
   },
   footerIconRow: {
     flexDirection: "row",

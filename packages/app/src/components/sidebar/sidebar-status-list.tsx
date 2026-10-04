@@ -1174,7 +1174,8 @@ const styles = StyleSheet.create((theme) => ({
     minHeight: 36,
     paddingVertical: theme.spacing[2],
     paddingHorizontal: theme.spacing[2],
-    borderRadius: theme.borderRadius.lg,
+    // Sidebar rows sit on `md` — see docs/design.md "Finish" radius mapping.
+    borderRadius: theme.borderRadius.md,
     marginBottom: theme.spacing[2],
     flexDirection: "row",
     alignItems: "center",
@@ -1241,7 +1242,8 @@ const styles = StyleSheet.create((theme) => ({
     paddingVertical: theme.spacing[2],
     paddingLeft: theme.spacing[2],
     paddingRight: theme.spacing[3],
-    borderRadius: theme.borderRadius.lg,
+    // Sidebar rows sit on `md` — see docs/design.md "Finish" radius mapping.
+    borderRadius: theme.borderRadius.md,
     flexDirection: "column",
     alignItems: "stretch",
     justifyContent: "flex-start",
