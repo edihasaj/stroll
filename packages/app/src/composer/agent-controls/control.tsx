@@ -7,7 +7,7 @@ import { useComposerControlLayout } from "@/composer/agent-controls/layout-conte
 import { COMPOSER_TOOLBAR_GEOMETRY } from "@/composer/agent-controls/layout";
 import { ComposerToolbarGlyph } from "@/composer/agent-controls/glyph";
 import type { AgentControlIcon } from "@/agent-controls/icons";
-import type { Theme } from "@/styles/theme";
+import { tabularNums, type Theme } from "@/styles/theme";
 
 // Quieter than the combobox's own default 14px chevron (docs/design.md §16's
 // 28px ghost pill geometry). components/ui/combobox-trigger.tsx is out of scope
@@ -59,11 +59,16 @@ export const AgentControlTrigger = forwardRef<View, AgentControlTriggerProps>(
     const resolvedIconColor = iconColor ?? styles.iconColor.color;
     const showValue = isSheet || showToolbarLabel;
     const triggerStyle = useCallback(
-      ({ pressed, hovered }: PressableStateCallbackType) => [
+      ({
+        pressed,
+        hovered,
+        focused,
+      }: PressableStateCallbackType & { hovered?: boolean; focused?: boolean }) => [
         isSheet ? styles.sheetRow : styles.toolbarControl,
         !isSheet && !showToolbarLabel && styles.toolbarIconOnly,
         hovered && (isSheet ? styles.sheetRowInteractive : styles.hovered),
         (pressed || open) && (isSheet ? styles.sheetRowInteractive : styles.open),
+        focused && styles.focused,
         disabled && styles.disabled,
       ],
       [disabled, isSheet, open, showToolbarLabel],
@@ -149,6 +154,9 @@ const styles = StyleSheet.create((theme) => ({
     color: theme.colors.foregroundMuted,
     fontSize: theme.fontSize.sm,
     fontWeight: theme.fontWeight.normal,
+    // Harmless on label text, keeps digits from shifting width the moment a trigger's value
+    // carries a count (docs/design.md "Finish").
+    ...tabularNums,
   },
   sheetRow: {
     minHeight: 44,
@@ -185,12 +193,19 @@ const styles = StyleSheet.create((theme) => ({
     color: theme.colors.foregroundMuted,
     fontSize: theme.fontSize.base,
     fontWeight: theme.fontWeight.normal,
+    ...tabularNums,
   },
   hovered: {
     backgroundColor: theme.colors.interactionHighlight,
   },
   open: {
     backgroundColor: theme.colors.surface2,
+  },
+  // `boxShadow` only, never `borderWidth` — these pills have no resting border, and a
+  // focus-only border would nudge their fixed-height content by a pixel on tab (docs/hover.md's
+  // "don't change the trigger's outer geometry" rule, which applies just as well to focus).
+  focused: {
+    boxShadow: theme.shadow.focusRing,
   },
   disabled: {
     opacity: 0.5,

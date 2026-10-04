@@ -657,6 +657,10 @@ export const TEXT_TRACKING = {
   tight2xl: -0.3, // fontSize["2xl"] (20)
   tight3xl: -0.3, // fontSize["3xl"] (22)
   tight4xl: -0.4, // fontSize["4xl"] (26)
+  // The primary button label only (`<Button variant="default">`) — a hair past -0.005em at
+  // fontSize.base (14), so the one filled CTA per surface reads slightly denser than every
+  // other button's untracked label. See docs/design.md "Finish".
+  button: -0.07,
 } as const;
 
 // `fontVariant` helper for counts, timestamps, diff stats, and token counts — anywhere
