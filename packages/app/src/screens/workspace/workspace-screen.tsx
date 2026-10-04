@@ -4312,7 +4312,7 @@ const styles = StyleSheet.create((theme) => ({
   mobileTabsRow: {
     backgroundColor: theme.colors.surface0,
     borderBottomWidth: theme.borderWidth[1],
-    borderBottomColor: theme.colors.border,
+    borderBottomColor: theme.colors.borderDivider,
   },
   switcherTrigger: {
     flexDirection: "row",
@@ -4346,7 +4346,7 @@ const styles = StyleSheet.create((theme) => ({
   },
   tabsContainer: {
     borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
+    borderBottomColor: theme.colors.borderDivider,
     backgroundColor: theme.colors.surface0,
     flexDirection: "row",
     alignItems: "center",

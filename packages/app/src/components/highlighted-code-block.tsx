@@ -1,5 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Pressable, View, type StyleProp, type TextStyle, type ViewStyle } from "react-native";
+import {
+  Pressable,
+  Text,
+  View,
+  type StyleProp,
+  type TextStyle,
+  type ViewStyle,
+} from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 import { MarkdownTextSpan } from "@/components/markdown-text";
 import * as Clipboard from "expo-clipboard";
@@ -60,10 +67,9 @@ export const HighlightedCodeBlock = React.memo(function HighlightedCodeBlock({
   inheritedStyles,
   textStyle,
 }: HighlightedCodeBlockProps) {
-  // Box styles (bg / padding / border / radius / margin) go on the wrapper View
-  // so the absolute copy button positions relative to the visible code area,
-  // not to a parent that includes the Text's own marginVertical.
-  const { containerStyle, innerTextStyle } = useMemo(
+  // Box styles (bg / border / radius / margin) go on the outer wrapper; padding
+  // moves to the code body so the header bar can sit flush against the top edge.
+  const { containerStyle, innerTextStyle, codePadding } = useMemo(
     () => splitFenceStyle(inheritedStyles, textStyle),
     [inheritedStyles, textStyle],
   );
@@ -95,16 +101,24 @@ export const HighlightedCodeBlock = React.memo(function HighlightedCodeBlock({
       onPointerEnter={handlePointerEnter}
       onPointerLeave={handlePointerLeave}
     >
-      {keyedLines ? (
-        <MarkdownTextSpan style={innerTextStyle} copyTag="code">
-          {renderCodeSegments(keyedLines)}
-        </MarkdownTextSpan>
-      ) : (
-        <MarkdownTextSpan style={innerTextStyle} copyTag="code">
-          {renderedCode}
-        </MarkdownTextSpan>
-      )}
-      <CopyButton getCode={getCode} visible={controlsVisible} />
+      {/* Chrome, not content — excluded from copy/selection the same way the button
+          below always has been (`markdownCopyDataSet.ignore`). The code tag stays on
+          the text span further down so `:scope code` still resolves it under `pre`. */}
+      <View style={fenceChromeStyles.header} dataSet={markdownCopyDataSet.ignore}>
+        {language ? <Text style={fenceChromeStyles.headerLabel}>{language}</Text> : <View />}
+        <CopyButton getCode={getCode} visible={controlsVisible} />
+      </View>
+      <View style={[fenceChromeStyles.codeBody, codePadding]}>
+        {keyedLines ? (
+          <MarkdownTextSpan style={innerTextStyle} copyTag="code">
+            {renderCodeSegments(keyedLines)}
+          </MarkdownTextSpan>
+        ) : (
+          <MarkdownTextSpan style={innerTextStyle} copyTag="code">
+            {renderedCode}
+          </MarkdownTextSpan>
+        )}
+      </View>
     </View>
   );
 });
@@ -146,13 +160,19 @@ const CodeTextSpan = React.memo(function CodeTextSpan({ text }: CodeTextSpanProp
 interface SplitStyles {
   containerStyle: StyleProp<ViewStyle>;
   innerTextStyle: StyleProp<TextStyle>;
+  codePadding: ViewStyle;
 }
 
 const CONTAINER_BASE: ViewStyle = { position: "relative" };
 const WEB_SELECTABLE: TextStyle = isWeb ? ({ userSelect: "text" } as TextStyle) : {};
+const EMPTY_PADDING: ViewStyle = {};
 
+// Padding moves off the outer box and onto the code body: the header bar (language
+// label + copy button) needs to sit flush against the block's top edge, divided
+// from the code underneath by its own border rather than inheriting the block's
+// padding on all four sides.
 function splitFenceStyle(inheritedStyles: TextStyle, textStyle: TextStyle): SplitStyles {
-  const { fontFamily, fontSize, color, ...box } = textStyle;
+  const { fontFamily, fontSize, color, padding, ...box } = textStyle;
   const textOnly: TextStyle = { ...WEB_SELECTABLE };
   if (fontFamily !== undefined) textOnly.fontFamily = fontFamily;
   if (fontSize !== undefined) textOnly.fontSize = fontSize;
@@ -161,6 +181,7 @@ function splitFenceStyle(inheritedStyles: TextStyle, textStyle: TextStyle): Spli
   return {
     containerStyle: [box as ViewStyle, CONTAINER_BASE],
     innerTextStyle: [inheritedStyles, textOnly],
+    codePadding: padding !== undefined ? { padding } : EMPTY_PADDING,
   };
 }
 
@@ -228,10 +249,9 @@ const CopyButton = React.memo(function CopyButton({ getCode, visible }: CopyButt
 });
 
 const copyButtonStyles = StyleSheet.create((theme) => ({
+  // Sits inline in the header row now, not pinned over the code — the header bar is
+  // the hover/action surface, so the button no longer needs its own absolute offset.
   container: {
-    position: "absolute",
-    top: theme.spacing[2],
-    right: theme.spacing[2],
     padding: theme.spacing[1],
   },
   containerVisible: {
@@ -245,5 +265,28 @@ const copyButtonStyles = StyleSheet.create((theme) => ({
   },
   iconHoveredColor: {
     color: theme.colors.foreground,
+  },
+}));
+
+// The code block's header bar — language label on the left, copy action on the
+// right — separated from the code body by `borderDivider`, the same hairline the
+// rest of the app uses for an in-surface separator (docs/design.md "Finish").
+const fenceChromeStyles = StyleSheet.create((theme) => ({
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: theme.spacing[3],
+    paddingVertical: theme.spacing[1.5],
+    borderBottomWidth: theme.borderWidth[1],
+    borderBottomColor: theme.colors.borderDivider,
+  },
+  headerLabel: {
+    color: theme.colors.foregroundMuted,
+    fontFamily: theme.fontFamily.mono,
+    fontSize: theme.fontSize.sm,
+  },
+  codeBody: {
+    minWidth: 0,
   },
 }));

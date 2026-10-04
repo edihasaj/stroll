@@ -1785,11 +1785,11 @@ const styles = StyleSheet.create((theme) => ({
     bottom: 0,
     left: 0,
   },
+  // `shadow.md` already carries its own 1px ring (docs/design.md "Finish"), so the
+  // panel drops the separate `borderAccent` hairline it used to pair with it.
   desktopContainer: {
     backgroundColor: theme.colors.surface1,
     borderRadius: theme.borderRadius.xl,
-    borderWidth: 1,
-    borderColor: theme.colors.borderAccent,
     boxShadow: theme.shadow.md,
     maxHeight: 400,
     overflow: "hidden",

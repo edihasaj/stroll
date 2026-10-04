@@ -395,6 +395,7 @@ const prBadgeStyles = StyleSheet.create((theme) => ({
     fontWeight: theme.fontWeight.normal,
     lineHeight: 14,
     color: theme.colors.foregroundMuted,
+    ...theme.tabularNums,
   },
   textHovered: {
     color: theme.colors.foreground,
@@ -2532,7 +2533,8 @@ const styles = StyleSheet.create((theme) => ({
     paddingVertical: theme.spacing[2],
     paddingLeft: theme.spacing[4],
     paddingRight: theme.spacing[3],
-    borderRadius: theme.borderRadius.lg,
+    // Sidebar rows sit on `md` — see docs/design.md "Finish" radius mapping.
+    borderRadius: theme.borderRadius.md,
     flexDirection: "row",
     alignItems: "center",
     gap: theme.spacing[2],
@@ -2570,7 +2572,8 @@ const styles = StyleSheet.create((theme) => ({
     minHeight: 36,
     paddingVertical: theme.spacing[2],
     paddingHorizontal: theme.spacing[2],
-    borderRadius: theme.borderRadius.lg,
+    // Sidebar rows sit on `md` — see docs/design.md "Finish" radius mapping.
+    borderRadius: theme.borderRadius.md,
     marginBottom: theme.spacing[1],
     flexDirection: "row",
     alignItems: "center",
@@ -2694,7 +2697,8 @@ const styles = StyleSheet.create((theme) => ({
     paddingVertical: theme.spacing[2],
     paddingLeft: theme.spacing[2],
     paddingRight: theme.spacing[3],
-    borderRadius: theme.borderRadius.lg,
+    // Sidebar rows sit on `md` — see docs/design.md "Finish" radius mapping.
+    borderRadius: theme.borderRadius.md,
     flexDirection: "column",
     alignItems: "stretch",
     justifyContent: "center",
@@ -2752,7 +2756,8 @@ const styles = StyleSheet.create((theme) => ({
   },
   workspaceArchivingOverlay: {
     ...StyleSheet.absoluteFillObject,
-    borderRadius: theme.borderRadius.lg,
+    // Matches `workspaceRow`'s radius so the overlay traces the same shape.
+    borderRadius: theme.borderRadius.md,
     backgroundColor: `${theme.colors.surface0}cc`,
     alignItems: "center",
     justifyContent: "center",

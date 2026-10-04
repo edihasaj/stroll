@@ -605,13 +605,14 @@ const styles = StyleSheet.create((theme) => ({
     left: 0,
     zIndex: OVERLAY_Z.tooltip,
   },
+  // Tooltips sit one radius step tighter than menus/popovers (`md`, not `xl` — see
+  // docs/design.md "Finish"). `shadow.md` already carries its own 1px ring, so the
+  // separate `borderAccent` hairline comes off.
   content: {
     paddingVertical: theme.spacing[1],
     paddingHorizontal: theme.spacing[2],
-    borderRadius: theme.borderRadius.xl,
+    borderRadius: theme.borderRadius.md,
     backgroundColor: theme.colors.popover,
-    borderWidth: theme.borderWidth[1],
-    borderColor: theme.colors.borderAccent,
     boxShadow: theme.shadow.md,
     zIndex: 1000,
   },

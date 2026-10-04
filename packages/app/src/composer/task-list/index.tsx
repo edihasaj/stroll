@@ -134,12 +134,16 @@ const styles = StyleSheet.create((theme) => ({
   // `width: 100%` forces `ComposerTrackBar`'s track row to wrap the rest of that row's pills
   // (subagents, diff stat, plugin pills) onto the line below, so the card reads as its own row
   // directly above the composer rather than squeezed between them.
+  // Same card finish as settings (docs/design.md "Finish"): light lifts with a
+  // soft shadow on a brighter fill, dark lifts with an inset highlight on its own
+  // surface step. Both keep the hairline border underneath the elevation.
   card: {
     width: "100%",
     borderWidth: theme.borderWidth[1],
     borderColor: theme.colors.border,
-    borderRadius: theme.borderRadius.lg,
-    backgroundColor: theme.colors.surface1,
+    borderRadius: theme.borderRadius.xl,
+    backgroundColor: theme.colorScheme === "dark" ? theme.colors.surface1 : theme.colors.surface0,
+    boxShadow: theme.colorScheme === "dark" ? theme.shadow.insetHighlight : theme.shadow.xs,
     overflow: "hidden",
   },
   header: {
@@ -167,11 +171,13 @@ const styles = StyleSheet.create((theme) => ({
   summary: {
     color: theme.colors.foregroundMuted,
     fontSize: theme.fontSize.sm,
+    ...theme.tabularNums,
   },
   rows: {
     maxHeight: TASK_ROWS_MAX_HEIGHT,
     borderTopWidth: theme.borderWidth[1],
-    borderTopColor: theme.colors.border,
+    // In-card divider, not the card's own outer hairline — docs/design.md "Finish".
+    borderTopColor: theme.colors.borderDivider,
   },
   rowsContent: {
     paddingHorizontal: theme.spacing[3],

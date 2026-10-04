@@ -544,7 +544,8 @@ const styles = StyleSheet.create((theme) => ({
   },
   separator: {
     height: 1,
-    backgroundColor: theme.colors.border,
+    // In-card row divider, not the card's own outer hairline (docs/design.md "Finish").
+    backgroundColor: theme.colors.borderDivider,
   },
   mobileCard: {
     padding: theme.spacing[4],

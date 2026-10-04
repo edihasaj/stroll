@@ -10,13 +10,16 @@ import type { MutableDaemonConfig } from "@getpaseo/protocol/messages";
 const { theme, snapshotState, configState, patchConfigMock, openProviderSettingsMock } = vi.hoisted(
   () => ({
     theme: {
+      colorScheme: "light" as const,
       spacing: { 1: 4, "1.5": 6, 2: 8, 3: 12, 4: 16, 6: 24 },
       iconSize: { sm: 14, md: 20 },
       fontSize: { xs: 11, sm: 13, base: 15 },
       fontWeight: { normal: "400" },
-      borderRadius: { lg: 8 },
+      borderRadius: { lg: 8, xl: 14 },
       opacity: { 50: 0.5 },
+      shadow: { xs: "shadow-xs", insetHighlight: "inset-highlight" },
       colors: {
+        surface0: "#000",
         surface1: "#111",
         surface2: "#222",
         surface3: "#333",

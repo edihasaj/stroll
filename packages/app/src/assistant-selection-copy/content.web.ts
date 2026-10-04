@@ -430,7 +430,10 @@ function restoreMarkdownElements(container: HTMLElement): void {
     }
     if (tagName === "pre") {
       const language = element.getAttribute(MARKDOWN_COPY_LANGUAGE_ATTRIBUTE);
-      const code = semanticElement.querySelector(":scope > code");
+      // Not `:scope > code` — the code block's header bar (language label + copy
+      // button) wraps the code span in its own body container, so `code` sits one
+      // level deeper under `pre` than it used to.
+      const code = semanticElement.querySelector(":scope code");
       if (language && code) {
         code.className = `language-${language}`;
       }

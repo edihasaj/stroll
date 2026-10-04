@@ -469,7 +469,8 @@ const styles = StyleSheet.create((theme) => ({
     padding: theme.spacing[4],
     gap: theme.spacing[3],
     borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
+    // In-card row divider, matching `settingsStyles.rowBorder` — docs/design.md "Finish".
+    borderBottomColor: theme.colors.borderDivider,
   },
   pluginTitle: { flexDirection: "row", alignItems: "center", gap: theme.spacing[2] },
   actions: { flexDirection: "row", flexWrap: "wrap", gap: theme.spacing[2] },
