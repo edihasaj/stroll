@@ -14,7 +14,8 @@ import Animated, {
 } from "react-native-reanimated";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { createControlGeometry, switchGeometry } from "@/components/ui/control-geometry";
-import type { Theme } from "@/styles/theme";
+import { useAppReducedMotion } from "@/hooks/use-app-reduced-motion";
+import { MOTION_DURATION, type Theme } from "@/styles/theme";
 
 interface SwitchProps {
   value: boolean;
@@ -25,27 +26,35 @@ interface SwitchProps {
   style?: StyleProp<ViewStyle>;
 }
 
-const TIMING = { duration: 180, easing: Easing.inOut(Easing.ease) };
+const EASING = Easing.inOut(Easing.ease);
 
 interface SwitchTrackProps {
   value: boolean;
+  duration: number;
   trackOffColor: string;
   trackOnColor: string;
+  // "transparent" in dark — only light draws a hairline on the off track (docs/design.md
+  // "Finish"), since the on-track's accent fill never needs one.
+  trackBorderOffColor: string;
   thumbOffColor: string;
   thumbOnColor: string;
 }
 
 function SwitchTrack({
   value,
+  duration,
   trackOffColor,
   trackOnColor,
+  trackBorderOffColor,
   thumbOffColor,
   thumbOnColor,
 }: SwitchTrackProps) {
-  const progress = useDerivedValue(() => withTiming(value ? 1 : 0, TIMING));
+  const timing = useMemo(() => ({ duration, easing: EASING }), [duration]);
+  const progress = useDerivedValue(() => withTiming(value ? 1 : 0, timing));
 
   const trackAnimatedStyle = useAnimatedStyle(() => ({
     backgroundColor: interpolateColor(progress.value, [0, 1], [trackOffColor, trackOnColor]),
+    borderColor: interpolateColor(progress.value, [0, 1], [trackBorderOffColor, "transparent"]),
   }));
 
   const thumbAnimatedStyle = useAnimatedStyle(() => ({
@@ -69,6 +78,7 @@ function SwitchTrack({
 const ThemedSwitchTrack = withUnistyles(SwitchTrack, (theme: Theme) => ({
   trackOffColor: theme.colors.surface3,
   trackOnColor: theme.colors.accent,
+  trackBorderOffColor: theme.colorScheme === "light" ? theme.colors.border : "transparent",
   thumbOffColor: theme.colors.palette.white,
   thumbOnColor: theme.colors.accentForeground,
 }));
@@ -81,6 +91,8 @@ export function Switch({
   testID,
   style,
 }: SwitchProps) {
+  const reducedMotion = useAppReducedMotion();
+  const duration = reducedMotion ? 0 : MOTION_DURATION.base;
   const handlePress = useCallback(
     (event: GestureResponderEvent) => {
       event.stopPropagation();
@@ -108,13 +120,14 @@ export function Switch({
       testID={testID}
       style={pressableStyle}
     >
-      <ThemedSwitchTrack value={value} />
+      <ThemedSwitchTrack value={value} duration={duration} />
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create((theme) => {
   const geometry = createControlGeometry(theme);
+  const trackBorderWidth = theme.borderWidth[1];
 
   return {
     switchControl: {
@@ -124,7 +137,11 @@ const styles = StyleSheet.create((theme) => {
       width: switchGeometry.trackWidth,
       height: switchGeometry.trackHeight,
       borderRadius: switchGeometry.trackHeight / 2,
-      padding: (switchGeometry.trackHeight - switchGeometry.thumbSize) / 2,
+      // Border width eats into the box the same way on every theme (only its colour animates
+      // to transparent on dark/on-state), so `thumbTravel`'s shared math never drifts between
+      // themes — see docs/design.md "Finish".
+      borderWidth: trackBorderWidth,
+      padding: (switchGeometry.trackHeight - switchGeometry.thumbSize) / 2 - trackBorderWidth,
       justifyContent: "center",
     },
     switchThumb: {
@@ -133,11 +150,7 @@ const styles = StyleSheet.create((theme) => {
       borderRadius: switchGeometry.thumbSize / 2,
     },
     thumb: {
-      shadowColor: "rgba(0, 0, 0, 0.25)",
-      shadowOffset: { width: 0, height: 1 },
-      shadowRadius: 2,
-      shadowOpacity: 1,
-      elevation: 2,
+      boxShadow: theme.shadow.xs,
     },
     disabled: {
       opacity: theme.opacity[50],

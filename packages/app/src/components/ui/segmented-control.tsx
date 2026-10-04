@@ -168,7 +168,11 @@ const styles = StyleSheet.create((theme) => {
       flexDirection: "row",
       alignItems: "center",
       backgroundColor: theme.colors.surface2,
-      borderRadius: theme.borderRadius.lg,
+      borderWidth: theme.borderWidth[1],
+      borderColor: theme.colors.border,
+      // Matches the button radius of the same size tier (docs/design.md "Finish"); the
+      // selected segment sits one step tighter at `base` — see control-geometry.ts.
+      borderRadius: theme.borderRadius.md,
       gap: theme.spacing[1],
     },
     containerXs: {
@@ -198,7 +202,7 @@ const styles = StyleSheet.create((theme) => {
     },
     segmentSelected: {
       backgroundColor: theme.colors.background,
-      boxShadow: theme.shadow.sm,
+      boxShadow: theme.shadow.xs,
     },
     segmentHover: {
       backgroundColor: theme.colors.surface2,

@@ -1,6 +1,7 @@
 import React, { useMemo, type ReactNode } from "react";
 import { View, Text } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
+import { tabularNums } from "@/styles/theme";
 
 export type StatusBadgeVariant = "success" | "warning" | "error" | "muted";
 
@@ -43,8 +44,12 @@ const styles = StyleSheet.create((theme) => ({
   },
   pillText: {
     fontSize: theme.fontSize.sm,
-    fontWeight: theme.fontWeight.normal,
+    // Pills carry the structural-label weight (docs/design.md "Finish" and §14's badge-text
+    // exception) and tabular digits, since many callers pass a live count ("3 running",
+    // docs/design.md §12).
+    fontWeight: theme.fontWeight.medium,
     color: theme.colors.foregroundMuted,
+    ...tabularNums,
   },
   pillTextSuccess: {
     color: theme.colors.statusSuccess,

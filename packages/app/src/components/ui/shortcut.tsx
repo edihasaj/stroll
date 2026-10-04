@@ -3,6 +3,7 @@ import { Text, View, type StyleProp, type TextStyle, type ViewStyle } from "reac
 import { StyleSheet } from "react-native-unistyles";
 import { useKeyboardShortcutsAvailable } from "@/keyboard/availability";
 import { normalizeDisplayChord } from "@/components/ui/normalize-display-chord";
+import { tabularNums } from "@/styles/theme";
 import { formatShortcut, type ShortcutKey } from "@/utils/format-shortcut";
 import { getShortcutOs } from "@/utils/shortcut-platform";
 
@@ -64,12 +65,15 @@ const styles = StyleSheet.create((theme) => ({
     position: "relative",
     paddingHorizontal: theme.spacing[1],
     paddingVertical: 2,
-    borderRadius: theme.borderRadius.md,
-    borderWidth: 0,
+    // One step tighter than a button/badge (docs/design.md "Finish") — a kbd chip is the
+    // smallest bordered shell in the app.
+    borderRadius: theme.borderRadius.base,
+    borderWidth: theme.borderWidth[1],
+    borderColor: theme.colors.border,
   },
   badgeBackground: {
     ...StyleSheet.absoluteFillObject,
-    borderRadius: theme.borderRadius.md,
+    borderRadius: theme.borderRadius.base,
     backgroundColor: theme.colors.surface3,
     opacity: theme.opacity[50],
   },
@@ -81,7 +85,8 @@ const styles = StyleSheet.create((theme) => ({
   },
   text: {
     fontSize: theme.fontSize.sm,
-    fontWeight: theme.fontWeight.normal,
+    fontWeight: theme.fontWeight.medium,
     color: theme.colors.foregroundMuted,
+    ...tabularNums,
   },
 }));

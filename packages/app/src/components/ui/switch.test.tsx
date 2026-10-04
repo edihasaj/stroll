@@ -6,15 +6,18 @@ import { Switch } from "./switch";
 
 const { theme } = vi.hoisted(() => ({
   theme: {
+    colorScheme: "light",
     opacity: { 50: 0.5 },
     spacing: { 0: 0, 3: 12, 4: 16, 6: 24 },
     fontSize: { xs: 12, sm: 14, base: 16 },
     borderRadius: { md: 6, lg: 8, xl: 12 },
     borderWidth: { 1: 1 },
+    shadow: { xs: "0 1px 2px rgba(16, 16, 16, 0.05)" },
     colors: {
       surface3: "#333",
       accent: "#0a84ff",
       accentForeground: "#fff",
+      border: "rgba(15, 15, 15, 0.08)",
       borderAccent: "#555",
       palette: { white: "#fff" },
     },
@@ -33,6 +36,7 @@ vi.mock("react-native-reanimated", () => ({
     value >= 1 ? output[1] : output[0],
   useAnimatedStyle: (factory: () => unknown) => factory(),
   useDerivedValue: (factory: () => unknown) => ({ value: factory() }),
+  useReducedMotion: () => false,
   withTiming: (value: unknown) => value,
 }));
 
