@@ -143,6 +143,46 @@ export default {
       withPasteInput,
       [withAndroidAsyncStorageSize, 64],
       ...buildProfile.cameraPlugins,
+      // Geist (interface) and Geist Mono (code), statically linked at build time — no
+      // runtime load, no flash. iOS groups weights under the font's own typographic
+      // family name ("Geist" / "Geist Mono" cover Regular/Medium/SemiBold) via plain
+      // UIAppFonts registration, so flat paths are enough. Android has no such grouping
+      // without an explicit font-family resource, so its entries are objects naming the
+      // family and each weight's file — see node_modules/expo-font/plugin for the shape.
+      // See docs/design.md "Finish" for the font rules these feed.
+      [
+        "expo-font",
+        {
+          ios: {
+            fonts: [
+              "./assets/fonts/geist/Geist-Regular.ttf",
+              "./assets/fonts/geist/Geist-Medium.ttf",
+              "./assets/fonts/geist/Geist-SemiBold.ttf",
+              "./assets/fonts/geist/GeistMono-Regular.ttf",
+              "./assets/fonts/geist/GeistMono-Medium.ttf",
+            ],
+          },
+          android: {
+            fonts: [
+              {
+                fontFamily: "Geist",
+                fontDefinitions: [
+                  { path: "./assets/fonts/geist/Geist-Regular.ttf", weight: 400 },
+                  { path: "./assets/fonts/geist/Geist-Medium.ttf", weight: 500 },
+                  { path: "./assets/fonts/geist/Geist-SemiBold.ttf", weight: 600 },
+                ],
+              },
+              {
+                fontFamily: "Geist Mono",
+                fontDefinitions: [
+                  { path: "./assets/fonts/geist/GeistMono-Regular.ttf", weight: 400 },
+                  { path: "./assets/fonts/geist/GeistMono-Medium.ttf", weight: 500 },
+                ],
+              },
+            ],
+          },
+        },
+      ],
       [
         "expo-splash-screen",
         {

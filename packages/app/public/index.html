@@ -15,6 +15,47 @@
     <link rel="manifest" href="/manifest.json" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <title>%WEB_TITLE%</title>
+    <!-- Geist (interface) and Geist Mono (code) — SIL OFL 1.1, see /fonts/geist/LICENSE.txt.
+         Declared before any JS runs so the browser starts fetching in parallel with the
+         bundle. font-display: swap renders the fallback immediately and swaps once a weight
+         loads, rather than hiding text (FOIT) — see docs/design.md "Finish". -->
+    <style id="geist-fonts">
+      @font-face {
+        font-family: "Geist";
+        src: url("/fonts/geist/Geist-Regular.woff2") format("woff2");
+        font-weight: 400;
+        font-style: normal;
+        font-display: swap;
+      }
+      @font-face {
+        font-family: "Geist";
+        src: url("/fonts/geist/Geist-Medium.woff2") format("woff2");
+        font-weight: 500;
+        font-style: normal;
+        font-display: swap;
+      }
+      @font-face {
+        font-family: "Geist";
+        src: url("/fonts/geist/Geist-SemiBold.woff2") format("woff2");
+        font-weight: 600;
+        font-style: normal;
+        font-display: swap;
+      }
+      @font-face {
+        font-family: "Geist Mono";
+        src: url("/fonts/geist/GeistMono-Regular.woff2") format("woff2");
+        font-weight: 400;
+        font-style: normal;
+        font-display: swap;
+      }
+      @font-face {
+        font-family: "Geist Mono";
+        src: url("/fonts/geist/GeistMono-Medium.woff2") format("woff2");
+        font-weight: 500;
+        font-style: normal;
+        font-display: swap;
+      }
+    </style>
     <!-- The `react-native-web` recommended style reset: https://necolas.github.io/react-native-web/docs/setup/#root-element -->
     <style id="expo-reset">
       /* Keep the app shell fixed to the viewport. */
@@ -31,6 +72,7 @@
       body {
         -webkit-font-smoothing: antialiased;
         -moz-osx-font-smoothing: grayscale;
+        text-rendering: optimizeLegibility;
       }
       /* Prevent white flash before React mounts */
       @media (prefers-color-scheme: dark) {

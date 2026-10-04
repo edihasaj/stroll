@@ -777,17 +777,37 @@ describe("appearance settings", () => {
     expect(DEFAULT_CONTENT_FONT_SIZE).toBe(defaultContentFontSize(isNative));
   });
 
-  it("defaults the prose font to system on native and serif on web/desktop", () => {
+  it("defaults the prose font to system on every platform", () => {
     expect(defaultProseFont(true)).toBe("system");
-    expect(defaultProseFont(false)).toBe("serif");
+    expect(defaultProseFont(false)).toBe("system");
     expect(DEFAULT_PROSE_FONT).toBe(defaultProseFont(isNative));
   });
 
-  it("persists an explicit prose font preference", async () => {
+  // COMPAT(proseFontModern): remove after 2027-04-01 — see migrations.ts.
+  it("migrates a stored serif prose font to system and persists it", async () => {
     const deps = makeDeps({
       storage: createInMemoryKeyValueStorage({
         [APP_SETTINGS_KEY]: JSON.stringify({ proseFont: "serif" }),
       }),
+    });
+
+    const result = await loadAppSettingsFromStorage(deps);
+
+    expect(result.proseFont).toBe("system");
+    expect(JSON.parse(deps.storage.entries.get(APP_SETTINGS_KEY) ?? "{}").proseFont).toBe("system");
+  });
+
+  it("keeps a serif prose font the user picked after the migration ran", async () => {
+    const deps = makeDeps({
+      storage: createInMemoryKeyValueStorage({
+        [APP_SETTINGS_KEY]: JSON.stringify({ proseFont: "serif" }),
+      }),
+    });
+    await loadAppSettingsFromStorage(deps);
+    await saveAppSettings({
+      queryClient: new QueryClient(),
+      updates: { proseFont: "serif" },
+      deps,
     });
 
     expect((await loadAppSettingsFromStorage(deps)).proseFont).toBe("serif");

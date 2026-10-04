@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { ProseFontPreference } from "@/styles/theme";
 import { createInMemoryKeyValueStorage } from "./fakes";
 import { APP_SETTINGS_KEY, SETTINGS_MIGRATIONS_KEY } from "./keys";
 import { migrateAppSettings } from "./migrations";
@@ -6,6 +7,10 @@ import { DEFAULT_CLIENT_SETTINGS, type AppSettings, type SendBehavior } from "./
 
 function settingsWith(sendBehavior: SendBehavior): AppSettings {
   return { ...DEFAULT_CLIENT_SETTINGS, sendBehavior };
+}
+
+function settingsWithProseFont(proseFont: ProseFontPreference): AppSettings {
+  return { ...DEFAULT_CLIENT_SETTINGS, proseFont };
 }
 
 type Storage = ReturnType<typeof createInMemoryKeyValueStorage>;
@@ -23,6 +28,11 @@ function storedSendBehavior(storage: Storage): SendBehavior | undefined {
 function storedContentFontSize(storage: Storage): number | undefined {
   const raw = storage.entries.get(APP_SETTINGS_KEY);
   return raw === undefined ? undefined : JSON.parse(raw).contentFontSize;
+}
+
+function storedProseFont(storage: Storage): ProseFontPreference | undefined {
+  const raw = storage.entries.get(APP_SETTINGS_KEY);
+  return raw === undefined ? undefined : JSON.parse(raw).proseFont;
 }
 
 /** An in-memory storage whose write to `failingKey` always throws, as a full disk would. */
@@ -45,7 +55,7 @@ describe("migrateAppSettings", () => {
 
     expect(result.sendBehavior).toBe("steer");
     expect(storedSendBehavior(storage)).toBe("steer");
-    expect(appliedIds(storage)).toEqual(["steer-default"]);
+    expect(appliedIds(storage)).toEqual(["steer-default", "prose-font-modern"]);
   });
 
   it("leaves interrupt alone once the migration has run", async () => {
@@ -64,7 +74,7 @@ describe("migrateAppSettings", () => {
 
     expect(result.sendBehavior).toBe("queue");
     expect(storage.entries.has(APP_SETTINGS_KEY)).toBe(false);
-    expect(appliedIds(storage)).toEqual(["steer-default"]);
+    expect(appliedIds(storage)).toEqual(["steer-default", "prose-font-modern"]);
   });
 
   it("marks itself applied on a fresh install without rewriting settings", async () => {
@@ -73,7 +83,7 @@ describe("migrateAppSettings", () => {
     await migrateAppSettings(settingsWith("steer"), storage);
 
     expect(storage.entries.has(APP_SETTINGS_KEY)).toBe(false);
-    expect(appliedIds(storage)).toEqual(["steer-default"]);
+    expect(appliedIds(storage)).toEqual(["steer-default", "prose-font-modern"]);
   });
 
   it("keeps unknown migration ids written by a newer client", async () => {
@@ -83,7 +93,11 @@ describe("migrateAppSettings", () => {
 
     await migrateAppSettings(settingsWith("interrupt"), storage);
 
-    expect(appliedIds(storage)).toEqual(["some-later-migration", "steer-default"]);
+    expect(appliedIds(storage)).toEqual([
+      "some-later-migration",
+      "steer-default",
+      "prose-font-modern",
+    ]);
   });
 
   it("migrates every mobile 15px content preference to 16px", async () => {
@@ -94,7 +108,11 @@ describe("migrateAppSettings", () => {
 
     expect(result.contentFontSize).toBe(16);
     expect(storedContentFontSize(storage)).toBe(16);
-    expect(appliedIds(storage)).toEqual(["steer-default", "mobile-content-16"]);
+    expect(appliedIds(storage)).toEqual([
+      "steer-default",
+      "mobile-content-16",
+      "prose-font-modern",
+    ]);
   });
 
   it("leaves a 15px web content preference unchanged", async () => {
@@ -105,7 +123,7 @@ describe("migrateAppSettings", () => {
 
     expect(result.contentFontSize).toBe(15);
     expect(storedContentFontSize(storage)).toBeUndefined();
-    expect(appliedIds(storage)).toEqual(["steer-default"]);
+    expect(appliedIds(storage)).toEqual(["steer-default", "prose-font-modern"]);
   });
 
   it("lets a mobile user choose 15px after the default migration ran", async () => {
@@ -144,6 +162,34 @@ describe("migrateAppSettings", () => {
     const result = await migrateAppSettings(settingsWith("steer"), recovered);
 
     expect(result.sendBehavior).toBe("steer");
-    expect(appliedIds(recovered)).toEqual(["steer-default"]);
+    expect(appliedIds(recovered)).toEqual(["steer-default", "prose-font-modern"]);
+  });
+
+  it("flips a stored serif prose font to system and marks itself applied", async () => {
+    const storage = createInMemoryKeyValueStorage();
+
+    const result = await migrateAppSettings(settingsWithProseFont("serif"), storage);
+
+    expect(result.proseFont).toBe("system");
+    expect(storedProseFont(storage)).toBe("system");
+    expect(appliedIds(storage)).toEqual(["steer-default", "prose-font-modern"]);
+  });
+
+  it("keeps serif the user picked after the migration ran", async () => {
+    const storage = createInMemoryKeyValueStorage();
+    await migrateAppSettings(settingsWithProseFont("serif"), storage);
+
+    const result = await migrateAppSettings(settingsWithProseFont("serif"), storage);
+
+    expect(result.proseFont).toBe("serif");
+  });
+
+  it("leaves system alone", async () => {
+    const storage = createInMemoryKeyValueStorage();
+
+    const result = await migrateAppSettings(settingsWithProseFont("system"), storage);
+
+    expect(result.proseFont).toBe("system");
+    expect(storedProseFont(storage)).toBeUndefined();
   });
 });
