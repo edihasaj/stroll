@@ -162,7 +162,7 @@ const styles = StyleSheet.create((theme) => ({
   frame: {
     borderRadius: theme.borderRadius.md,
     borderWidth: theme.borderWidth[1],
-    borderColor: theme.colors.borderAccent,
+    borderColor: theme.colors.border,
     overflow: "hidden",
   },
   labelBody: {
@@ -172,7 +172,7 @@ const styles = StyleSheet.create((theme) => ({
     alignItems: "center",
     gap: theme.spacing[2],
     paddingHorizontal: theme.spacing[3],
-    backgroundColor: theme.colors.surface1,
+    backgroundColor: theme.colors.surface2,
   },
   labelIcon: {
     width: 18,
@@ -198,7 +198,7 @@ const styles = StyleSheet.create((theme) => ({
   thumbnailPlaceholder: {
     width: ATTACHMENT_CONTENT_HEIGHT,
     height: ATTACHMENT_CONTENT_HEIGHT,
-    backgroundColor: theme.colors.surface1,
+    backgroundColor: theme.colors.surface2,
   },
   closeButton: {
     position: "absolute",
