@@ -101,7 +101,7 @@ const styles = StyleSheet.create((theme) => ({
     borderRadius: theme.borderRadius.xl,
     borderWidth: 1,
     borderColor: theme.colors.borderAccent,
-    ...theme.shadow.lg,
+    boxShadow: theme.shadow.lg,
   },
   headerContainer: {
     borderBottomWidth: 1,

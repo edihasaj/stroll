@@ -122,7 +122,7 @@ const styles = StyleSheet.create((theme) => ({
     borderColor: theme.colors.border,
     paddingVertical: theme.spacing[3],
     paddingHorizontal: theme.spacing[4],
-    ...theme.shadow.md,
+    boxShadow: theme.shadow.md,
   },
   textContainer: {
     flex: 1,

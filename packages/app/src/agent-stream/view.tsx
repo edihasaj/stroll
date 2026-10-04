@@ -1756,7 +1756,7 @@ const stylesheet = StyleSheet.create((theme) => ({
     backgroundColor: theme.colors.surface2,
     alignItems: "center",
     justifyContent: "center",
-    ...theme.shadow.sm,
+    boxShadow: theme.shadow.sm,
   },
   scrollToBottomIcon: {
     color: theme.colors.foreground,

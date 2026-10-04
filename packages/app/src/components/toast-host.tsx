@@ -322,7 +322,7 @@ const styles = StyleSheet.create((theme) => ({
     borderColor: theme.colors.border,
     paddingVertical: theme.spacing[2],
     paddingHorizontal: theme.spacing[3],
-    ...theme.shadow.md,
+    boxShadow: theme.shadow.md,
   },
   toastSuccess: {
     borderColor: theme.colors.border,

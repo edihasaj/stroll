@@ -532,6 +532,6 @@ const styles = StyleSheet.create((theme) => ({
     borderColor: theme.colors.borderAccent,
     borderRadius: theme.borderRadius.xl,
     overflow: "hidden",
-    ...theme.shadow.md,
+    boxShadow: theme.shadow.md,
   },
 }));

@@ -54,7 +54,7 @@ const styles = StyleSheet.create((theme) => ({
     justifyContent: "center",
     borderRadius: theme.borderRadius.full,
     backgroundColor: theme.colors.accent,
-    ...theme.shadow.md,
+    boxShadow: theme.shadow.md,
   },
   pressed: {
     backgroundColor: theme.colors.interactionHighlight,

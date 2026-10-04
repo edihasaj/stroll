@@ -40,7 +40,9 @@ describe("StatusBadge", () => {
       const style = getComputedStyle(badge);
 
       expect(style.backgroundColor).toBe("rgb(228, 228, 231)");
-      expect(style.borderColor).toBe("rgb(228, 228, 231)");
+      // The border is an alpha hairline (theme.colors.border), not the surface3 fill —
+      // see docs/design.md "Finish".
+      expect(style.borderColor).toBe("rgba(15, 15, 15, 0.08)");
     },
   );
 

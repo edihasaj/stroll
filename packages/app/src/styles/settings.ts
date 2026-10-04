@@ -27,7 +27,8 @@ export const settingsStyles = StyleSheet.create((theme) => ({
   },
   card: {
     backgroundColor: theme.colors.surface1,
-    borderRadius: theme.borderRadius.lg,
+    // Cards/settings cards sit on `xl` — see docs/design.md "Finish" radius mapping.
+    borderRadius: theme.borderRadius.xl,
     borderWidth: 1,
     borderColor: theme.colors.border,
     overflow: "hidden",
@@ -41,7 +42,9 @@ export const settingsStyles = StyleSheet.create((theme) => ({
   },
   rowBorder: {
     borderTopWidth: 1,
-    borderTopColor: theme.colors.border,
+    // The softer row-separator, not the card's outer hairline — rows inside a card
+    // already belong together (docs/design.md "Finish").
+    borderTopColor: theme.colors.borderDivider,
   },
   rowContent: {
     flex: 1,

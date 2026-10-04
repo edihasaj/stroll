@@ -2702,10 +2702,13 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   // Drawn solid rather than the lucide outline glyph so the stop state reads
   // as a filled mark, not a line drawing, inside the destructive circle.
+  // Radius pinned (not `theme.borderRadius.sm`) — at the modern scale's 3px, a mark this
+  // small (10px) starts reading as a rounded blob instead of a stop-square. See
+  // docs/design.md "Finish".
   stopGlyph: {
     width: 10,
     height: 10,
-    borderRadius: theme.borderRadius.sm,
+    borderRadius: 2,
     backgroundColor: theme.colors.background,
   },
   rightControls: {
