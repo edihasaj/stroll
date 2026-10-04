@@ -1790,7 +1790,7 @@ const styles = StyleSheet.create((theme) => ({
     borderRadius: theme.borderRadius.xl,
     borderWidth: 1,
     borderColor: theme.colors.borderAccent,
-    ...theme.shadow.md,
+    boxShadow: theme.shadow.md,
     maxHeight: 400,
     overflow: "hidden",
   },

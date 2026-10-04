@@ -64,10 +64,13 @@ export const DEFAULT_CODE_FONT_SIZE = 12; // == FONT_SIZE.code
 export const MIN_CODE_FONT_SIZE = 9;
 export const MAX_CODE_FONT_SIZE = 22; // line-height 1.5×22=33 stays safe
 export const MAX_FONT_FAMILY_LENGTH = 200;
-/** A touch device is held in the hand; the platform system font already reads as prose there.
- * Web and desktop are held further away, where a serif face reads more like a document. */
-export function defaultProseFont(native: boolean): ProseFontPreference {
-  return native ? "system" : "serif";
+/** "System" is the UI font (Geist) everywhere now — the serif default predates vendoring
+ * Geist, when "system" meant each platform's native sans and read noticeably plainer than
+ * a serif face for long-form prose. "Serif" stays as a pick (see `DEFAULT_SERIF_FONT_STACK`);
+ * a stored "serif" flips to "system" once via the `prose-font-modern` migration
+ * (migrations.ts) rather than here, so picking Serif again afterward sticks. */
+export function defaultProseFont(_native: boolean): ProseFontPreference {
+  return "system";
 }
 
 export const DEFAULT_PROSE_FONT = defaultProseFont(isNative);

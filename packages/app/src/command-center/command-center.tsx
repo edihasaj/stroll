@@ -868,7 +868,7 @@ const styles = StyleSheet.create((theme) => ({
     borderRadius: theme.borderRadius.lg,
     overflow: "hidden",
     backgroundColor: theme.colors.surface0,
-    ...theme.shadow.lg,
+    boxShadow: theme.shadow.lg,
   },
   header: {
     paddingHorizontal: theme.spacing[4],

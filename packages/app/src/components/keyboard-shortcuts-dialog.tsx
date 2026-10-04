@@ -110,7 +110,8 @@ const styles = StyleSheet.create((theme) => ({
   rows: {
     borderWidth: theme.borderWidth[1],
     borderColor: theme.colors.surface2,
-    borderRadius: theme.borderRadius.lg,
+    // Matches settingsStyles.card's radius tier (docs/design.md "Finish").
+    borderRadius: theme.borderRadius.xl,
     overflow: "hidden",
   },
   row: {

@@ -612,7 +612,7 @@ const styles = StyleSheet.create((theme) => ({
     backgroundColor: theme.colors.popover,
     borderWidth: theme.borderWidth[1],
     borderColor: theme.colors.borderAccent,
-    ...theme.shadow.md,
+    boxShadow: theme.shadow.md,
     zIndex: 1000,
   },
 }));

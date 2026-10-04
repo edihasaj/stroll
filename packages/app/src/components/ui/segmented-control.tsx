@@ -198,7 +198,7 @@ const styles = StyleSheet.create((theme) => {
     },
     segmentSelected: {
       backgroundColor: theme.colors.background,
-      ...theme.shadow.sm,
+      boxShadow: theme.shadow.sm,
     },
     segmentHover: {
       backgroundColor: theme.colors.surface2,

@@ -1,4 +1,4 @@
-import { Platform } from "react-native";
+import { Platform, type FontVariant } from "react-native";
 import { Easing } from "react-native-reanimated";
 import { darkHighlightColors, lightHighlightColors } from "@getpaseo/highlight";
 
@@ -204,6 +204,40 @@ const darkStatusDotColors = {
   statusDotRunning: "#5caaf6",
 };
 
+// Alpha hairlines — composited over whatever surface draws beneath them, so one set works
+// for every built-in theme (Paper light, and every dark tint) without a per-tint hex. A
+// tint's hue still reads through: compositing white/black over a colored surface lightens
+// or darkens toward it rather than desaturating to neutral grey, so e.g. Paseo's
+// teal-tinted dark surfaces still show a teal-leaning hairline, and Midnight's blue-tinted
+// ones a blue-leaning one. `border` is the default hairline (cards, inputs, pane
+// dividers); `borderAccent` is the strong/hover/focus-adjacent variant (outline button,
+// picker panels); `borderDivider` is the softer row-separator inside a card — one step
+// quieter than `border` because it separates rows that already belong together, not two
+// different things. See docs/design.md "Finish".
+const LIGHT_BORDER = "rgba(15, 15, 15, 0.08)";
+const LIGHT_BORDER_ACCENT = "rgba(15, 15, 15, 0.14)";
+const LIGHT_BORDER_DIVIDER = "rgba(15, 15, 15, 0.06)";
+const DARK_BORDER = "rgba(255, 255, 255, 0.07)";
+const DARK_BORDER_ACCENT = "rgba(255, 255, 255, 0.12)";
+const DARK_BORDER_DIVIDER = "rgba(255, 255, 255, 0.05)";
+
+/** `#rgb`/`#rrggbb` only — every accent in this file is a plain hex triplet. Used to build
+ * the accent-tinted `focusRing`/`focusBorder` tokens per theme. */
+function hexToRgba(hex: string, alpha: number): string {
+  const normalized = hex.replace("#", "");
+  const full =
+    normalized.length === 3
+      ? normalized
+          .split("")
+          .map((char) => char + char)
+          .join("")
+      : normalized;
+  const r = Number.parseInt(full.slice(0, 2), 16);
+  const g = Number.parseInt(full.slice(2, 4), 16);
+  const b = Number.parseInt(full.slice(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
 export interface LightThemeConfig {
   surface0: string;
   surface1: string;
@@ -215,8 +249,10 @@ export interface LightThemeConfig {
   foreground: string;
   foregroundMuted: string;
   foregroundExtraMuted: string;
-  border: string;
-  borderAccent: string;
+  /** Overrides the alpha-hairline default. Only plugin-contributed themes (whose author
+   * chose a solid border hex as part of their palette contract) should set this. */
+  border?: string;
+  borderAccent?: string;
   accent: string;
   accentBright: string;
   accentForeground?: string;
@@ -269,8 +305,9 @@ export function buildLightSemanticColors(tint: LightThemeConfig) {
     foregroundMuted: tint.foregroundMuted,
     foregroundExtraMuted: tint.foregroundExtraMuted,
 
-    border: tint.border,
-    borderAccent: tint.borderAccent,
+    border: tint.border ?? LIGHT_BORDER,
+    borderAccent: tint.borderAccent ?? LIGHT_BORDER_ACCENT,
+    borderDivider: LIGHT_BORDER_DIVIDER,
 
     accent: tint.accent,
     accentBright: tint.accentBright,
@@ -290,7 +327,7 @@ export function buildLightSemanticColors(tint: LightThemeConfig) {
     secondaryForeground: tint.foreground,
     muted: tint.surface2,
     mutedForeground: tint.foregroundMuted,
-    accentBorder: tint.borderAccent,
+    accentBorder: tint.borderAccent ?? LIGHT_BORDER_ACCENT,
     input: tint.surface2,
     ring: tint.ring,
 
@@ -326,8 +363,6 @@ const lightSemanticColors = buildLightSemanticColors({
   foreground: "#1c1c1c",
   foregroundMuted: "#6b6b6b",
   foregroundExtraMuted: "#9c9c94",
-  border: "#e6e6e3",
-  borderAccent: "#ececea",
   accent: "#20744A",
   accentBright: "#239956",
   accentForeground: "#ffffff",
@@ -356,8 +391,10 @@ export interface DarkThemeConfig {
   surfaceSidebar: string;
   foregroundMuted: string;
   foregroundExtraMuted: string;
-  border: string;
-  borderAccent: string;
+  /** Overrides the alpha-hairline default. Only plugin-contributed themes (whose author
+   * chose a solid border hex as part of their palette contract) should set this. */
+  border?: string;
+  borderAccent?: string;
   accent: string;
   accentBright: string;
   accentForeground?: string;
@@ -407,8 +444,9 @@ export function buildDarkSemanticColors(tint: DarkThemeConfig) {
     foregroundMuted: tint.foregroundMuted,
     foregroundExtraMuted: tint.foregroundExtraMuted,
 
-    border: tint.border,
-    borderAccent: tint.borderAccent,
+    border: tint.border ?? DARK_BORDER,
+    borderAccent: tint.borderAccent ?? DARK_BORDER_ACCENT,
+    borderDivider: DARK_BORDER_DIVIDER,
 
     accent: tint.accent,
     accentBright: tint.accentBright,
@@ -429,7 +467,7 @@ export function buildDarkSemanticColors(tint: DarkThemeConfig) {
     secondaryForeground: foreground,
     muted: tint.surface2,
     mutedForeground: tint.foregroundMuted,
-    accentBorder: tint.borderAccent,
+    accentBorder: tint.borderAccent ?? DARK_BORDER_ACCENT,
     input: tint.surface2,
     ring,
 
@@ -468,8 +506,6 @@ const paseoDarkColors = buildDarkSemanticColors({
   surfaceSidebar: "#0B0E0D",
   foregroundMuted: "#8E9291",
   foregroundExtraMuted: "#5F6362",
-  border: "#202524",
-  borderAccent: "#2A302F",
   accent: "#20744A",
   accentBright: "#7ccba0",
   destructive: "#c64f43", // warm red, hue ~7 — reads as red (not pink) against the green tint
@@ -490,8 +526,6 @@ const zincDarkColors = buildDarkSemanticColors({
   surfaceSidebar: "#0a0a0c",
   foregroundMuted: "#7f7f87",
   foregroundExtraMuted: "#5a5a61",
-  border: "#2b2b2d",
-  borderAccent: "#35353a",
   accent: "#e4e4e7",
   accentBright: "#fafafa",
   accentForeground: "#18181b", // monochrome zinc accent is near-white — needs dark text
@@ -511,8 +545,6 @@ const midnightDarkColors = buildDarkSemanticColors({
   surfaceSidebar: "#121420",
   foregroundMuted: "#9a9db0",
   foregroundExtraMuted: "#6b6e82",
-  border: "#242636",
-  borderAccent: "#2e3040",
   accent: "#3b6fcf",
   accentBright: "#7eaaeb",
   destructive: "#c44a52", // red with a hint of cool lean against the blue tint
@@ -531,8 +563,6 @@ const claudeDarkColors = buildDarkSemanticColors({
   surfaceSidebar: "#1a1918",
   foregroundMuted: "#ada9a5",
   foregroundExtraMuted: "#78746f",
-  border: "#2c2a27",
-  borderAccent: "#36332f",
   accent: "#d97757",
   accentBright: "#e89a7f",
   destructive: "#cf513e", // warm orange-red, hue ~10 — sits with the Claude orange accent
@@ -551,8 +581,6 @@ const ghosttyDarkColors = buildDarkSemanticColors({
   surfaceSidebar: "#21252d",
   foregroundMuted: "#c8ccd8",
   foregroundExtraMuted: "#a0a4b2",
-  border: "#353a47",
-  borderAccent: "#3f4454",
   accent: "#89b4fa",
   accentBright: "#b4d0fc",
   destructive: "#c44a55", // red with slight cool lean against the slate-blue surfaces
@@ -618,14 +646,31 @@ export const LETTER_SPACING = {
   wide: 0.4,
 } as const;
 
+// Tight tracking for headings ≥18px (fontSize.xl and up). RN `letterSpacing` is absolute
+// px, not em, so each step is computed per size rather than one shared em value: 18px→-0.2,
+// 20px/22px→-0.3, 26px→-0.4. Use the step matching the text's `fontSize` token; this is a
+// heading-only tightening — body and label text stay untracked, and `wide` above is
+// unrelated (small-caps labels get looser, not tighter). See docs/design.md "Finish".
+export const TEXT_TRACKING = {
+  wide: LETTER_SPACING.wide,
+  tightXl: -0.2, // fontSize.xl (18)
+  tight2xl: -0.3, // fontSize["2xl"] (20)
+  tight3xl: -0.3, // fontSize["3xl"] (22)
+  tight4xl: -0.4, // fontSize["4xl"] (26)
+} as const;
+
+// `fontVariant` helper for counts, timestamps, diff stats, and token counts — anywhere
+// digits sit in a column or update in place and must not shift width as they change.
+export const tabularNums: { fontVariant: FontVariant[] } = { fontVariant: ["tabular-nums"] };
+
 export const BORDER_RADIUS = {
   none: 0,
-  sm: 2,
-  base: 4,
-  md: 6,
-  lg: 8,
-  xl: 12,
-  "2xl": 16,
+  sm: 3,
+  base: 5,
+  md: 8,
+  lg: 10,
+  xl: 14,
+  "2xl": 18,
   full: 9999,
 } as const;
 
@@ -659,19 +704,22 @@ export const MOTION_EASING = {
   standard: Easing.linear,
 } as const;
 
-// Platform default font stacks — copied verbatim from constants/theme.ts `Fonts`
-// (sans -> ui, mono -> mono). These seed the dynamic `fontFamily` theme token and
-// are the fallback an empty user-supplied family resolves to at apply time.
+// Platform default font stacks. Geist/Geist Mono lead every stack (vendored under
+// `packages/app/assets/fonts/geist/` and `public/fonts/geist/`, SIL OFL 1.1 — see
+// docs/design.md "Finish"); the previous platform-native stacks stay as the fallback
+// chain for the instant before a weight loads on web, or if a build ever ships without
+// the fonts linked. These seed the dynamic `fontFamily` theme token and are the fallback
+// an empty user-supplied family resolves to at apply time.
 export const DEFAULT_UI_FONT_STACK: string = Platform.select({
-  ios: "system-ui",
-  default: "normal",
-  web: "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
+  ios: "Geist, system-ui",
+  default: "Geist, normal",
+  web: "Geist, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
 });
 
 export const DEFAULT_MONO_FONT_STACK: string = Platform.select({
-  ios: "ui-monospace",
-  default: "monospace",
-  web: "SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace",
+  ios: "Geist Mono, ui-monospace",
+  default: "Geist Mono, monospace",
+  web: "Geist Mono, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace",
 });
 
 // The serif stack the "Prose font" appearance setting resolves to when the user picks
@@ -700,6 +748,8 @@ interface CommonTheme {
   iconSize: typeof ICON_SIZE;
   fontWeight: typeof FONT_WEIGHT;
   letterSpacing: typeof LETTER_SPACING;
+  textTracking: typeof TEXT_TRACKING;
+  tabularNums: typeof tabularNums;
   borderRadius: typeof BORDER_RADIUS;
   borderWidth: typeof BORDER_WIDTH;
   opacity: typeof OPACITY;
@@ -723,6 +773,8 @@ const commonTheme: CommonTheme = {
   iconSize: ICON_SIZE,
   fontWeight: FONT_WEIGHT,
   letterSpacing: LETTER_SPACING,
+  textTracking: TEXT_TRACKING,
+  tabularNums,
   borderRadius: BORDER_RADIUS,
   borderWidth: BORDER_WIDTH,
   opacity: OPACITY,
@@ -732,25 +784,26 @@ const commonTheme: CommonTheme = {
   },
 };
 
-const darkShadow = {
-  sm: {
-    shadowColor: "rgba(0, 0, 0, 0.25)",
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  md: {
-    shadowColor: "rgba(0, 0, 0, 0.20)",
-    shadowOffset: { width: 0, height: 4 },
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  lg: {
-    shadowColor: "rgba(0, 0, 0, 0.40)",
-    shadowOffset: { width: 0, height: 12 },
-    shadowRadius: 24,
-    elevation: 8,
-  },
+// Elevation — layered `boxShadow` strings, not shadowColor/shadowOffset/shadowRadius/
+// elevation objects. RN 0.81's new architecture (`newArchEnabled` in app.config.js)
+// renders the CSS `boxShadow` string on `View` on every platform Paseo ships from this
+// checkout (iOS, Android, web, Electron), so one string per step covers all of them.
+// `md`/`lg` each carry a 1px ring ahead of the soft falloff — elevation reads as a ring
+// plus blur, never a heavy border. `xs` is the smallest lift (a quiet trigger barely off
+// the page plane); `sm`/`md`/`lg` are the previous scale's call sites, unchanged in which
+// component uses which step. Dark keeps the same geometry with roughly 3x the alpha,
+// since a black shadow needs far more opacity to read on a dark surface, and its ring
+// flips to a light hairline (`rgba(255,255,255,0.06)`) since a black ring would vanish
+// against a dark surface. See docs/design.md "Finish".
+const DARK_SHADOW = {
+  xs: "0 1px 2px rgba(0, 0, 0, 0.15)",
+  sm: "0 1px 2px rgba(0, 0, 0, 0.18), 0 1px 3px rgba(0, 0, 0, 0.12)",
+  md: "0 0 0 1px rgba(255, 255, 255, 0.06), 0 4px 12px -2px rgba(0, 0, 0, 0.24), 0 12px 32px -8px rgba(0, 0, 0, 0.30)",
+  lg: "0 0 0 1px rgba(255, 255, 255, 0.06), 0 24px 64px -12px rgba(0, 0, 0, 0.66)",
+  // Raised surfaces (cards, panels): a 1px lightening right at the top inner edge, as if
+  // lit from above. Compose alongside the elevation step, not instead of it:
+  // `boxShadow: [theme.shadow.md, theme.shadow.insetHighlight].join(", ")`.
+  insetHighlight: "inset 0 1px 0 rgba(255, 255, 255, 0.04)",
 } as const;
 
 export function buildDarkTheme(semanticColors: ReturnType<typeof buildDarkSemanticColors>) {
@@ -760,8 +813,16 @@ export function buildDarkTheme(semanticColors: ReturnType<typeof buildDarkSemant
       ...semanticColors,
       palette: baseColors,
       syntax: darkHighlightColors,
+      // 1px ring colour for a focused control's edge, paired with `shadow.focusRing` for
+      // the glow outside it. Accent at ~55% alpha — see docs/design.md "Finish".
+      focusBorder: hexToRgba(semanticColors.accent, 0.55),
     },
-    shadow: darkShadow,
+    shadow: {
+      ...DARK_SHADOW,
+      // The focused-control glow: a 3px ring in the theme's own accent at ~22% alpha, so
+      // every tint's focus state reads as "this theme's accent," not one fixed blue.
+      focusRing: `0 0 0 3px ${hexToRgba(semanticColors.accent, 0.22)}`,
+    },
     ...commonTheme,
   } as const;
 }
@@ -783,8 +844,6 @@ const pureBlackDarkColors = buildDarkSemanticColors({
   surfaceSidebar: "#000000",
   foregroundMuted: "#a1a1aa",
   foregroundExtraMuted: "#71717a",
-  border: "#1c1c1c",
-  borderAccent: "#242424",
   accent: "#20744A",
   accentBright: "#7ccba0",
   destructive: "#c44a4a",
@@ -794,25 +853,13 @@ const pureBlackDarkColors = buildDarkSemanticColors({
 
 export const darkPureBlackTheme = buildDarkTheme(pureBlackDarkColors);
 
-const lightShadow = {
-  sm: {
-    shadowColor: "rgba(0, 0, 0, 0.02)",
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  md: {
-    shadowColor: "rgba(0, 0, 0, 0.04)",
-    shadowOffset: { width: 0, height: 4 },
-    shadowRadius: 16,
-    elevation: 4,
-  },
-  lg: {
-    shadowColor: "rgba(0, 0, 0, 0.08)",
-    shadowOffset: { width: 0, height: 8 },
-    shadowRadius: 24,
-    elevation: 8,
-  },
+// See the `DARK_SHADOW` comment above — same layered-`boxShadow` rule, light geometry.
+const LIGHT_SHADOW = {
+  xs: "0 1px 2px rgba(16, 16, 16, 0.05)",
+  sm: "0 1px 2px rgba(16, 16, 16, 0.06), 0 1px 3px rgba(16, 16, 16, 0.04)",
+  md: "0 0 0 1px rgba(16, 16, 16, 0.05), 0 4px 12px -2px rgba(16, 16, 16, 0.08), 0 12px 32px -8px rgba(16, 16, 16, 0.10)",
+  lg: "0 0 0 1px rgba(16, 16, 16, 0.05), 0 24px 64px -12px rgba(16, 16, 16, 0.22)",
+  insetHighlight: "inset 0 1px 0 rgba(255, 255, 255, 0.6)",
 } as const;
 
 export function buildLightTheme(semanticColors: ReturnType<typeof buildLightSemanticColors>) {
@@ -822,8 +869,12 @@ export function buildLightTheme(semanticColors: ReturnType<typeof buildLightSema
       ...semanticColors,
       palette: baseColors,
       syntax: lightHighlightColors,
+      focusBorder: hexToRgba(semanticColors.accent, 0.55),
     },
-    shadow: lightShadow,
+    shadow: {
+      ...LIGHT_SHADOW,
+      focusRing: `0 0 0 3px ${hexToRgba(semanticColors.accent, 0.22)}`,
+    },
     ...commonTheme,
   } as const;
 }

@@ -1985,7 +1985,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     borderWidth: theme.borderWidth[1],
     borderColor: theme.colors.border,
     borderRadius: theme.borderRadius["2xl"],
-    ...theme.shadow.sm,
+    boxShadow: theme.shadow.sm,
     paddingTop: {
       xs: theme.spacing[2],
       md: theme.spacing[3],

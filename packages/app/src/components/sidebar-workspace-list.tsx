@@ -2590,7 +2590,7 @@ const styles = StyleSheet.create((theme) => ({
     borderColor: theme.colors.border,
     transform: [{ scale: 1.02 }],
     zIndex: 3,
-    ...theme.shadow.md,
+    boxShadow: theme.shadow.md,
   },
   projectRowLeft: {
     flexDirection: "row",
@@ -2733,7 +2733,7 @@ const styles = StyleSheet.create((theme) => ({
     borderColor: theme.colors.border,
     transform: [{ scale: 1.02 }],
     zIndex: 3,
-    ...theme.shadow.md,
+    boxShadow: theme.shadow.md,
   },
   sidebarRowSelected: {
     backgroundColor: theme.colors.surfaceSidebarSelected,

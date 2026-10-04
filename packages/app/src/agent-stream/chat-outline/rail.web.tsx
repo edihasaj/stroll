@@ -246,7 +246,7 @@ const styles = StyleSheet.create((theme) => ({
     borderWidth: theme.borderWidth[1],
     borderColor: theme.colors.border,
     backgroundColor: theme.colors.surface2,
-    ...theme.shadow.md,
+    boxShadow: theme.shadow.md,
   },
   previewText: {
     fontSize: theme.fontSize.sm,

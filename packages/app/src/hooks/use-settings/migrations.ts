@@ -17,6 +17,15 @@ const STEER_DEFAULT_MIGRATION = "steer-default";
 const MOBILE_CONTENT_16_MIGRATION = "mobile-content-16";
 
 /**
+ * `proseFont` defaulted to "serif" on web/desktop before Geist made "system" (the UI font)
+ * read well as prose too, and that default materializes into storage on first load — so a
+ * stored "serif" cannot be told apart from a deliberate pick. This flips every stored
+ * "serif" to "system" exactly once; picking "Serif" afterwards sticks.
+ * COMPAT(proseFontModern): remove after 2027-04-01.
+ */
+const PROSE_FONT_MODERN_MIGRATION = "prose-font-modern";
+
+/**
  * Brings stored settings up to date, returning what the caller should use. Owns both writes so
  * the marker can only ever be written after the settings it describes: a failed marker write
  * leaves the migration to re-run harmlessly, while a failed settings write must leave the marker
@@ -47,6 +56,12 @@ export async function migrateAppSettings(
   if (options.native && !applied.has(MOBILE_CONTENT_16_MIGRATION)) {
     migrated = migrated.contentFontSize === 15 ? { ...migrated, contentFontSize: 16 } : migrated;
     applied.add(MOBILE_CONTENT_16_MIGRATION);
+    addedMigration = true;
+  }
+
+  if (!applied.has(PROSE_FONT_MODERN_MIGRATION)) {
+    migrated = migrated.proseFont === "serif" ? { ...migrated, proseFont: "system" } : migrated;
+    applied.add(PROSE_FONT_MODERN_MIGRATION);
     addedMigration = true;
   }
 

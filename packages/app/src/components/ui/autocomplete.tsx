@@ -299,7 +299,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     borderRadius: theme.borderRadius.lg,
     paddingHorizontal: theme.spacing[3],
     paddingVertical: theme.spacing[3],
-    ...theme.shadow.md,
+    boxShadow: theme.shadow.md,
   },
   detailLabel: {
     color: theme.colors.foreground,
@@ -324,7 +324,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     borderColor: theme.colors.borderAccent,
     borderRadius: theme.borderRadius.lg,
     overflow: "hidden",
-    ...theme.shadow.md,
+    boxShadow: theme.shadow.md,
   },
   scrollView: {
     flexGrow: 0,

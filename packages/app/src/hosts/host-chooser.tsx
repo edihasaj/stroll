@@ -304,7 +304,7 @@ const styles = StyleSheet.create((theme) => ({
     borderRadius: theme.borderRadius.lg,
     backgroundColor: theme.colors.surface0,
     overflow: "hidden",
-    ...theme.shadow.lg,
+    boxShadow: theme.shadow.lg,
   },
   header: {
     gap: theme.spacing[3],
