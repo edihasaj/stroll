@@ -822,6 +822,11 @@ export function buildDarkTheme(semanticColors: ReturnType<typeof buildDarkSemant
       // The focused-control glow: a 3px ring in the theme's own accent at ~22% alpha, so
       // every tint's focus state reads as "this theme's accent," not one fixed blue.
       focusRing: `0 0 0 3px ${hexToRgba(semanticColors.accent, 0.22)}`,
+      // A quieter variant for a surface that already reads as "focused" through its own
+      // border (the composer card) — wider and fainter than `focusRing` so it doesn't compete
+      // with the full input ring used by `ControlActive` fields. See docs/design.md "Finish"
+      // and "16. Composer".
+      focusRingSoft: `0 0 0 4px ${hexToRgba(semanticColors.accent, 0.12)}`,
     },
     ...commonTheme,
   } as const;
@@ -874,6 +879,7 @@ export function buildLightTheme(semanticColors: ReturnType<typeof buildLightSema
     shadow: {
       ...LIGHT_SHADOW,
       focusRing: `0 0 0 3px ${hexToRgba(semanticColors.accent, 0.22)}`,
+      focusRingSoft: `0 0 0 4px ${hexToRgba(semanticColors.accent, 0.12)}`,
     },
     ...commonTheme,
   } as const;

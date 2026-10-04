@@ -14,6 +14,7 @@ import {
 import { DaemonConnectionTestError } from "@/utils/test-daemon-connection";
 import { AdaptiveModalSheet, AdaptiveTextInput, type SheetHeader } from "./adaptive-modal-sheet";
 import { Button } from "@/components/ui/button";
+import { createControlGeometry } from "@/components/ui/control-geometry";
 
 const FLEX_ONE_STYLE = { flex: 1 } as const;
 
@@ -45,98 +46,102 @@ interface DirectConnectionLabels {
   unableToConnect: string;
 }
 
-const styles = StyleSheet.create((theme) => ({
-  field: {
-    gap: theme.spacing[2],
-  },
-  label: {
-    color: theme.colors.foregroundMuted,
-    fontSize: theme.fontSize.base,
-    fontWeight: theme.fontWeight.medium,
-  },
-  input: {
-    backgroundColor: theme.colors.surface2,
-    borderRadius: theme.borderRadius.lg,
-    paddingHorizontal: theme.spacing[4],
-    paddingVertical: theme.spacing[3],
-    color: theme.colors.foreground,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  portRow: {
-    flexDirection: "row",
-    gap: theme.spacing[3],
-  },
-  hostField: {
-    flex: 1,
-    minWidth: 0,
-  },
-  portField: {
-    width: 112,
-  },
-  passwordRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: theme.spacing[2],
-  },
-  passwordInput: {
-    flex: 1,
-    minWidth: 0,
-  },
-  iconButton: {
-    width: 44,
-    height: 44,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: theme.borderRadius.lg,
-    backgroundColor: theme.colors.surface2,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  checkboxRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: theme.spacing[3],
-  },
-  checkbox: {
-    width: 22,
-    height: 22,
-    borderRadius: theme.borderRadius.sm,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  checkboxChecked: {
-    backgroundColor: theme.colors.accent,
-    borderColor: theme.colors.accent,
-  },
-  advancedToggle: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: theme.spacing[2],
-    alignSelf: "flex-start",
-    paddingVertical: theme.spacing[1],
-  },
-  advancedText: {
-    color: theme.colors.foreground,
-    fontSize: theme.fontSize.base,
-    fontWeight: theme.fontWeight.medium,
-  },
-  actions: {
-    flexDirection: "row",
-    gap: theme.spacing[3],
-    marginTop: theme.spacing[2],
-  },
-  helper: {
-    color: theme.colors.foregroundMuted,
-    fontSize: theme.fontSize.base,
-  },
-  error: {
-    color: theme.colors.destructive,
-    fontSize: theme.fontSize.base,
-  },
-}));
+const styles = StyleSheet.create((theme) => {
+  const geometry = createControlGeometry(theme);
+
+  return {
+    field: {
+      gap: theme.spacing[2],
+    },
+    label: {
+      color: theme.colors.foregroundMuted,
+      fontSize: theme.fontSize.base,
+      fontWeight: theme.fontWeight.medium,
+    },
+    // Fill, hairline border, and elevation come from the shared field geometry
+    // (docs/design.md "Finish") — this sheet only owns size/color.
+    input: {
+      ...geometry.controlRest,
+      borderRadius: theme.borderRadius.lg,
+      paddingHorizontal: theme.spacing[4],
+      paddingVertical: theme.spacing[3],
+      color: theme.colors.foreground,
+    },
+    portRow: {
+      flexDirection: "row",
+      gap: theme.spacing[3],
+    },
+    hostField: {
+      flex: 1,
+      minWidth: 0,
+    },
+    portField: {
+      width: 112,
+    },
+    passwordRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: theme.spacing[2],
+    },
+    passwordInput: {
+      flex: 1,
+      minWidth: 0,
+    },
+    iconButton: {
+      width: 44,
+      height: 44,
+      alignItems: "center",
+      justifyContent: "center",
+      borderRadius: theme.borderRadius.lg,
+      backgroundColor: theme.colors.surface2,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+    },
+    checkboxRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: theme.spacing[3],
+    },
+    checkbox: {
+      width: 22,
+      height: 22,
+      borderRadius: theme.borderRadius.sm,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    checkboxChecked: {
+      backgroundColor: theme.colors.accent,
+      borderColor: theme.colors.accent,
+    },
+    advancedToggle: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: theme.spacing[2],
+      alignSelf: "flex-start",
+      paddingVertical: theme.spacing[1],
+    },
+    advancedText: {
+      color: theme.colors.foreground,
+      fontSize: theme.fontSize.base,
+      fontWeight: theme.fontWeight.medium,
+    },
+    actions: {
+      flexDirection: "row",
+      gap: theme.spacing[3],
+      marginTop: theme.spacing[2],
+    },
+    helper: {
+      color: theme.colors.foregroundMuted,
+      fontSize: theme.fontSize.base,
+    },
+    error: {
+      color: theme.colors.destructive,
+      fontSize: theme.fontSize.base,
+    },
+  };
+});
 
 function isIpv6Host(host: string): boolean {
   return host.includes(":") && !host.startsWith("[") && !host.endsWith("]");

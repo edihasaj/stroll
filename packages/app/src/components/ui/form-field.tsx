@@ -187,7 +187,6 @@ export const FormTextInput = forwardRef<EditingTextInputHandle, FormTextInputPro
     ) as AdaptiveTextInputProps["style"];
     const chromeStyle = useCallback(
       ({ hovered = false }: PressableStateCallbackType & { hovered?: boolean }) => [
-        formInputStyles.chrome,
         chromeSizeStyle,
         resolveControlInteractionStyles(
           {
@@ -247,9 +246,8 @@ const formInputStyles = StyleSheet.create((theme) => {
   const geometry = createControlGeometry(theme);
 
   return {
-    chrome: {
-      backgroundColor: theme.colors.surface2,
-    },
+    // Fill, hairline border, and elevation all come from `controlRest` below (docs/design.md
+    // "Finish") — this sheet only owns size (`chromeSm`/`chromeMd`).
     chromeSm: {
       ...geometry.fieldControlSm,
     },
