@@ -25,8 +25,22 @@ const { runtime, theme } = vi.hoisted(() => ({
       surface1: "#181818",
       surface2: "#222",
       surface3: "#333",
+      borderDivider: "rgba(255,255,255,0.05)",
+      focusBorder: "#369",
     },
     opacity: { 50: 0.5 },
+    colorScheme: "dark",
+    textTracking: { button: -0.07 },
+    motion: { duration: { fast: 100, base: 150, slow: 200 } },
+    shadow: {
+      xs: "0 1px 2px rgba(0, 0, 0, 0.3)",
+      sm: "0 1px 3px rgba(0, 0, 0, 0.3)",
+      md: "0 4px 12px rgba(0, 0, 0, 0.3)",
+      lg: "0 24px 64px rgba(0, 0, 0, 0.4)",
+      focusRing: "0 0 0 3px rgba(51, 102, 153, 0.22)",
+      focusRingSoft: "0 0 0 4px rgba(51, 102, 153, 0.12)",
+      insetHighlight: "inset 0 1px 0 rgba(255, 255, 255, 0.04)",
+    },
   },
 }));
 
