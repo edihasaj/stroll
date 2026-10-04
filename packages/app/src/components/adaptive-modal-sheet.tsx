@@ -90,6 +90,8 @@ const styles = StyleSheet.create((theme) => ({
     padding: theme.spacing[6],
     pointerEvents: "auto" as const,
   },
+  // `shadow.lg` carries its own 1px ring (docs/design.md "Finish"), so the sheet
+  // drops the separate `borderAccent` hairline it used to pair with it.
   desktopCard: {
     overflow: "hidden",
     width: "100%",
@@ -99,13 +101,11 @@ const styles = StyleSheet.create((theme) => ({
     minHeight: 0,
     backgroundColor: theme.colors.surface1,
     borderRadius: theme.borderRadius.xl,
-    borderWidth: 1,
-    borderColor: theme.colors.borderAccent,
     boxShadow: theme.shadow.lg,
   },
   headerContainer: {
     borderBottomWidth: 1,
-    borderBottomColor: theme.colors.surface2,
+    borderBottomColor: theme.colors.borderDivider,
   },
   headerRow: {
     paddingHorizontal: theme.spacing[SHEET_HORIZONTAL_PADDING_SCALE],

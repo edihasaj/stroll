@@ -816,7 +816,9 @@ const styles = StyleSheet.create((theme) => ({
     paddingVertical: theme.spacing[4],
     paddingHorizontal: theme.spacing[4],
     borderTopWidth: theme.borderWidth[1],
-    borderTopColor: theme.colors.border,
+    // The softer in-card row divider, matching `settingsStyles.rowBorder` — see
+    // docs/design.md "Finish".
+    borderTopColor: theme.colors.borderDivider,
   },
   trigger: {
     flexDirection: "row",

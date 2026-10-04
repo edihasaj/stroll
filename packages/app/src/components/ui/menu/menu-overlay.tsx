@@ -526,10 +526,10 @@ const styles = StyleSheet.create((theme) => ({
     bottom: 0,
     left: 0,
   },
+  // `shadow.md` already carries its own 1px ring (see docs/design.md "Finish"), so
+  // the panel no longer needs a separate `borderAccent` hairline on top of it.
   content: {
     backgroundColor: theme.colors.surface1,
-    borderWidth: 1,
-    borderColor: theme.colors.borderAccent,
     borderRadius: theme.borderRadius.xl,
     overflow: "hidden",
     boxShadow: theme.shadow.md,

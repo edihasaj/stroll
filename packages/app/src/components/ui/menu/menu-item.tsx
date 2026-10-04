@@ -400,8 +400,8 @@ const styles = StyleSheet.create((theme) => ({
     letterSpacing: theme.letterSpacing.wide,
   },
   // `border` sits between surface1 and surface2, which put it within a hair of the hover fill and
-  // made separators vanish against a hovered row. `borderAccent` is the colour the menu surface
-  // already outlines itself with, so the divider reads as part of the same frame.
+  // made separators vanish against a hovered row. `borderAccent` stays visible against that fill
+  // even though the panel itself dropped its own outline in favour of `shadow.md`'s ring.
   //
   // The one thing on a page that wants more room than the row gap gives it, so it says so here.
   // That is one number controlling one gap: rows no longer carry vertical spacing of their own,

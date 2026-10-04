@@ -25,12 +25,17 @@ export const settingsStyles = StyleSheet.create((theme) => ({
     color: theme.colors.foregroundMuted,
     fontSize: theme.fontSize.sm,
   },
+  // Light lifts the card off the page with a soft shadow on a brighter fill; dark
+  // has nowhere brighter to go, so it lifts with a one-line inset highlight on the
+  // card's own surface step instead. Both keep the same hairline border underneath
+  // the elevation — see docs/design.md "Finish".
   card: {
-    backgroundColor: theme.colors.surface1,
+    backgroundColor: theme.colorScheme === "dark" ? theme.colors.surface1 : theme.colors.surface0,
     // Cards/settings cards sit on `xl` — see docs/design.md "Finish" radius mapping.
     borderRadius: theme.borderRadius.xl,
     borderWidth: 1,
     borderColor: theme.colors.border,
+    boxShadow: theme.colorScheme === "dark" ? theme.shadow.insetHighlight : theme.shadow.xs,
     overflow: "hidden",
   },
   row: {
