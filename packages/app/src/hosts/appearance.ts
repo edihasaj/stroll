@@ -1,3 +1,4 @@
+import { friendlyHostDisplayName } from "@/hosts/display-name";
 import { IDENTITY_COLOR_NAMES, type IdentityColorName } from "@/styles/identity-colors";
 import type { HostProfile } from "@/types/host-connection";
 import { z } from "zod";
@@ -83,7 +84,7 @@ export function selectHostBadges(input: {
     }
     badges.set(host.serverId, {
       serverId: host.serverId,
-      label: host.label.trim() || host.serverId,
+      label: friendlyHostDisplayName(host),
       color: host.appearance.color,
       showLabel: display === "name",
     });

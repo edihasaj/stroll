@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { useEarliestOnlineHostServerId } from "@/app/_layout";
+import { friendlyHostDisplayName } from "@/hosts/display-name";
 import { useHosts } from "@/runtime/host-runtime";
 import { useActiveWorkspaceSelection } from "@/stores/navigation-active-workspace-store";
 import type { HostProfile } from "@/types/host-connection";
@@ -23,6 +24,6 @@ export function useActiveHostSummary(): ActiveHostSummary {
   const onlineHostServerId = useEarliestOnlineHostServerId();
   const serverId = activeWorkspaceSelection?.serverId ?? onlineHostServerId ?? null;
   const host = hosts.find((candidate) => candidate.serverId === serverId) ?? null;
-  const label = host?.label?.trim() || t("sidebar.help.appName");
+  const label = host ? friendlyHostDisplayName(host) : t("sidebar.help.appName");
   return { hosts, serverId, host, label };
 }
