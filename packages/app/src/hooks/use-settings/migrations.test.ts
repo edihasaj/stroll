@@ -3,7 +3,12 @@ import type { ProseFontPreference } from "@/styles/theme";
 import { createInMemoryKeyValueStorage } from "./fakes";
 import { APP_SETTINGS_KEY, SETTINGS_MIGRATIONS_KEY } from "./keys";
 import { migrateAppSettings } from "./migrations";
-import { DEFAULT_CLIENT_SETTINGS, type AppSettings, type SendBehavior } from "./storage";
+import {
+  DEFAULT_CLIENT_SETTINGS,
+  type AppSettings,
+  type SendBehavior,
+  type SidebarWorkspaceTrailing,
+} from "./storage";
 
 function settingsWith(sendBehavior: SendBehavior): AppSettings {
   return { ...DEFAULT_CLIENT_SETTINGS, sendBehavior };
@@ -11,6 +16,12 @@ function settingsWith(sendBehavior: SendBehavior): AppSettings {
 
 function settingsWithProseFont(proseFont: ProseFontPreference): AppSettings {
   return { ...DEFAULT_CLIENT_SETTINGS, proseFont };
+}
+
+function settingsWithSidebarTrailing(
+  sidebarWorkspaceTrailing: SidebarWorkspaceTrailing,
+): AppSettings {
+  return { ...DEFAULT_CLIENT_SETTINGS, sidebarWorkspaceTrailing };
 }
 
 type Storage = ReturnType<typeof createInMemoryKeyValueStorage>;
@@ -35,6 +46,11 @@ function storedProseFont(storage: Storage): ProseFontPreference | undefined {
   return raw === undefined ? undefined : JSON.parse(raw).proseFont;
 }
 
+function storedSidebarWorkspaceTrailing(storage: Storage): SidebarWorkspaceTrailing | undefined {
+  const raw = storage.entries.get(APP_SETTINGS_KEY);
+  return raw === undefined ? undefined : JSON.parse(raw).sidebarWorkspaceTrailing;
+}
+
 /** An in-memory storage whose write to `failingKey` always throws, as a full disk would. */
 function createFailingWriteStorage(failingKey: string): Storage {
   const storage = createInMemoryKeyValueStorage();
@@ -55,7 +71,11 @@ describe("migrateAppSettings", () => {
 
     expect(result.sendBehavior).toBe("steer");
     expect(storedSendBehavior(storage)).toBe("steer");
-    expect(appliedIds(storage)).toEqual(["steer-default", "prose-font-modern"]);
+    expect(appliedIds(storage)).toEqual([
+      "steer-default",
+      "prose-font-modern",
+      "sidebar-codex-defaults",
+    ]);
   });
 
   it("leaves interrupt alone once the migration has run", async () => {
@@ -74,7 +94,11 @@ describe("migrateAppSettings", () => {
 
     expect(result.sendBehavior).toBe("queue");
     expect(storage.entries.has(APP_SETTINGS_KEY)).toBe(false);
-    expect(appliedIds(storage)).toEqual(["steer-default", "prose-font-modern"]);
+    expect(appliedIds(storage)).toEqual([
+      "steer-default",
+      "prose-font-modern",
+      "sidebar-codex-defaults",
+    ]);
   });
 
   it("marks itself applied on a fresh install without rewriting settings", async () => {
@@ -83,7 +107,11 @@ describe("migrateAppSettings", () => {
     await migrateAppSettings(settingsWith("steer"), storage);
 
     expect(storage.entries.has(APP_SETTINGS_KEY)).toBe(false);
-    expect(appliedIds(storage)).toEqual(["steer-default", "prose-font-modern"]);
+    expect(appliedIds(storage)).toEqual([
+      "steer-default",
+      "prose-font-modern",
+      "sidebar-codex-defaults",
+    ]);
   });
 
   it("keeps unknown migration ids written by a newer client", async () => {
@@ -97,6 +125,7 @@ describe("migrateAppSettings", () => {
       "some-later-migration",
       "steer-default",
       "prose-font-modern",
+      "sidebar-codex-defaults",
     ]);
   });
 
@@ -112,6 +141,7 @@ describe("migrateAppSettings", () => {
       "steer-default",
       "mobile-content-16",
       "prose-font-modern",
+      "sidebar-codex-defaults",
     ]);
   });
 
@@ -123,7 +153,11 @@ describe("migrateAppSettings", () => {
 
     expect(result.contentFontSize).toBe(15);
     expect(storedContentFontSize(storage)).toBeUndefined();
-    expect(appliedIds(storage)).toEqual(["steer-default", "prose-font-modern"]);
+    expect(appliedIds(storage)).toEqual([
+      "steer-default",
+      "prose-font-modern",
+      "sidebar-codex-defaults",
+    ]);
   });
 
   it("lets a mobile user choose 15px after the default migration ran", async () => {
@@ -162,7 +196,11 @@ describe("migrateAppSettings", () => {
     const result = await migrateAppSettings(settingsWith("steer"), recovered);
 
     expect(result.sendBehavior).toBe("steer");
-    expect(appliedIds(recovered)).toEqual(["steer-default", "prose-font-modern"]);
+    expect(appliedIds(recovered)).toEqual([
+      "steer-default",
+      "prose-font-modern",
+      "sidebar-codex-defaults",
+    ]);
   });
 
   it("flips a stored serif prose font to system and marks itself applied", async () => {
@@ -172,7 +210,11 @@ describe("migrateAppSettings", () => {
 
     expect(result.proseFont).toBe("system");
     expect(storedProseFont(storage)).toBe("system");
-    expect(appliedIds(storage)).toEqual(["steer-default", "prose-font-modern"]);
+    expect(appliedIds(storage)).toEqual([
+      "steer-default",
+      "prose-font-modern",
+      "sidebar-codex-defaults",
+    ]);
   });
 
   it("keeps serif the user picked after the migration ran", async () => {
@@ -191,5 +233,37 @@ describe("migrateAppSettings", () => {
 
     expect(result.proseFont).toBe("system");
     expect(storedProseFont(storage)).toBeUndefined();
+  });
+
+  it("flips a stored diff sidebar trailing default to none and marks itself applied", async () => {
+    const storage = createInMemoryKeyValueStorage();
+
+    const result = await migrateAppSettings(settingsWithSidebarTrailing("diff"), storage);
+
+    expect(result.sidebarWorkspaceTrailing).toBe("none");
+    expect(storedSidebarWorkspaceTrailing(storage)).toBe("none");
+    expect(appliedIds(storage)).toEqual([
+      "steer-default",
+      "prose-font-modern",
+      "sidebar-codex-defaults",
+    ]);
+  });
+
+  it("keeps diff the user picked after the migration ran", async () => {
+    const storage = createInMemoryKeyValueStorage();
+    await migrateAppSettings(settingsWithSidebarTrailing("diff"), storage);
+
+    const result = await migrateAppSettings(settingsWithSidebarTrailing("diff"), storage);
+
+    expect(result.sidebarWorkspaceTrailing).toBe("diff");
+  });
+
+  it("leaves a timestamp sidebar trailing preference alone", async () => {
+    const storage = createInMemoryKeyValueStorage();
+
+    const result = await migrateAppSettings(settingsWithSidebarTrailing("timestamp"), storage);
+
+    expect(result.sidebarWorkspaceTrailing).toBe("timestamp");
+    expect(storedSidebarWorkspaceTrailing(storage)).toBeUndefined();
   });
 });

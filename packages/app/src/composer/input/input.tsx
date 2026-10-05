@@ -1814,12 +1814,11 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
     const inputWrapperCombinedStyle = useMemo(
       () => [
         styles.inputWrapper,
-        isInputFocused && styles.inputWrapperFocused,
         readOnly && styles.inputWrapperReadOnly,
         inputWrapperStyle,
         { opacity: surfacePresentation.input.opacity },
       ],
-      [inputWrapperStyle, isInputFocused, readOnly, surfacePresentation.input.opacity],
+      [inputWrapperStyle, readOnly, surfacePresentation.input.opacity],
     );
     // `withUnistyles` maps this component's `style` into a `.hash > *` child
     // rule, which ties on specificity with react-native-web's own
@@ -2010,9 +2009,11 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
 const styles = StyleSheet.create((theme: Theme) => {
   // Composer card fill (docs/design.md "16. Composer", Codex parity): `surfaceComposer` —
   // the same raised tone the Codex-style card and the user's own chat bubble share. No
-  // border, no outer focus ring (Codex has neither) — a subtle shadow keeps the light-theme
+  // border, no focus ring or hairline of any kind (Codex shows no focus treatment on its
+  // composer — the caret is the only indicator) — a subtle shadow keeps the light-theme
   // card separated from the near-white canvas; dark keeps `insetHighlight` alongside it since
-  // `surfaceComposer` reads close to the canvas there too.
+  // `surfaceComposer` reads close to the canvas there too. This fill and shadow do not change
+  // on focus.
   const isDarkComposer = theme.colorScheme === "dark";
   const composerFill = theme.colors.surfaceComposer;
   const composerRestShadow = isDarkComposer
@@ -2051,13 +2052,6 @@ const styles = StyleSheet.create((theme: Theme) => {
             transitionTimingFunction: "ease-out",
           }
         : {}),
-    },
-    // Keyboard focus only: a 1px inset hairline on top of the rest shadow — no outer ring,
-    // no border-color swap, no outer-geometry change (docs/hover.md's "don't change outer
-    // geometry" principle applies to any state swap, not just hover). The fill itself does
-    // not change; the hairline is the only focus signal, matching Codex's quiet composer.
-    inputWrapperFocused: {
-      boxShadow: [composerRestShadow, `inset 0 0 0 1px ${theme.colors.focusBorder}`].join(", "),
     },
     // Dotted says "this surface is the same box, but there is nothing to type
     // into it" without swapping the fill, which reads as an error state. Read-only is its
@@ -2169,8 +2163,7 @@ const styles = StyleSheet.create((theme: Theme) => {
       alignItems: "center",
       justifyContent: "center",
       marginLeft: theme.spacing[1],
-      // Eases the idle <-> disabled-empty opacity[50] dim (§16) instead of snapping it, matching
-      // `inputWrapper`'s own focus-border-color transition above.
+      // Eases the idle <-> disabled-empty opacity[50] dim (§16) instead of snapping it.
       ...(isWeb
         ? {
             transitionProperty: "opacity",

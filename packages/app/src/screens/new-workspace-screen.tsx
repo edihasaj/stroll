@@ -27,6 +27,7 @@ import {
 } from "@/composer/attachments/submit";
 import { HostStatusDot } from "@/components/host-status-dot";
 import { HostPicker } from "@/components/hosts/host-picker";
+import { friendlyHostDisplayName } from "@/hosts/display-name";
 import { ProjectIconView } from "@/components/project-icon-view";
 import { Combobox, ComboboxItem } from "@/components/ui/combobox";
 import type { ComboboxOption as ComboboxOptionType, ComboboxProps } from "@/components/ui/combobox";
@@ -205,12 +206,14 @@ function resolveNewWorkspaceModeValue<T>(
   return isChatMode ? values.chat : values.workspace;
 }
 
-/** The chat hero's inline host name — same reasoning as `resolveNewWorkspaceModeValue`. */
+/** The chat hero's inline host name — same reasoning as `resolveNewWorkspaceModeValue`.
+ * Renders a friendly display name (docs/design.md §16), not the raw hostname. */
 function resolveHeroHostLabel(
   allHosts: { serverId: string; label: string }[],
   selectedServerId: string,
 ): string {
-  return allHosts.find((h) => h.serverId === selectedServerId)?.label ?? selectedServerId;
+  const host = allHosts.find((h) => h.serverId === selectedServerId);
+  return friendlyHostDisplayName(host ?? { label: selectedServerId, serverId: selectedServerId });
 }
 
 /** Builds the hero's host-picker config, or `undefined` with only one host configured —

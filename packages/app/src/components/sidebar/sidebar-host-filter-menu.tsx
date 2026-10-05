@@ -13,6 +13,7 @@ import {
   useSidebarDisplayPreferences,
   type SidebarDisplayPreferences,
 } from "@/components/sidebar/display-preferences/model";
+import { friendlyHostDisplayName } from "@/hosts/display-name";
 import { useHosts } from "@/runtime/host-runtime";
 import { ICON_SIZE, type Theme } from "@/styles/theme";
 import type { HostProfile } from "@/types/host-connection";
@@ -94,7 +95,7 @@ function HostFilterRow({
       onSelect={handleSelect}
       testID={`sidebar-panel-host-filter-${host.serverId}`}
     >
-      {host.label?.trim() || host.serverId}
+      {friendlyHostDisplayName(host)}
     </DropdownMenuItem>
   );
 }
