@@ -38,6 +38,10 @@ import {
 import { SplitContainer } from "@/components/split-container";
 import { RetainedPanel } from "@/components/retained-panel";
 import { WorkspaceActions } from "@/git/workspace-actions";
+import {
+  WorkspaceHeaderCommitPill,
+  WorkspaceHeaderDiffStatPill,
+} from "./workspace-header-git-pills";
 import { WorkspaceOpenInEditorButton } from "@/workspace/open-in-editor/button";
 import { WorkspaceScriptsButton } from "@/screens/workspace/workspace-scripts-button";
 import { ImportSessionSheet } from "@/components/import-session-sheet";
@@ -3810,9 +3814,18 @@ function WorkspaceScreenContent({
             hideLabels
           />
         ) : null}
+        {!isMobile && workspaceDirectory && workspaceDescriptor?.diffStat ? (
+          <WorkspaceHeaderDiffStatPill
+            additions={workspaceDescriptor.diffStat.additions}
+            deletions={workspaceDescriptor.diffStat.deletions}
+          />
+        ) : null}
+        {!isMobile && workspaceDirectory ? (
+          <WorkspaceHeaderCommitPill serverId={normalizedServerId} cwd={workspaceDirectory} />
+        ) : null}
         {!isMobile && workspaceDirectory ? (
           <>
-            <WorkspaceActions serverId={normalizedServerId} cwd={workspaceDirectory} />
+            <WorkspaceActions serverId={normalizedServerId} cwd={workspaceDirectory} menuOnly />
             <WorkspaceHeaderExplorerToggle
               owner={explorerToggleOwner}
               onPress={handleToggleExplorerSidebar}

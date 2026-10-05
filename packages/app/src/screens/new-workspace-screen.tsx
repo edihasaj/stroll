@@ -6,7 +6,7 @@ import type { AgentSnapshotPayload, CreationSnapshot } from "@getpaseo/protocol/
 import { encodeImages } from "@/utils/encode-images";
 import { getHostRuntimeStore } from "@/runtime/host-runtime";
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
-import type { ReactElement, RefObject } from "react";
+import type { ComponentProps, ReactElement, RefObject } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { Pressable, StyleSheet as RNStyleSheet, Text, View } from "react-native";
@@ -99,7 +99,12 @@ import type { DaemonClient } from "@getpaseo/client/internal/daemon-client";
 import type { AgentProvider } from "@getpaseo/protocol/agent-types";
 import type { WorkspaceDraftTabSetup, WorkspaceTabTarget } from "@/workspace-tabs/model";
 import { isEmptyWorkspaceSubmission, runCreateEmptyWorkspace } from "./new-workspace-empty";
-import { ChatHeroGreeting, ChatHeroSuggestions } from "./new-workspace/chat-hero";
+import { ChatContextStrip, type ContextStripItem } from "@/composer/context-strip";
+import {
+  ChatHeroGreeting,
+  ChatHeroSuggestions,
+  type ChatHeroHostPickerConfig,
+} from "./new-workspace/chat-hero";
 import { waitForChatHeroExit } from "./new-workspace/chat-hero-transition";
 import { useAppReducedMotion } from "@/hooks/use-app-reduced-motion";
 import { CHAT_SOURCE_AGENT_CWD_PLACEHOLDER, createChatSourceWorkspace } from "./new-chat-workspace";
@@ -200,6 +205,61 @@ function resolveNewWorkspaceModeValue<T>(
   return isChatMode ? values.chat : values.workspace;
 }
 
+/** The chat hero's inline host name — same reasoning as `resolveNewWorkspaceModeValue`. */
+function resolveHeroHostLabel(
+  allHosts: { serverId: string; label: string }[],
+  selectedServerId: string,
+): string {
+  return allHosts.find((h) => h.serverId === selectedServerId)?.label ?? selectedServerId;
+}
+
+/** Builds the hero's host-picker config, or `undefined` with only one host configured —
+ * see `resolveNewWorkspaceModeValue` for why this branch lives in its own function. */
+function buildHeroHostPicker(input: {
+  allHosts: { serverId: string; label: string }[];
+  selectedServerId: string;
+  onSelect: (id: string) => void;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onPressTrigger: () => void;
+  anchorRef: RefObject<View | null>;
+}): ChatHeroHostPickerConfig | undefined {
+  if (input.allHosts.length <= 1) {
+    return undefined;
+  }
+  return {
+    allHosts: input.allHosts,
+    selectedServerId: input.selectedServerId,
+    onSelect: input.onSelect,
+    open: input.open,
+    onOpenChange: input.onOpenChange,
+    onPressTrigger: input.onPressTrigger,
+    anchorRef: input.anchorRef,
+  };
+}
+
+/** The blank-chat context strip's items — see `resolveNewWorkspaceModeValue` for why this
+ * branch lives in its own function. */
+function buildChatStripItems(input: {
+  allHosts: { serverId: string; label: string }[];
+  heroHostLabel: string;
+  openStripHostPicker: () => void;
+  stripHostPickerAnchorRef: RefObject<View | null>;
+}): ContextStripItem[] {
+  const hasMultipleHosts = input.allHosts.length > 1;
+  return [
+    { kind: "project", key: "project", label: "No project" },
+    {
+      kind: "machine",
+      key: "machine",
+      label: input.heroHostLabel,
+      onPress: hasMultipleHosts ? input.openStripHostPicker : undefined,
+      anchorRef: hasMultipleHosts ? input.stripHostPickerAnchorRef : undefined,
+      testID: "new-chat-strip-machine-trigger",
+    },
+  ];
+}
+
 /**
  * The scroll-area content above the composer: the blank-chat hero greeting in chat mode (hidden
  * once dismissed for the first send), or the "New workspace" title and form stack otherwise. Kept
@@ -211,9 +271,17 @@ function renderNewWorkspaceScrollContent(input: {
   chatHeroVisible: boolean;
   formStack: ReactElement | null;
   title: string;
+  heroHostLabel: string;
+  heroHostPicker?: ChatHeroHostPickerConfig;
 }): ReactElement | null {
   if (input.isChatMode) {
-    return input.chatHeroVisible ? <ChatHeroGreeting testID="new-chat-hero-greeting" /> : null;
+    return input.chatHeroVisible ? (
+      <ChatHeroGreeting
+        testID="new-chat-hero-greeting"
+        hostLabel={input.heroHostLabel}
+        hostPicker={input.heroHostPicker}
+      />
+    ) : null;
   }
   return (
     <>
@@ -240,6 +308,61 @@ function renderNewWorkspaceChatSuggestions(input: {
       disabled={input.disabled}
       testID="new-chat-hero-suggestions"
     />
+  );
+}
+
+/**
+ * The chat/workspace composer plus, in chat mode, the context strip above it (item 2 of the
+ * Codex parity brief) — pulled out of `NewWorkspaceScreen`'s own JSX so neither its nesting
+ * depth nor its cyclomatic complexity count against that component (same reasoning as
+ * `renderNewWorkspaceScrollContent` above). The strip's "machine" entry is a second,
+ * independent trigger for the same host switch as the hero's inline picker.
+ */
+function ChatComposerStack({
+  isChatMode,
+  chatStripItems,
+  allHosts,
+  selectedServerId,
+  onSelectHost,
+  stripHostPickerOpen,
+  onStripHostPickerOpenChange,
+  stripHostPickerAnchorRef,
+  composerProps,
+}: {
+  isChatMode: boolean;
+  chatStripItems: ContextStripItem[];
+  allHosts: { serverId: string; label: string }[];
+  selectedServerId: string;
+  onSelectHost: (id: string) => void;
+  stripHostPickerOpen: boolean;
+  onStripHostPickerOpenChange: (open: boolean) => void;
+  stripHostPickerAnchorRef: RefObject<View | null>;
+  composerProps: ComponentProps<typeof Composer>;
+}): ReactElement {
+  if (!isChatMode) {
+    return <Composer key="chat" {...composerProps} />;
+  }
+  return (
+    <View style={styles.composerStack}>
+      <ChatContextStrip items={chatStripItems} testID="new-chat-context-strip" />
+      <HostPicker
+        hosts={allHosts}
+        value={selectedServerId}
+        onSelect={onSelectHost}
+        open={stripHostPickerOpen}
+        onOpenChange={onStripHostPickerOpenChange}
+        anchorRef={stripHostPickerAnchorRef}
+        searchable={false}
+        title="Host"
+        desktopPlacement="bottom-start"
+        desktopMinWidth={200}
+      >
+        <View />
+      </HostPicker>
+      <View style={styles.composerOverlap}>
+        <Composer key="chat" {...composerProps} />
+      </View>
+    </View>
   );
 }
 
@@ -1757,6 +1880,17 @@ export function NewWorkspaceScreen({
   const projectPickerAnchorRef = useRef<View>(null);
   const isolationPickerAnchorRef = useRef<View>(null);
   const hostPickerAnchorRef = useRef<View | null>(null);
+  // A second trigger for the same host switch as the hero's inline picker (item 2's context
+  // strip "machine" entry) — same underlying HostPicker menu, independent open/anchor state,
+  // same pattern as the sidebar's brand-row/footer-identity dual triggers (docs/design.md §12).
+  const [stripHostPickerOpen, setStripHostPickerOpen] = useState(false);
+  const stripHostPickerAnchorRef = useRef<View | null>(null);
+  const handleStripHostPickerOpenChange = useCallback((open: boolean) => {
+    setStripHostPickerOpen(open);
+  }, []);
+  const openStripHostPicker = useCallback(() => {
+    setStripHostPickerOpen(true);
+  }, []);
   const isDraftHandoffActive = useIsNewWorkspaceDraftHandoffActive({ draftId, selectedServerId });
   const isStillOnCreateScreen = useNewWorkspaceScreenPresence();
 
@@ -2488,6 +2622,103 @@ export function NewWorkspaceScreen({
 
   const screenHeaderLeft = useMemo(() => <SidebarMenuToggle />, []);
 
+  // The hero's inline host name — a real picker (reusing the same handleSelectHost/
+  // hostPickerOpen state the workspace-mode host badge uses) once more than one host
+  // is configured, otherwise a plain label with no affordance (docs/design.md §16).
+  // Branching lives in the module-scope helpers below, not here, to keep this
+  // component's own cyclomatic complexity under the lint ceiling.
+  const heroHostLabel = resolveHeroHostLabel(allHosts, selectedServerId);
+  const heroHostPicker = buildHeroHostPicker({
+    allHosts,
+    selectedServerId,
+    onSelect: handleSelectHost,
+    open: hostPickerOpen,
+    onOpenChange: handleHostPickerOpenChange,
+    onPressTrigger: openHostPicker,
+    anchorRef: hostPickerAnchorRef,
+  });
+
+  // Context strip above the blank-chat composer (item 2): a new chat has no project, so
+  // "project" is always a static label here — chat mode never ties to a project (see
+  // ensureWorkspace's createChatSourceWorkspace branch above). "machine" is a second,
+  // independent trigger for the same host switch as the hero's inline picker.
+  const chatStripItems = useMemo<ContextStripItem[]>(
+    () =>
+      buildChatStripItems({
+        allHosts,
+        heroHostLabel,
+        openStripHostPicker,
+        stripHostPickerAnchorRef,
+      }),
+    [allHosts, heroHostLabel, openStripHostPicker],
+  );
+
+  // Memoized (not an inline object-literal prop) per the app's
+  // `jsx-no-new-object-as-prop` lint rule.
+  const chatComposerProps: ComponentProps<typeof Composer> = useMemo(
+    () => ({
+      externalKeyboardShift: true,
+      agentId: draftKey,
+      serverId: selectedServerId,
+      isPaneFocused: true,
+      onSubmitMessage: handleSubmitNewWorkspace,
+      allowEmptySubmit: !isChatMode,
+      placeholder: resolveNewWorkspaceModeValue(isChatMode, {
+        workspace: undefined,
+        chat: t("newWorkspace.chat.placeholder"),
+      }),
+      submitButtonAccessibilityLabel: t("newWorkspace.create"),
+      submitButtonTestID: "workspace-create-submit",
+      submitIcon: "return" as const,
+      isSubmitLoading: isPending,
+      waitForForgeAutoAttachOnSubmit: true,
+      submitBehavior: "preserve-and-lock" as const,
+      blurOnSubmit: true,
+      value: chatDraft.text,
+      onChangeText: chatDraft.editText,
+      textReplacement: chatDraft.textReplacement,
+      attachments: chatDraft.attachments,
+      attachmentScopeKeys: visibleDraftContextScopeKeys,
+      onChangeAttachments: chatDraft.setAttachments,
+      onForgeChangeRequestDetected: handleForgeChangeRequestDetected,
+      onForgeChangeRequestAutoAttach: handleForgeChangeRequestAutoAttach,
+      cwd: resolveNewWorkspaceModeValue(isChatMode, {
+        workspace: selectedSourceDirectory ?? "",
+        chat: CHAT_SOURCE_AGENT_CWD_PLACEHOLDER,
+      }),
+      clearDraft: handleClearDraft,
+      autoFocus: true,
+      autoFocusKey: resolveNewWorkspaceModeValue(isChatMode, {
+        workspace: launchFocusKey,
+        chat: `chat:${chatSuggestionFocusKey}`,
+      }),
+      commandDraftConfig: composerState?.commandDraftConfig,
+      agentControls: agentControlsWithDisabled,
+    }),
+    [
+      draftKey,
+      selectedServerId,
+      handleSubmitNewWorkspace,
+      isChatMode,
+      t,
+      isPending,
+      chatDraft.text,
+      chatDraft.editText,
+      chatDraft.textReplacement,
+      chatDraft.attachments,
+      visibleDraftContextScopeKeys,
+      chatDraft.setAttachments,
+      handleForgeChangeRequestDetected,
+      handleForgeChangeRequestAutoAttach,
+      selectedSourceDirectory,
+      handleClearDraft,
+      launchFocusKey,
+      chatSuggestionFocusKey,
+      composerState?.commandDraftConfig,
+      agentControlsWithDisabled,
+    ],
+  );
+
   return (
     <FileDropZone style={styles.container}>
       <ScreenHeader left={screenHeaderLeft} borderless />
@@ -2501,6 +2732,8 @@ export function NewWorkspaceScreen({
                 chatHeroVisible,
                 formStack,
                 title: t("newWorkspace.title"),
+                heroHostLabel,
+                heroHostPicker,
               })}
             </ScrollView>
             {resolveNewWorkspaceModeValue(isChatMode, {
@@ -2535,45 +2768,16 @@ export function NewWorkspaceScreen({
                 autoFocusKey={launchFocusKey}
               />
             ) : (
-              <Composer
-                key="chat"
-                externalKeyboardShift
-                agentId={draftKey}
-                serverId={selectedServerId}
-                isPaneFocused={true}
-                onSubmitMessage={handleSubmitNewWorkspace}
-                allowEmptySubmit={!isChatMode}
-                placeholder={resolveNewWorkspaceModeValue(isChatMode, {
-                  workspace: undefined,
-                  chat: t("newWorkspace.chat.placeholder"),
-                })}
-                submitButtonAccessibilityLabel={t("newWorkspace.create")}
-                submitButtonTestID="workspace-create-submit"
-                submitIcon="return"
-                isSubmitLoading={isPending}
-                waitForForgeAutoAttachOnSubmit
-                submitBehavior="preserve-and-lock"
-                blurOnSubmit={true}
-                value={chatDraft.text}
-                onChangeText={chatDraft.editText}
-                textReplacement={chatDraft.textReplacement}
-                attachments={chatDraft.attachments}
-                attachmentScopeKeys={visibleDraftContextScopeKeys}
-                onChangeAttachments={chatDraft.setAttachments}
-                onForgeChangeRequestDetected={handleForgeChangeRequestDetected}
-                onForgeChangeRequestAutoAttach={handleForgeChangeRequestAutoAttach}
-                cwd={resolveNewWorkspaceModeValue(isChatMode, {
-                  workspace: selectedSourceDirectory ?? "",
-                  chat: CHAT_SOURCE_AGENT_CWD_PLACEHOLDER,
-                })}
-                clearDraft={handleClearDraft}
-                autoFocus
-                autoFocusKey={resolveNewWorkspaceModeValue(isChatMode, {
-                  workspace: launchFocusKey,
-                  chat: `chat:${chatSuggestionFocusKey}`,
-                })}
-                commandDraftConfig={composerState?.commandDraftConfig}
-                agentControls={agentControlsWithDisabled}
+              <ChatComposerStack
+                isChatMode={isChatMode}
+                chatStripItems={chatStripItems}
+                allHosts={allHosts}
+                selectedServerId={selectedServerId}
+                onSelectHost={handleSelectHost}
+                stripHostPickerOpen={stripHostPickerOpen}
+                onStripHostPickerOpenChange={handleStripHostPickerOpenChange}
+                stripHostPickerAnchorRef={stripHostPickerAnchorRef}
+                composerProps={chatComposerProps}
               />
             )}
             {renderNewWorkspaceChatSuggestions({
@@ -2621,6 +2825,14 @@ const styles = StyleSheet.create((theme) => ({
   },
   contentCompact: {
     justifyContent: "flex-end",
+  },
+  // The composer stack: context strip, then the composer card overlapping its bottom edge
+  // (docs/design.md §16; mockup `.dock`/`.strip`/`.comp`).
+  composerStack: {
+    width: "100%",
+  },
+  composerOverlap: {
+    marginTop: -14,
   },
   composerTitleContainer: {
     marginBottom: theme.spacing[8],

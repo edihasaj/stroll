@@ -88,7 +88,6 @@ import type { HostBadgeModel } from "@/hosts/appearance";
 import { identityColor } from "@/styles/identity-colors";
 import { CONTENT_SURFACE_DATASET } from "@/styles/content-surface";
 import { resolveUserMessageAvatarColorName } from "./user-message-identity";
-import { StrollLogo } from "@/components/icons/stroll-logo";
 import { PlanCard } from "./plan-card";
 import { useToolCallSheet } from "./tool-call-sheet";
 import { ToolCallDetailsContent } from "./tool-call-details";
@@ -242,13 +241,6 @@ const ThemedLoadingSpinner = withUnistyles(LoadingSpinner);
 const ThemedNotificationInfo = withUnistyles(Info);
 const ThemedNotificationWarning = withUnistyles(TriangleAlertIcon);
 const ThemedNotificationError = withUnistyles(XCircle);
-// StrollLogo's default (no `color` prop) branch wraps react-native-svg's <Path> in
-// withUnistyles, which emits a `<div style="display:contents">` between <svg> and
-// <path> on web — invalid SVG content that Chromium silently refuses to paint, so the
-// mark never renders. Wrapping the outer <Svg>-returning component instead keeps the
-// injected div outside the <svg> tag (a valid div > svg nesting) and reaches the
-// plain, unwrapped <Path> branch inside StrollLogo by supplying `color` via `uniProps`.
-const ThemedStrollLogo = withUnistyles(StrollLogo);
 
 const foregroundColorMapping = (theme: Theme) => ({ color: theme.colors.foreground });
 const foregroundMutedColorMapping = (theme: Theme) => ({
@@ -425,29 +417,26 @@ const userMessageStylesheet = StyleSheet.create((theme) => ({
   },
   bubble: {
     // `secondary` rather than `surface3`: the bubble marks who is speaking, and at surface3 it
-    // was a filled slab competing with the agent's prose for attention.
+    // was a filled slab competing with the agent's prose for attention. `secondary` resolves to
+    // `surfaceComposer` — the same raised fill the composer card itself uses (Codex parity).
     backgroundColor: theme.colors.secondary,
-    // Uniform corners. The clipped top-right corner read as a speech-bubble tail, which is a
-    // messaging-app idiom this transcript does not otherwise use.
-    //
-    // `xl` — the card/surface radius, not the composer's looser `2xl` (docs/design.md
-    // "Finish") — plus a hairline border so the tint reads as a bounded surface rather
-    // than a flat color wash.
+    // Uniform corners, flat fill, no hairline — Codex's own user bubble has no border; the
+    // fill against canvas is contrast enough (docs/design.md §16, mockup `.user div`).
     borderRadius: theme.borderRadius.xl,
-    borderWidth: theme.borderWidth[1],
-    borderColor: theme.colors.border,
     paddingHorizontal: theme.spacing[3.5],
     paddingVertical: theme.spacing[2.5],
     minWidth: 0,
     flexShrink: 1,
   },
+  // 15px / 1.5 line-height is a pinned literal matching the Codex reference bubble exactly
+  // (docs/design.md §16 "Finish" pinned-literal convention), not `fontSize.content`.
   text: {
     color: theme.colors.foreground,
     fontFamily: theme.fontFamily.content,
-    fontSize: theme.fontSize.content,
+    fontSize: 15,
     ...(isWeb
       ? {
-          lineHeight: Math.round(theme.fontSize.content * 1.4),
+          lineHeight: 22.5,
           overflowWrap: "anywhere" as const,
         }
       : {}),
@@ -959,37 +948,6 @@ interface AssistantMessageProps {
 }
 
 export const assistantMessageStylesheet = StyleSheet.create((theme) => ({
-  markRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-  },
-  markColumn: {
-    width: 20,
-    // Bleeds into the row's own leading gutter instead of indenting the prose column,
-    // so the text keeps the same left rail as the tool activity row and the composer.
-    // The bleed only has room to spare when the transcript is centered inside
-    // MAX_CONTENT_WIDTH (agent-stream/view.tsx); once the pane is narrower than that
-    // (a pinned sidebar plus a not-yet-compact desktop window), the transcript fills
-    // the pane edge-to-edge and its guaranteed padding is 24px (spacing[4] list padding
-    // + spacing[2] wrapper padding). A full-size bleed of 28px pushed the mark 4px past
-    // that edge, clipping it under the sidebar. Keep this under 24px so the mark never
-    // crosses the pane's own left edge at any width.
-    marginLeft: -(20 + theme.spacing[0.5]),
-    marginRight: theme.spacing[2],
-  },
-  // Optical alignment to the cap-height of the first prose line, not the block's own
-  // padding — matches `container`'s paddingVertical, which `containerCompactTop`
-  // collapses to 0 for grouped consecutive assistant turns.
-  markColumnDefaultTop: {
-    marginTop: theme.spacing[3] + 2,
-  },
-  markColumnCompactTop: {
-    marginTop: 2,
-  },
-  markProseColumn: {
-    flex: 1,
-    minWidth: 0,
-  },
   container: {
     paddingVertical: theme.spacing[3],
     ...(isWeb ? { userSelect: "text" as const } : {}),
@@ -1379,9 +1337,11 @@ const expandableBadgeStylesheet = StyleSheet.create((theme) => ({
     marginRight: theme.spacing[1],
     backgroundColor: "transparent",
   },
+  // 13.5px / foregroundExtraMuted — a quiet one-line row, quieter than the app's
+  // usual foregroundMuted metadata tier (docs/design.md §16, Codex parity).
   label: {
-    color: theme.colors.foregroundMuted,
-    fontSize: theme.fontSize.base,
+    color: theme.colors.foregroundExtraMuted,
+    fontSize: 13.5,
     fontWeight: theme.fontWeight.normal,
     flexShrink: 0,
   },
@@ -1395,8 +1355,8 @@ const expandableBadgeStylesheet = StyleSheet.create((theme) => ({
   secondaryLabel: {
     flexShrink: 1,
     minWidth: 0,
-    color: theme.colors.foregroundMuted,
-    fontSize: theme.fontSize.base,
+    color: theme.colors.foregroundExtraMuted,
+    fontSize: 13.5,
     fontWeight: theme.fontWeight.normal,
     marginLeft: theme.spacing[2],
   },
@@ -1405,7 +1365,7 @@ const expandableBadgeStylesheet = StyleSheet.create((theme) => ({
   },
   shimmerText: {
     color: "transparent",
-    fontSize: theme.fontSize.base,
+    fontSize: 13.5,
     fontWeight: theme.fontWeight.normal,
   },
   spacer: {
@@ -1747,7 +1707,6 @@ export const AssistantMessage = memo(function AssistantMessage({
   animateEntrance = false,
 }: AssistantMessageProps) {
   const { t } = useTranslation();
-  const isCompact = useIsCompactFormFactor();
   const { entering: entranceEntering, webStyle: entranceWebStyle } =
     useMessageEntranceAnimation(animateEntrance);
   const markdownParser = useMemo(createAssistantMarkdownParser, []);
@@ -2269,30 +2228,10 @@ export const AssistantMessage = memo(function AssistantMessage({
     </View>
   );
 
-  const hasCompactTop = spacing === "compactTop" || spacing === "compactBoth";
-  const markColumnStyle = [
-    assistantMessageStylesheet.markColumn,
-    hasCompactTop
-      ? assistantMessageStylesheet.markColumnCompactTop
-      : assistantMessageStylesheet.markColumnDefaultTop,
-  ];
-
   return (
     <StreamingWords stream={stream}>
       <Animated.View entering={entranceEntering} style={entranceWebStyle}>
-        {isCompact ? (
-          prose
-        ) : (
-          // The mark bleeds into the row's own left padding instead of indenting the
-          // prose, so assistant text keeps the same left rail as the tool activity row
-          // and the user bubble's right rail — only the mark moves, never the column.
-          <View style={assistantMessageStylesheet.markRow}>
-            <View style={markColumnStyle}>
-              <ThemedStrollLogo size={20} uniProps={foregroundColorMapping} />
-            </View>
-            <View style={assistantMessageStylesheet.markProseColumn}>{prose}</View>
-          </View>
-        )}
+        {prose}
       </Animated.View>
     </StreamingWords>
   );

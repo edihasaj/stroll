@@ -97,6 +97,7 @@ export const fr: TranslationResources = {
       mobile: "Message Stroll",
       fallback: "Message...",
       terminal: "Prompt",
+      followUp: "Demandez des modifications de suivi",
     },
     input: {
       accessibilityLabel: "Agent de messagerie...",
@@ -1304,11 +1305,7 @@ export const fr: TranslationResources = {
     create: "Créer",
     chat: {
       placeholder: "Message Stroll",
-      greeting: {
-        morning: "Bonjour. Sur quoi travaillons-nous ?",
-        afternoon: "Bon après-midi. Sur quoi travaillons-nous ?",
-        evening: "Bonsoir. Sur quoi travaillons-nous ?",
-      },
+      greeting: "Sur quoi allons-nous travailler dans {{host}} ?",
       suggestions: {
         explainRepo: {
           label: "Explique ce dépôt",

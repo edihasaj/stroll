@@ -1020,9 +1020,17 @@ function DesktopAgentControlsContent(props: DesktopAgentControlsContentProps) {
     handleCloseSheet,
     modelSelectorServerId,
   } = props;
+  // When thinking/effort sits right next to the model trigger, the pair reads as one
+  // "Model Effort ⌄" label (Codex parity, docs/design.md §16) — the model trigger drops its
+  // own caret so only the trailing (thinking) trigger's caret closes the group, and the two
+  // sit in one tightly-gapped row (`modelThinkingGroup` below) instead of the row's general gap.
+  const modelHasAdjacentThinking = Boolean(thinkingOptions && thinkingOptions.length > 0);
   const modelToolbar = useMemo(
-    () => ({ glyphSize, showCaret: presentation.showCarets }),
-    [glyphSize, presentation.showCarets],
+    () => ({
+      glyphSize,
+      showCaret: presentation.showCarets && !modelHasAdjacentThinking,
+    }),
+    [glyphSize, presentation.showCarets, modelHasAdjacentThinking],
   );
   const featuresSheetHeader = useMemo<SheetHeader>(
     () => ({ title: t("agentControls.features.title") }),
@@ -1069,78 +1077,80 @@ function DesktopAgentControlsContent(props: DesktopAgentControlsContentProps) {
           </>
         ) : null}
 
-        {canSelectModel ? (
-          <Tooltip delayDuration={0} enabledOnDesktop enabledOnMobile={false}>
-            <TooltipTrigger asChild triggerRefProp="ref">
-              <View style={styles.modelControl}>
-                <CombinedModelSelector
-                  providers={modelSelectorProviders}
-                  selectedProvider={provider}
-                  selectedModel={selectedModelId ?? ""}
-                  onSelect={handleDesktopModelSelect}
-                  profiles={agentProfiles}
-                  onApplyProfile={onApplyAgentProfile}
-                  onEditProfiles={onEditAgentProfiles}
-                  onCreateProfile={onCreateAgentProfile}
-                  onEditProfile={onEditAgentProfile}
-                  isLoading={isModelLoading}
-                  disabled={modelDisabled}
-                  onOpen={onModelSelectorOpen}
-                  onClose={onDropdownClose}
-                  onRetryProvider={onRetryModelProvider}
-                  isRetryingProvider={isRetryingModelProvider}
-                  serverId={modelSelectorServerId}
-                  desktopPlacement="top-start"
-                  desktopMinWidth={360}
-                  toolbar={modelToolbar}
-                />
-              </View>
-            </TooltipTrigger>
-            <TooltipContent side="top" align="center" offset={8}>
-              <Text style={styles.tooltipText}>{t(getAgentControlHintKey("model"))}</Text>
-            </TooltipContent>
-          </Tooltip>
-        ) : null}
-
-        {thinkingOptions && thinkingOptions.length > 0 ? (
-          <>
+        <View style={modelHasAdjacentThinking ? styles.modelThinkingGroup : undefined}>
+          {canSelectModel ? (
             <Tooltip delayDuration={0} enabledOnDesktop enabledOnMobile={false}>
               <TooltipTrigger asChild triggerRefProp="ref">
-                <AgentControlTrigger
-                  ref={thinkingAnchorRef}
-                  icon={Zap}
-                  surface="toolbar"
-                  label={t("agentControls.thinking.title")}
-                  value={displayThinking}
-                  showToolbarLabel={presentation.showThinkingLabel}
-                  showCaret={presentation.showCarets}
-                  open={openSelector === "thinking"}
-                  disabled={disabled || !canSelectThinking}
-                  onPress={handleThinkingPress}
-                  accessibilityLabel={t("agentControls.thinking.selectWithValue", {
-                    value: displayThinking,
-                  })}
-                  testID="agent-thinking-selector"
-                />
+                <View style={styles.modelControl}>
+                  <CombinedModelSelector
+                    providers={modelSelectorProviders}
+                    selectedProvider={provider}
+                    selectedModel={selectedModelId ?? ""}
+                    onSelect={handleDesktopModelSelect}
+                    profiles={agentProfiles}
+                    onApplyProfile={onApplyAgentProfile}
+                    onEditProfiles={onEditAgentProfiles}
+                    onCreateProfile={onCreateAgentProfile}
+                    onEditProfile={onEditAgentProfile}
+                    isLoading={isModelLoading}
+                    disabled={modelDisabled}
+                    onOpen={onModelSelectorOpen}
+                    onClose={onDropdownClose}
+                    onRetryProvider={onRetryModelProvider}
+                    isRetryingProvider={isRetryingModelProvider}
+                    serverId={modelSelectorServerId}
+                    desktopPlacement="top-start"
+                    desktopMinWidth={360}
+                    toolbar={modelToolbar}
+                  />
+                </View>
               </TooltipTrigger>
               <TooltipContent side="top" align="center" offset={8}>
-                <Text style={styles.tooltipText}>{t(getAgentControlHintKey("thinking"))}</Text>
+                <Text style={styles.tooltipText}>{t(getAgentControlHintKey("model"))}</Text>
               </TooltipContent>
             </Tooltip>
-            <Combobox
-              options={comboboxThinkingOptions}
-              value={selectedThinkingOptionId ?? ""}
-              onSelect={handleThinkingSelect}
-              searchable={comboboxThinkingOptions.length > DESKTOP_SEARCH_THRESHOLD}
-              open={openSelector === "thinking"}
-              onOpenChange={handleThinkingOpenChange}
-              anchorRef={thinkingAnchorRef}
-              desktopPlacement="top-start"
-              desktopMinWidth={200}
-              renderOption={renderThinkingOption}
-            />
-          </>
-        ) : null}
+          ) : null}
+
+          {thinkingOptions && thinkingOptions.length > 0 ? (
+            <>
+              <Tooltip delayDuration={0} enabledOnDesktop enabledOnMobile={false}>
+                <TooltipTrigger asChild triggerRefProp="ref">
+                  <AgentControlTrigger
+                    ref={thinkingAnchorRef}
+                    icon={Zap}
+                    surface="toolbar"
+                    label={t("agentControls.thinking.title")}
+                    value={displayThinking}
+                    showToolbarLabel={presentation.showThinkingLabel}
+                    showCaret={presentation.showCarets}
+                    open={openSelector === "thinking"}
+                    disabled={disabled || !canSelectThinking}
+                    onPress={handleThinkingPress}
+                    accessibilityLabel={t("agentControls.thinking.selectWithValue", {
+                      value: displayThinking,
+                    })}
+                    testID="agent-thinking-selector"
+                  />
+                </TooltipTrigger>
+                <TooltipContent side="top" align="center" offset={8}>
+                  <Text style={styles.tooltipText}>{t(getAgentControlHintKey("thinking"))}</Text>
+                </TooltipContent>
+              </Tooltip>
+              <Combobox
+                options={comboboxThinkingOptions}
+                value={selectedThinkingOptionId ?? ""}
+                onSelect={handleThinkingSelect}
+                searchable={comboboxThinkingOptions.length > DESKTOP_SEARCH_THRESHOLD}
+                open={openSelector === "thinking"}
+                onOpenChange={handleThinkingOpenChange}
+                anchorRef={thinkingAnchorRef}
+                desktopPlacement="top-start"
+                desktopMinWidth={200}
+                renderOption={renderThinkingOption}
+              />
+            </>
+          ) : null}
+        </View>
 
         {presentation.aggregateFeatures && features?.length ? (
           <>
@@ -2108,6 +2118,16 @@ const styles = StyleSheet.create((theme) => ({
   modelControl: {
     minWidth: 0,
     flexShrink: 1,
+  },
+  // Model + thinking/effort read as one "Model Effort ⌄" label (Codex parity) — tighter
+  // than the row's general gap between unrelated triggers, each still opening its own
+  // picker (docs/design.md §16).
+  modelThinkingGroup: {
+    minWidth: 0,
+    flexShrink: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 0,
   },
   toolbarCaret: {
     width: 14,

@@ -95,6 +95,7 @@ export const ptBR: TranslationResources = {
       mobile: "Message Stroll",
       fallback: "Mensagem...",
       terminal: "Prompt",
+      followUp: "Peça alterações de acompanhamento",
     },
     input: {
       accessibilityLabel: "Enviar mensagem ao agente...",
@@ -1294,11 +1295,7 @@ export const ptBR: TranslationResources = {
     create: "Criar",
     chat: {
       placeholder: "Message Stroll",
-      greeting: {
-        morning: "Bom dia. No que vamos trabalhar?",
-        afternoon: "Boa tarde. No que vamos trabalhar?",
-        evening: "Boa noite. No que vamos trabalhar?",
-      },
+      greeting: "No que vamos trabalhar em {{host}}?",
       suggestions: {
         explainRepo: {
           label: "Explique este repositório",

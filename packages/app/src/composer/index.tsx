@@ -1081,7 +1081,7 @@ interface ComposerCancelButtonProps {
   t: TFunction;
 }
 
-const cancelRingColorMapping = (theme: Theme) => ({ color: theme.colors.destructive });
+const cancelRingColorMapping = (theme: Theme) => ({ color: theme.colors.accentForeground });
 // The rotating ring clears the 32px stop button by 4px on every side.
 const CANCEL_RING_DIAMETER = 40;
 
@@ -2667,12 +2667,14 @@ const styles = StyleSheet.create((theme: Theme) => ({
     borderTopWidth: theme.borderWidth[1],
     borderTopColor: theme.colors.border,
   },
-  // One 32px circle, matching the send button it replaces in the controls row.
+  // One 32px circle, matching the send button it replaces in the controls row. Same
+  // `accent` fill as the send state — Codex doesn't color-code stop as destructive, it's
+  // the same committed-action circle with a different glyph (docs/design.md §16).
   cancelButton: {
     width: 32,
     height: 32,
     borderRadius: theme.borderRadius.full,
-    backgroundColor: theme.colors.destructive,
+    backgroundColor: theme.colors.accent,
     alignItems: "center",
     justifyContent: "center",
     // Eases the disabled opacity[50] dim (disconnected/cancelling) instead of snapping it,
@@ -2709,7 +2711,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     width: 10,
     height: 10,
     borderRadius: 2,
-    backgroundColor: theme.colors.background,
+    backgroundColor: theme.colors.accentForeground,
   },
   rightControls: {
     flexDirection: "row",

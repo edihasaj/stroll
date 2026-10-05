@@ -1,9 +1,9 @@
 import React, { memo, useCallback, useMemo, type ReactNode } from "react";
 import { Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
-import { StyleSheet, withUnistyles } from "react-native-unistyles";
+import { StyleSheet } from "react-native-unistyles";
 import { MAX_CONTENT_WIDTH } from "@/constants/layout";
-import { SPACING, type Theme } from "@/styles/theme";
+import { SPACING } from "@/styles/theme";
 import type { TurnTiming } from "@/timeline/turn-time";
 import type { StreamItem } from "@/types/stream";
 import {
@@ -14,11 +14,9 @@ import { resolveAssistantTurnForkBoundary, type AssistantTurnForkBoundary } from
 import { AssistantTurnFooter, LiveElapsed, type AssistantForkTarget } from "@/components/message";
 import type { TurnFooterHost } from "./layout";
 import { AssistantForkMenu } from "@/components/assistant-fork-menu";
-import { SyncedLoader } from "@/components/synced-loader";
 import { useRetainedPanelActive } from "@/components/retained-panel";
+import { WorkingShimmerText } from "./working-shimmer-text";
 
-const ThemedSyncedLoader = withUnistyles(SyncedLoader);
-const workingIndicatorColorMapping = (theme: Theme) => ({ color: theme.colors.foregroundMuted });
 export const TURN_FOOTER_BOTTOM_SPACING = SPACING[8];
 
 export type TurnContentStrategy = StreamStrategy;
@@ -120,21 +118,22 @@ const WorkingIndicator = memo(function WorkingIndicator({
   const active = useRetainedPanelActive();
   return (
     <View style={stylesheet.turnFooterContent}>
-      <View style={stylesheet.workingLoader}>
-        <ThemedSyncedLoader size={14} uniProps={workingIndicatorColorMapping} />
-      </View>
-      {/* Match the completed-turn footer: actions precede timing metadata. */}
+      {/* Match the completed-turn footer: actions precede timing metadata. The shimmer text
+          itself is the running indicator — no separate spinner (docs/design.md §4/§16's
+          "Codex parity" live-footer shape). */}
       {onForkInFlightTurn ? <AssistantForkMenu onFork={onForkInFlightTurn} /> : null}
       {inFlightTurnStartedAt ? (
         <View style={stylesheet.workingStatus}>
+          <WorkingShimmerText style={stylesheet.workingLabel}>
+            {t("agentStream.turnFooter.working")}
+          </WorkingShimmerText>
+          <Text style={stylesheet.workingDot}>·</Text>
           <LiveElapsed
             startedAt={inFlightTurnStartedAt}
             active={active}
             style={stylesheet.workingElapsed}
             testID="turn-working-elapsed"
           />
-          <Text style={stylesheet.workingDot}>·</Text>
-          <Text style={stylesheet.workingLabel}>{t("agentStream.turnFooter.working")}</Text>
         </View>
       ) : null}
     </View>
@@ -242,20 +241,18 @@ const stylesheet = StyleSheet.create((theme) => ({
     alignItems: "center",
     gap: theme.spacing[1.5],
   },
+  // 13px, pinned literal matching the Codex reference live footer (docs/design.md §16).
   workingElapsed: {
-    color: theme.colors.foregroundMuted,
-    fontSize: theme.fontSize.sm,
+    color: theme.colors.foregroundExtraMuted,
+    fontSize: 13,
     fontVariant: ["tabular-nums"],
   },
   workingDot: {
-    color: theme.colors.foregroundMuted,
-    fontSize: theme.fontSize.sm,
+    color: theme.colors.foregroundExtraMuted,
+    fontSize: 13,
   },
   workingLabel: {
-    color: theme.colors.foregroundMuted,
-    fontSize: theme.fontSize.sm,
-  },
-  workingLoader: {
-    marginLeft: -2,
+    color: theme.colors.foregroundExtraMuted,
+    fontSize: 13,
   },
 }));
