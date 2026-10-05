@@ -95,6 +95,7 @@ export const ru: TranslationResources = {
       mobile: "Message Stroll",
       fallback: "Сообщение...",
       terminal: "Prompt",
+      followUp: "Запросите дополнительные изменения",
     },
     input: {
       accessibilityLabel: "Написать агенту...",
@@ -1279,11 +1280,7 @@ export const ru: TranslationResources = {
     create: "Создать",
     chat: {
       placeholder: "Message Stroll",
-      greeting: {
-        morning: "Доброе утро. Над чем поработаем?",
-        afternoon: "Добрый день. Над чем поработаем?",
-        evening: "Добрый вечер. Над чем поработаем?",
-      },
+      greeting: "Над чем будем работать в {{host}}?",
       suggestions: {
         explainRepo: {
           label: "Объясни этот репозиторий",

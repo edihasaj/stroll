@@ -95,6 +95,7 @@ export const es: TranslationResources = {
       mobile: "Message Stroll",
       fallback: "Mensaje...",
       terminal: "Prompt",
+      followUp: "Solicita cambios de seguimiento",
     },
     input: {
       accessibilityLabel: "Agente de mensajes...",
@@ -1297,11 +1298,7 @@ export const es: TranslationResources = {
     create: "Crear",
     chat: {
       placeholder: "Message Stroll",
-      greeting: {
-        morning: "Buenos días. ¿En qué estamos trabajando?",
-        afternoon: "Buenas tardes. ¿En qué estamos trabajando?",
-        evening: "Buenas noches. ¿En qué estamos trabajando?",
-      },
+      greeting: "¿En qué vamos a trabajar en {{host}}?",
       suggestions: {
         explainRepo: {
           label: "Explica este repositorio",

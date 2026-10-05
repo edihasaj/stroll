@@ -95,6 +95,7 @@ export const zhCN: TranslationResources = {
       mobile: "Message Stroll",
       fallback: "输入消息...",
       terminal: "Prompt",
+      followUp: "请求后续更改",
     },
     input: {
       accessibilityLabel: "给 Agent 发消息...",
@@ -1251,11 +1252,7 @@ export const zhCN: TranslationResources = {
     create: "创建",
     chat: {
       placeholder: "Message Stroll",
-      greeting: {
-        morning: "早上好，我们要做什么？",
-        afternoon: "下午好，我们要做什么？",
-        evening: "晚上好，我们要做什么？",
-      },
+      greeting: "我们要在 {{host}} 上做什么？",
       suggestions: {
         explainRepo: {
           label: "解释这个仓库",

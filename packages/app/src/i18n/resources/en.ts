@@ -92,6 +92,7 @@ export const en = {
       mobile: "Message Stroll",
       fallback: "Message...",
       terminal: "Prompt",
+      followUp: "Ask for follow-up changes",
     },
     input: {
       accessibilityLabel: "Message agent...",
@@ -1271,11 +1272,7 @@ export const en = {
     create: "Create",
     chat: {
       placeholder: "Message Stroll",
-      greeting: {
-        morning: "Good morning. What are we working on?",
-        afternoon: "Good afternoon. What are we working on?",
-        evening: "Good evening. What are we working on?",
-      },
+      greeting: "What should we work on in {{host}}?",
       suggestions: {
         explainRepo: {
           label: "Explain this repository",

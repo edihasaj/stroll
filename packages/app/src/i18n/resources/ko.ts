@@ -95,6 +95,7 @@ export const ko: TranslationResources = {
       mobile: "Message Stroll",
       fallback: "메시지...",
       terminal: "Prompt",
+      followUp: "후속 변경 사항 요청",
     },
     input: {
       accessibilityLabel: "에이전트에게 메시지...",
@@ -1269,11 +1270,7 @@ export const ko: TranslationResources = {
     create: "생성",
     chat: {
       placeholder: "Message Stroll",
-      greeting: {
-        morning: "좋은 아침입니다. 무엇을 작업할까요?",
-        afternoon: "안녕하세요. 무엇을 작업할까요?",
-        evening: "좋은 저녁입니다. 무엇을 작업할까요?",
-      },
+      greeting: "{{host}}에서 무엇을 작업할까요?",
       suggestions: {
         explainRepo: {
           label: "이 저장소 설명하기",

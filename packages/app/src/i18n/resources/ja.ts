@@ -95,6 +95,7 @@ export const ja: TranslationResources = {
       mobile: "Message Stroll",
       fallback: "メッセージ...",
       terminal: "Prompt",
+      followUp: "フォローアップの変更を依頼",
     },
     input: {
       accessibilityLabel: "エージェントにメッセージ...",
@@ -1275,11 +1276,7 @@ export const ja: TranslationResources = {
     create: "作成",
     chat: {
       placeholder: "Message Stroll",
-      greeting: {
-        morning: "おはようございます。何に取り組みますか?",
-        afternoon: "こんにちは。何に取り組みますか?",
-        evening: "こんばんは。何に取り組みますか?",
-      },
+      greeting: "{{host}}で何に取り組みますか?",
       suggestions: {
         explainRepo: {
           label: "このリポジトリを説明する",
