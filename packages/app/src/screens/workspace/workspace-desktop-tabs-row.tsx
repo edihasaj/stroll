@@ -1607,15 +1607,14 @@ const styles = StyleSheet.create((theme) => ({
   tabHovered: {
     backgroundColor: theme.colors.surface1,
   },
-  // Light has nowhere brighter than the bar itself (`surface0`) to lift the active
-  // tab to, so it lifts with `shadow.xs` instead; dark lifts onto `surface2` with
-  // an inset highlight. See docs/design.md "Finish".
+  // Quiet tabs (Codex parity, docs/design.md §16): selected is a flat `interactionSelected`
+  // fill, no elevation — the same translucent semantic token the sidebar/toolbar use for a
+  // selected background, instead of the earlier raised `surface0`/`surface2` + shadow pairing.
   tabActive: {
-    backgroundColor: theme.colorScheme === "dark" ? theme.colors.surface2 : theme.colors.surface0,
-    boxShadow: theme.colorScheme === "dark" ? theme.shadow.insetHighlight : theme.shadow.xs,
+    backgroundColor: theme.colors.interactionSelected,
   },
   tabActiveUnfocused: {
-    backgroundColor: theme.colors.surface1,
+    backgroundColor: theme.colors.interactionHighlight,
   },
   tabHoverFrame: {
     position: "relative",
