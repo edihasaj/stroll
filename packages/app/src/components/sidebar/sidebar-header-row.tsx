@@ -62,7 +62,7 @@ export function SidebarHeaderRow({
       rail ? styles.buttonRail : styles.button,
       !rail && variant === "compact" && styles.buttonCompact,
       Boolean(hovered) && !isActive && styles.buttonHovered,
-      isActive && styles.buttonSelected,
+      isActive && (rail ? styles.buttonRailSelected : styles.buttonSelected),
     ],
     [isActive, rail, variant],
   );
@@ -182,11 +182,12 @@ const styles = StyleSheet.create((theme) => ({
     // edge with the workspace list below (base button uses a wider spacing[3]).
     paddingHorizontal: theme.spacing[2],
   },
-  // Matches the footer's icon-only buttons (left-sidebar.tsx `footerIconButton`)
-  // so rail icons read as one consistent icon-button size top to bottom.
+  // SB2 (Codex-style rail): 34px square, one radius step under `lg` — the design spec calls
+  // for a 9px radius; `borderRadius.md` (8) is the nearest token on the scale and reads the
+  // same at this size, so it stays on-scale rather than introducing a one-off literal.
   buttonRail: {
-    width: 28,
-    height: 28,
+    width: 34,
+    height: 34,
     alignItems: "center",
     justifyContent: "center",
     borderRadius: theme.borderRadius.md,
@@ -196,6 +197,11 @@ const styles = StyleSheet.create((theme) => ({
   },
   buttonSelected: {
     backgroundColor: theme.colors.surface2,
+  },
+  // SB2 rail: `interactionSelected` per the Codex-parity spec, distinct from the
+  // non-rail compact/header rows above which keep `surface2`.
+  buttonRailSelected: {
+    backgroundColor: theme.colors.interactionSelected,
   },
   tooltipRow: {
     flexDirection: "row",

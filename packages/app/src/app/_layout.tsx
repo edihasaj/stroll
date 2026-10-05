@@ -55,7 +55,6 @@ import {
   resolveDesktopAppChromeLayout,
   resolveDesktopAppContentMinimum,
   resolveDesktopSidebarVisibility,
-  SIDEBAR_RAIL_WIDTH,
 } from "@/components/desktop-sidebar-layout";
 import { isNative, isWeb } from "@/constants/platform";
 import { HorizontalScrollProvider } from "@/contexts/horizontal-scroll-context";
@@ -531,7 +530,8 @@ function AppContainer({ children, chromeEnabled: chromeEnabledOverride }: AppCon
     // collapse toggle currently prefers, not always the persisted expanded width.
     canShare: canDesktopAppSidebarShare({
       contentMinimumWidth: appContentMinimumWidth,
-      requestedSidebarWidth: isDesktopSidebarRail ? SIDEBAR_RAIL_WIDTH : sidebarWidth,
+      mode: isDesktopSidebarRail ? "rail" : "expanded",
+      requestedPanelWidth: sidebarWidth,
       viewportWidth,
     }),
   });

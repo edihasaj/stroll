@@ -87,7 +87,8 @@ describe("desktop sidebar layout", () => {
     expect(
       canDesktopAppSidebarShare({
         contentMinimumWidth: settingsMinimum,
-        requestedSidebarWidth: 320,
+        mode: "expanded",
+        requestedPanelWidth: 320,
         viewportWidth: 751,
       }),
     ).toBe(false);
@@ -98,8 +99,31 @@ describe("desktop sidebar layout", () => {
     expect(
       canDesktopAppSidebarShare({
         contentMinimumWidth: resolveDesktopAppContentMinimum({ isSettingsRoute: false }),
-        requestedSidebarWidth: 320,
+        mode: "expanded",
+        requestedPanelWidth: 320,
         viewportWidth: 751,
+      }),
+    ).toBe(true);
+  });
+
+  it("shares more room in rail mode than expanded, for the same viewport", () => {
+    // At 800px: rail (52px) leaves 748px, clearing the 720px settings minimum; expanded
+    // (52 + a clamped 320px panel = 372px) leaves only 428px and does not.
+    const settingsMinimum = resolveDesktopAppContentMinimum({ isSettingsRoute: true });
+    expect(
+      canDesktopAppSidebarShare({
+        contentMinimumWidth: settingsMinimum,
+        mode: "expanded",
+        requestedPanelWidth: 320,
+        viewportWidth: 800,
+      }),
+    ).toBe(false);
+    expect(
+      canDesktopAppSidebarShare({
+        contentMinimumWidth: settingsMinimum,
+        mode: "rail",
+        requestedPanelWidth: 320,
+        viewportWidth: 800,
       }),
     ).toBe(true);
   });
@@ -152,14 +176,17 @@ describe("desktop sidebar layout", () => {
       ).toBe(SIDEBAR_RAIL_WIDTH);
     });
 
-    it("matches the clamped expanded width when expanded", () => {
+    it("adds the fixed rail width on top of the clamped panel width when expanded", () => {
       expect(
         resolveDesktopSidebarEffectiveWidth({
           mode: "expanded",
           requestedWidth: 600,
           viewportWidth: 751,
         }),
-      ).toBe(resolveDesktopSidebarWidth({ requestedWidth: 600, viewportWidth: 751 }));
+      ).toBe(
+        SIDEBAR_RAIL_WIDTH +
+          resolveDesktopSidebarWidth({ requestedWidth: 600, viewportWidth: 751 }),
+      );
     });
   });
 });

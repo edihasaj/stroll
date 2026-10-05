@@ -1136,6 +1136,13 @@ export const ko: TranslationResources = {
         all: "모든 프로젝트",
       },
     },
+    rail: {
+      more: "More",
+    },
+    panel: {
+      machineFilter: "Filter by machine",
+      projectsSection: "Projects",
+    },
     filterEmpty: {
       title: "일치하는 워크스페이스가 없습니다",
       description: "워크스페이스를 보려면 사이드바 필터를 변경하거나 지우세요.",

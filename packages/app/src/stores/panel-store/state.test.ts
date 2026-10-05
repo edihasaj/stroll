@@ -22,6 +22,7 @@ function makePanelState(overrides: Partial<PanelCoreState> = {}): PanelCoreState
       agentListOpen: false,
       focusModeEnabled: false,
       sidebarRailMode: false,
+      projectsSectionCollapsed: false,
     },
     explorerTab: "changes",
     explorerTabByCheckout: {},
@@ -175,7 +176,12 @@ describe("panel-store visibility selectors", () => {
   it("uses the mobile panel target for compact layout visibility", () => {
     const state = makePanelState({
       mobilePanel: { target: "file-explorer", revision: 1 },
-      desktop: { agentListOpen: true, focusModeEnabled: false, sidebarRailMode: false },
+      desktop: {
+        agentListOpen: true,
+        focusModeEnabled: false,
+        sidebarRailMode: false,
+        projectsSectionCollapsed: false,
+      },
     });
 
     expect(selectIsAgentListOpen(state, { isCompact: true })).toBe(false);
@@ -185,7 +191,12 @@ describe("panel-store visibility selectors", () => {
   it("uses the desktop flag for the expanded agent list", () => {
     const state = makePanelState({
       mobilePanel: { target: "file-explorer", revision: 1 },
-      desktop: { agentListOpen: true, focusModeEnabled: false, sidebarRailMode: false },
+      desktop: {
+        agentListOpen: true,
+        focusModeEnabled: false,
+        sidebarRailMode: false,
+        projectsSectionCollapsed: false,
+      },
     });
 
     expect(selectIsAgentListOpen(state, { isCompact: false })).toBe(true);

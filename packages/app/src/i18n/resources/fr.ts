@@ -1163,6 +1163,13 @@ export const fr: TranslationResources = {
         all: "Tous les projets",
       },
     },
+    rail: {
+      more: "More",
+    },
+    panel: {
+      machineFilter: "Filter by machine",
+      projectsSection: "Projects",
+    },
     filterEmpty: {
       title: "Aucun espace de travail ne correspond",
       description:
