@@ -1,5 +1,5 @@
 import { router, usePathname } from "expo-router";
-import { CalendarClock, Folder, Settings as SettingsIcon } from "lucide-react-native";
+import { CalendarClock, Folder, PanelLeft, Settings as SettingsIcon } from "lucide-react-native";
 import { useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -21,6 +21,7 @@ import { PluginSidebarItemRow } from "@/plugins/sidebar-items";
 import { builtinSidebarNavLabelKey, builtinSidebarNavShortcutAction } from "@/sidebar-nav/model";
 import { useSidebarNavItems } from "@/sidebar-nav/use-sidebar-nav-items";
 import { useShortcutKeys } from "@/hooks/use-shortcut-keys";
+import { usePanelStore } from "@/stores/panel-store";
 import type { Theme } from "@/styles/theme";
 import { buildProjectsSettingsRoute, buildSchedulesRoute } from "@/utils/host-routes";
 import { deriveSidebarRailItems } from "./sidebar-rail-model";
@@ -52,6 +53,8 @@ export function SidebarRail({
   const { serverId: activeServerId } = useActiveHostSummary();
   const settingsShortcut = useShortcutKeys("toggle-settings");
   const scheduleShortcut = useShortcutKeys(builtinSidebarNavShortcutAction("schedules"));
+  const isRail = usePanelStore((state) => state.desktop.sidebarRailMode);
+  const toggleRailMode = usePanelStore((state) => state.toggleDesktopSidebarRailMode);
 
   const isProjectsRoute = pathname.includes("/projects");
   const isSessionsRoute = pathname.startsWith("/sessions");
@@ -125,6 +128,18 @@ export function SidebarRail({
         shortcutKeys={settingsShortcut}
         rail
       />
+
+      {/* The panel's own collapse-to-rail toggle (`sidebar-panel-header.tsx`) disappears along
+          with the rest of the panel in rail mode, so the rail carries the only way back out. */}
+      {isRail ? (
+        <SidebarHeaderRow
+          icon={PanelLeft}
+          label={t("sidebar.actions.expandSidebar")}
+          onPress={toggleRailMode}
+          testID="sidebar-rail-expand"
+          rail
+        />
+      ) : null}
     </View>
   );
 }
