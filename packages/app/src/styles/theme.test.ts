@@ -120,8 +120,8 @@ describe("Sidebar interaction surfaces", () => {
 describe("Built-in light theme", () => {
   it("preserves its authored aliases and terminal contrast through the semantic builder", () => {
     expect(lightTheme.colors).toMatchObject({
-      primary: "#1c1c1c",
-      primaryForeground: "#f7f7f5",
+      primary: "#0d0d0d",
+      primaryForeground: "#f7f7f7",
       destructiveForeground: "#ffffff",
       successForeground: "#ffffff",
       terminal: {
@@ -131,14 +131,59 @@ describe("Built-in light theme", () => {
     });
   });
 
-  it("keeps a pure white main surface with warm off-white secondary surfaces", () => {
+  it("keeps a pure white main surface with neutral off-white secondary surfaces", () => {
     expect(lightTheme.colors.surface0).toBe("#ffffff");
-    expect(lightTheme.colors.surface1).toBe("#f7f7f5");
-    expect(lightTheme.colors.surfaceSidebar).toBe("#f1f1ef");
+    expect(lightTheme.colors.surface1).toBe("#f7f7f7");
+    expect(lightTheme.colors.surfaceSidebar).toBe("#f7f7f8");
   });
 
-  it("washes the user message bubble in a cool/green tint distinct from surface2", () => {
-    expect(lightTheme.colors.secondary).toBe("#eef6f3");
-    expect(lightTheme.colors.secondary).not.toBe(lightTheme.colors.surface2);
+  it("has no brand accent — accent is a neutral near-black", () => {
+    expect(lightTheme.colors.accent).toBe("#111111");
+    expect(lightTheme.colors.accentForeground).toBe("#ffffff");
+  });
+
+  it("decouples success from accent — success stays a status green", () => {
+    expect(lightTheme.colors.success).toBe(lightTheme.colors.statusSuccess);
+    expect(lightTheme.colors.success).not.toBe(lightTheme.colors.accent);
+  });
+
+  it("washes the user message bubble in the composer's own fill", () => {
+    expect(lightTheme.colors.secondary).toBe(lightTheme.colors.surfaceComposer);
+    expect(lightTheme.colors.surfaceComposer).toBe("#f4f4f4");
+  });
+});
+
+describe("Built-in dark theme (Codex monochrome palette)", () => {
+  it("has no brand accent — accent is a neutral near-white", () => {
+    expect(darkTheme.colors.accent).toBe("#f4f4f4");
+    expect(darkTheme.colors.accentBright).toBe("#ffffff");
+    expect(darkTheme.colors.accentForeground).toBe("#111111");
+  });
+
+  it("decouples success from accent — success stays a status green", () => {
+    expect(darkTheme.colors.success).toBe(darkTheme.colors.statusSuccess);
+    expect(darkTheme.colors.success).not.toBe(darkTheme.colors.accent);
+  });
+
+  it("uses the two-tone canvas/sidebar split measured off Codex", () => {
+    expect(darkTheme.colors.surface0).toBe("#181818");
+    expect(darkTheme.colors.surfaceSidebar).toBe("#2b2b2b");
+    expect(darkTheme.colors.surfaceComposer).toBe("#353535");
+    expect(darkTheme.colors.surfaceComposerStrip).toBe("#202020");
+  });
+
+  it("washes the user message bubble in the composer's own fill", () => {
+    expect(darkTheme.colors.secondary).toBe(darkTheme.colors.surfaceComposer);
+  });
+
+  it("keeps the running status dot neutral instead of a hue", () => {
+    expect(darkTheme.colors.statusDotRunning).toBe("#b4b4b4");
+    expect(lightTheme.colors.statusDotRunning).toBe("#5d5d5d");
+  });
+});
+
+describe("Named dark tints keep their own accents", () => {
+  it("pure black keeps Paseo's green accent untouched by the monochrome pass", () => {
+    expect(darkPureBlackTheme.colors.accent).toBe("#20744A");
   });
 });
