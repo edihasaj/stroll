@@ -1535,6 +1535,7 @@ function ActiveAgentComposer({
   onComposerHeightChange: (height: number) => void;
   onMessageSent: () => void;
 }) {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const isCompactFormFactor = useIsCompactFormFactor();
   const { onLayout: onInputAreaLayout, isBelow: isCompactComposerLayout } = useContainerWidthBelow(
@@ -1645,6 +1646,7 @@ function ActiveAgentComposer({
         externalKeyboardShift
         blurOnSubmit={isNative}
         isPaneFocused={isPaneFocused}
+        placeholder={t("composer.placeholders.followUp")}
         value={agentInputDraft.text}
         onChangeText={agentInputDraft.editText}
         textReplacement={agentInputDraft.textReplacement}

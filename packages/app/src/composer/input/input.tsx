@@ -1062,6 +1062,12 @@ function resolveMaxInputHeight(windowHeight: number): number {
   return Math.max(DEFAULT_MAX_INPUT_HEIGHT, Math.floor(windowHeight * MAX_INPUT_VIEWPORT_RATIO));
 }
 
+// Always visible on native/compact (no hover there); hover-reveal on desktop web only.
+function resolveContextMeterVisible(isControlsRowHovered: boolean, isCompact: boolean): boolean {
+  if (!isWeb || isCompact) return true;
+  return isControlsRowHovered;
+}
+
 function isTextAreaLike(v: unknown): v is TextAreaHandle {
   return typeof v === "object" && v !== null && "scrollHeight" in v;
 }
@@ -1263,6 +1269,14 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
     const mode = resolveComposerInputMode(inputMode);
     const { t } = useTranslation();
     const isCompact = useIsCompactFormFactor();
+    // Context-window meter: always visible on native/compact (no hover there); hover-reveal
+    // on desktop web, where it moves out of the always-visible row (docs/design.md §16,
+    // Codex parity). Hover lives on a plain View per docs/hover.md; the meter's own 28x28
+    // slot keeps the row's width fixed either way, so revealing it is opacity-only.
+    const [isControlsRowHovered, setIsControlsRowHovered] = useState(false);
+    const handleControlsRowPointerEnter = useCallback(() => setIsControlsRowHovered(true), []);
+    const handleControlsRowPointerLeave = useCallback(() => setIsControlsRowHovered(false), []);
+    const contextMeterVisible = resolveContextMeterVisible(isControlsRowHovered, isCompact);
     const { height: windowHeight } = useWindowDimensions();
     const maxInputHeight = resolveMaxInputHeight(windowHeight);
     const buttonIconSize = isWeb ? ICON_SIZE.md : ICON_SIZE.lg;
@@ -1907,7 +1921,11 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
           </RenderProfile>
 
           {/* Button row */}
-          <View style={styles.buttonRow}>
+          <View
+            style={styles.buttonRow}
+            onPointerEnter={handleControlsRowPointerEnter}
+            onPointerLeave={handleControlsRowPointerLeave}
+          >
             {/* Toolbar left: attachment button + agent controls */}
             <View style={styles.leftButtonGroup}>
               <AttachmentDropdown
@@ -1924,7 +1942,9 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
 
             {/* Right: voice button, contextual button (realtime/send/cancel) */}
             <View style={styles.rightButtonGroup}>
-              {beforeVoiceContent}
+              <View style={!contextMeterVisible && styles.contextMeterHidden}>
+                {beforeVoiceContent}
+              </View>
               <VoiceButtonTooltip
                 visible={mode.showVoice}
                 onVoicePress={handleVoicePress}
@@ -1988,12 +2008,13 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
 );
 
 const styles = StyleSheet.create((theme: Theme) => {
-  // Composer card fill/elevation (docs/design.md "Finish" + "16. Composer"): light sits on
-  // `surface0` with `shadow.sm`; dark sits one step deeper on `surface1` with `insetHighlight`
-  // layered alongside `shadow.sm` — the same raised-surface recipe `theme.shadow.insetHighlight`
-  // documents, not a second ad hoc shadow.
+  // Composer card fill (docs/design.md "16. Composer", Codex parity): `surfaceComposer` —
+  // the same raised tone the Codex-style card and the user's own chat bubble share. No
+  // border, no outer focus ring (Codex has neither) — a subtle shadow keeps the light-theme
+  // card separated from the near-white canvas; dark keeps `insetHighlight` alongside it since
+  // `surfaceComposer` reads close to the canvas there too.
   const isDarkComposer = theme.colorScheme === "dark";
-  const composerFill = isDarkComposer ? theme.colors.surface1 : theme.colors.background;
+  const composerFill = theme.colors.surfaceComposer;
   const composerRestShadow = isDarkComposer
     ? [theme.shadow.sm, theme.shadow.insetHighlight].join(", ")
     : theme.shadow.sm;
@@ -2008,8 +2029,7 @@ const styles = StyleSheet.create((theme: Theme) => {
       flexDirection: "column",
       gap: theme.spacing[3],
       backgroundColor: composerFill,
-      borderWidth: theme.borderWidth[1],
-      borderColor: theme.colors.border,
+      borderWidth: 0,
       borderRadius: theme.borderRadius["2xl"],
       boxShadow: composerRestShadow,
       paddingTop: {
@@ -2026,22 +2046,25 @@ const styles = StyleSheet.create((theme: Theme) => {
       },
       ...(isWeb
         ? {
-            transitionProperty: "border-color, box-shadow",
+            transitionProperty: "box-shadow",
             transitionDuration: `${theme.motion.duration.fast}ms`,
             transitionTimingFunction: "ease-out",
           }
         : {}),
     },
-    // Focus-within raises the border to `focusBorder` and layers a softer, wider ring
-    // (`focusRingSoft`) on top of the rest-state shadow, rather than the full input
-    // `focusRing` — the card already reads as one surface, not a bare field.
+    // Keyboard focus only: a 1px inset hairline on top of the rest shadow — no outer ring,
+    // no border-color swap, no outer-geometry change (docs/hover.md's "don't change outer
+    // geometry" principle applies to any state swap, not just hover). The fill itself does
+    // not change; the hairline is the only focus signal, matching Codex's quiet composer.
     inputWrapperFocused: {
-      borderColor: theme.colors.focusBorder,
-      boxShadow: [composerRestShadow, theme.shadow.focusRingSoft].join(", "),
+      boxShadow: [composerRestShadow, `inset 0 0 0 1px ${theme.colors.focusBorder}`].join(", "),
     },
     // Dotted says "this surface is the same box, but there is nothing to type
-    // into it" without swapping the border colour, which reads as an error state.
+    // into it" without swapping the fill, which reads as an error state. Read-only is its
+    // own semantic state, so it's the one case that still gets a real border.
     inputWrapperReadOnly: {
+      borderWidth: theme.borderWidth[1],
+      borderColor: theme.colors.border,
       borderStyle: "dotted",
     },
     textInputScrollWrapper: {
@@ -2105,6 +2128,12 @@ const styles = StyleSheet.create((theme: Theme) => {
       alignItems: "center",
       gap: theme.spacing[1],
     },
+    // Opacity-only, not conditional rendering — the meter's own slot already reserves its
+    // layout space, so hiding it this way can't shift the row (docs/hover.md).
+    contextMeterHidden: {
+      opacity: theme.opacity[0],
+      pointerEvents: "none",
+    },
     attachButton: {
       width: 28,
       height: 28,
@@ -2129,13 +2158,14 @@ const styles = StyleSheet.create((theme: Theme) => {
       backgroundColor: theme.colors.destructive,
     },
     // 32px circle, one size step up from the 28px ghost pills either side of it —
-    // the composer's one committed action. Filled foreground with a background-
-    // colour glyph (Codex); dims to opacity[50] instead of recolouring when idle-empty.
+    // the composer's one committed action. Filled `accent` with an `accentForeground`
+    // glyph (Codex parity, docs/design.md §16); dims to opacity[50] instead of
+    // recolouring when idle-empty.
     sendButton: {
       width: 32,
       height: 32,
       borderRadius: theme.borderRadius.full,
-      backgroundColor: theme.colors.foreground,
+      backgroundColor: theme.colors.accent,
       alignItems: "center",
       justifyContent: "center",
       marginLeft: theme.spacing[1],
@@ -2158,7 +2188,7 @@ const styles = StyleSheet.create((theme: Theme) => {
     sendButtonLabel: {
       fontSize: theme.fontSize.base,
       fontWeight: theme.fontWeight.medium,
-      color: theme.colors.background,
+      color: theme.colors.accentForeground,
     },
     iconButtonHovered: {
       backgroundColor: theme.colors.interactionHighlight,
@@ -2199,5 +2229,5 @@ const ThemedLoadingSpinner = withUnistyles(LoadingSpinner);
 
 const iconForegroundMapping = (theme: Theme) => ({ color: theme.colors.foreground });
 const iconForegroundMutedMapping = (theme: Theme) => ({ color: theme.colors.foregroundMuted });
-// Icon colour when it sits on a filled `foreground` circle (send button) — the inverse fill.
-const iconOnForegroundMapping = (theme: Theme) => ({ color: theme.colors.background });
+// Icon colour on the filled `accent` send circle (Codex parity, docs/design.md §16).
+const iconOnForegroundMapping = (theme: Theme) => ({ color: theme.colors.accentForeground });
