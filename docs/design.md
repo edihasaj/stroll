@@ -401,6 +401,12 @@ Two recipes, exported from `packages/app/src/styles/motion.ts`, cover every anim
 
 New motion is one of these two shapes, not a third. If neither fits, that's a sign the interaction needs its own review, not a bespoke `withTiming` call.
 
+### Continuous loops on web are CSS, not Reanimated
+
+Reanimated's `withRepeat` has no compositor path on web: it re-renders the animated style from a `requestAnimationFrame` callback, so every mounted spinner forces a main-thread style recalc and repaint 60 times a second for as long as it exists. Measured on a still screen, one Reanimated spinner added about 120 frame callbacks a second and about 5 points of a CPU core; the CSS version adds no callbacks. During streaming the difference vanishes, because the page redraws every frame anyway, which is why this stays invisible until the window is idle with agents running.
+
+On web, run any infinite loop (spinners, pulses, shimmers) as a CSS `@keyframes` animation on `transform`/`opacity` so the compositor runs it off the main thread. Use `webSpinStyle(reducedMotion, durationMs)` (`packages/app/src/styles/motion.ts`) for rotation; `LoadingSpinner` (`packages/app/src/components/ui/loading-spinner.tsx`) splits into a CSS shell on web and a Reanimated shell on native, where Reanimated already runs on the UI thread. New infinite web animations follow the same split.
+
 ### Reanimated layout animations are native-only
 
 Reanimated's web layout-animation runtime takes an `entering`/`exiting` element out of normal flow (`position: absolute`, a size snapshot taken at mount) for the animation's duration, then hands it back to static flow once its own bookkeeping decides the animation finished. That is safe for a floating surface (already out of flow) or a child inside a hard-sized parent (the composer's 32px send-button circle, `packages/app/src/composer/input/input.tsx`'s `SendButtonContent`/`PrimaryAction`). It breaks for an **in-flow element whose size can change**: the parent collapses to the stale snapshot instead of the live content height, and whatever renders after it in flow draws on top of it instead of below it. This shipped for real as the M1 message entrance rendering the live turn footer over still-streaming assistant text, and again for the sidebar's rail-mode workspace list.

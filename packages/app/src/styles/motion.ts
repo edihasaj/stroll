@@ -104,6 +104,40 @@ export function webAppearStyle(
   });
 }
 
+/**
+ * Continuous rotation for web, run by the browser's compositor instead of a JavaScript frame loop.
+ *
+ * Reanimated's `withRepeat` has no compositor path on web: it updates the style from a
+ * `requestAnimationFrame` callback, so every visible spinner costs a main-thread style recalc and
+ * repaint 60 times a second, for as long as it is mounted. With several agents running, the
+ * sidebar alone showed four such loops and a quarter of a CPU core while the user looked at an
+ * empty screen. A CSS `transform` animation is promoted to its own layer and runs off the main
+ * thread. Native keeps Reanimated, which already animates on the UI thread.
+ *
+ * Returns `undefined` on native and when `reducedMotion` is on.
+ */
+export function webSpinStyle(reducedMotion: boolean, durationMs: number): object | undefined {
+  if (!isWeb || reducedMotion) return undefined;
+  const animationName = ensureWebSpinKeyframe();
+  return inlineUnistylesStyle({
+    animationName,
+    animationDuration: `${durationMs}ms`,
+    animationTimingFunction: "linear",
+    animationIterationCount: "infinite",
+    willChange: "transform",
+  });
+}
+
+const WEB_SPIN_ANIMATION_NAME = "paseo-motion-spin";
+
+function ensureWebSpinKeyframe(): string {
+  ensureWebKeyframeStyleTag(
+    `${WEB_SPIN_ANIMATION_NAME}-keyframes`,
+    `@keyframes ${WEB_SPIN_ANIMATION_NAME} { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`,
+  );
+  return WEB_SPIN_ANIMATION_NAME;
+}
+
 const WEB_APPEAR_ANIMATION_NAME = "paseo-motion-appear";
 
 // Ids of `<style>` tags already confirmed present in `document.head`, so repeated calls (every

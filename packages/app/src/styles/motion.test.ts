@@ -72,3 +72,42 @@ describe("webAppearStyle", () => {
     expect(countStyleTagsWithId("paseo-motion-appear-rise-8-keyframes")).toBe(1);
   });
 });
+
+describe("webSpinStyle", () => {
+  afterEach(() => {
+    vi.doUnmock("@/constants/platform");
+    document.getElementById("paseo-motion-spin-keyframes")?.remove();
+  });
+
+  it("returns undefined on native so Reanimated keeps driving the spin there", async () => {
+    const { webSpinStyle } = await loadMotionForPlatform("ios");
+    expect(webSpinStyle(false, 900)).toBeUndefined();
+    expect(document.getElementById("paseo-motion-spin-keyframes")).toBeNull();
+  });
+
+  it("returns undefined on web when reduced motion is on", async () => {
+    const { webSpinStyle } = await loadMotionForPlatform("web");
+    expect(webSpinStyle(true, 900)).toBeUndefined();
+    expect(document.getElementById("paseo-motion-spin-keyframes")).toBeNull();
+  });
+
+  it("returns an infinite compositor rotation on web and injects its keyframe once", async () => {
+    const { webSpinStyle } = await loadMotionForPlatform("web");
+
+    const style = webSpinStyle(false, 900) as Record<string, unknown>;
+    expect(style).toMatchObject({
+      animationName: "paseo-motion-spin",
+      animationDuration: "900ms",
+      animationTimingFunction: "linear",
+      animationIterationCount: "infinite",
+      willChange: "transform",
+    });
+
+    const injected = document.getElementById("paseo-motion-spin-keyframes");
+    expect(injected?.textContent).toContain("@keyframes paseo-motion-spin");
+    expect(injected?.textContent).toContain("rotate(360deg)");
+
+    webSpinStyle(false, 900);
+    expect(countStyleTagsWithId("paseo-motion-spin-keyframes")).toBe(1);
+  });
+});

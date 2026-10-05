@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import type { ActivityIndicatorProps } from "react-native";
+import { View, type ActivityIndicatorProps } from "react-native";
 import Animated, {
   Easing,
   cancelAnimation,
@@ -10,7 +10,9 @@ import Animated, {
 } from "react-native-reanimated";
 import Svg, { Circle } from "react-native-svg";
 import { withUnistyles } from "react-native-unistyles";
+import { isWeb } from "@/constants/platform";
 import { useAppReducedMotion } from "@/hooks/use-app-reduced-motion";
+import { webSpinStyle } from "@/styles/motion";
 import type { Theme } from "@/styles/theme";
 
 interface LoadingSpinnerProps {
@@ -42,18 +44,59 @@ const ThemedTrackCircle = withUnistyles(Circle, (theme: Theme) => ({
   stroke: theme.colors.border,
 }));
 
-/**
- * A thin rotating arc over a full track ring — the Codex/OpenClaw loading
- * mark. `color` is the arc; the track is always `theme.colors.border`.
- */
-export function LoadingSpinner({ color, size = "small", style }: LoadingSpinnerProps) {
-  const diameter = resolveDiameter(size);
+interface SpinnerRingProps {
+  color: string;
+  diameter: number;
+}
+
+function SpinnerRing({ color, diameter }: SpinnerRingProps) {
   const strokeWidth = diameter <= THIN_DIAMETER_CEILING ? THIN_STROKE_WIDTH : STROKE_WIDTH;
   const radius = (diameter - strokeWidth) / 2;
   const center = diameter / 2;
   const circumference = 2 * Math.PI * radius;
   const arcLength = circumference * ARC_FRACTION;
+  return (
+    <Svg width={diameter} height={diameter} viewBox={`0 0 ${diameter} ${diameter}`}>
+      <ThemedTrackCircle cx={center} cy={center} r={radius} fill="none" strokeWidth={strokeWidth} />
+      <Circle
+        cx={center}
+        cy={center}
+        r={radius}
+        fill="none"
+        stroke={color}
+        strokeWidth={strokeWidth}
+        strokeLinecap="round"
+        strokeDasharray={`${arcLength} ${circumference - arcLength}`}
+      />
+    </Svg>
+  );
+}
 
+interface SpinnerShellProps extends SpinnerRingProps {
+  style?: ActivityIndicatorProps["style"];
+}
+
+// Web: a compositor-run CSS rotation (see `webSpinStyle`). A Reanimated loop here would cost a
+// main-thread frame callback per mounted spinner, which is what made an idle window burn CPU.
+function WebSpinner({ color, diameter, style }: SpinnerShellProps) {
+  const reduceMotion = useAppReducedMotion();
+  return (
+    <View
+      style={[
+        { width: diameter, height: diameter },
+        webSpinStyle(reduceMotion, ROTATION_DURATION_MS),
+        style,
+      ]}
+      accessible
+      accessibilityRole="progressbar"
+    >
+      <SpinnerRing color={color} diameter={diameter} />
+    </View>
+  );
+}
+
+// Native: Reanimated already drives this on the UI thread, off the JS thread.
+function NativeSpinner({ color, diameter, style }: SpinnerShellProps) {
   const reduceMotion = useAppReducedMotion();
   const rotation = useSharedValue(0);
 
@@ -82,25 +125,17 @@ export function LoadingSpinner({ color, size = "small", style }: LoadingSpinnerP
       accessible
       accessibilityRole="progressbar"
     >
-      <Svg width={diameter} height={diameter} viewBox={`0 0 ${diameter} ${diameter}`}>
-        <ThemedTrackCircle
-          cx={center}
-          cy={center}
-          r={radius}
-          fill="none"
-          strokeWidth={strokeWidth}
-        />
-        <Circle
-          cx={center}
-          cy={center}
-          r={radius}
-          fill="none"
-          stroke={color}
-          strokeWidth={strokeWidth}
-          strokeLinecap="round"
-          strokeDasharray={`${arcLength} ${circumference - arcLength}`}
-        />
-      </Svg>
+      <SpinnerRing color={color} diameter={diameter} />
     </Animated.View>
   );
+}
+
+/**
+ * A thin rotating arc over a full track ring — the Codex/OpenClaw loading
+ * mark. `color` is the arc; the track is always `theme.colors.border`.
+ */
+export function LoadingSpinner({ color, size = "small", style }: LoadingSpinnerProps) {
+  const diameter = resolveDiameter(size);
+  const Shell = isWeb ? WebSpinner : NativeSpinner;
+  return <Shell color={color} diameter={diameter} style={style} />;
 }
