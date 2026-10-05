@@ -144,19 +144,33 @@ const darkDiffColors = {
 //
 // Hues are fixed per family across both themes: success 150, danger 27, warning 70.5,
 // merged 300.
+//
+// Monochrome pass (Codex palette foundation): `statusDanger` and `statusWarning` are pinned
+// to the exact values measured off the Codex reference ("needs-you red" / "full access
+// orange") rather than the generated-family formula above — the reference reads noticeably
+// more saturated than the previous muted set, and these are now the only saturated colors
+// left anywhere in the UI, so they carry the full weight of "this needs you." `statusSuccess`
+// and `statusMerged` keep the original generated values; success stays a quiet, muted green
+// precisely because it is not a brand color anymore (see `success` in `buildLightSemanticColors`
+// below) — only danger and warning needed to get louder to still read as urgent now that
+// nothing else on the page competes with them in saturation.
 const lightStatusColors = {
   // L=0.50, chroma 60% of gamut max
   statusSuccess: "#3e704a",
-  statusDanger: "#9d433b",
-  statusWarning: "#7b5d39",
+  // Measured off the Codex reference's "needs-you" red.
+  statusDanger: "#d93f3a",
+  // Measured off the Codex reference's "Full access" orange.
+  statusWarning: "#c4581d",
   statusMerged: "#7347af",
 };
 
 const darkStatusColors = {
   // L=0.70, chroma 55% of gamut max
   statusSuccess: "#6cb17b",
-  statusDanger: "#d8847b",
-  statusWarning: "#c09664",
+  // Measured off the Codex reference's "needs-you" red.
+  statusDanger: "#f0605a",
+  // Measured off the Codex reference's "Full access" orange.
+  statusWarning: "#f08a4b",
   statusMerged: "#a890d5",
 };
 
@@ -188,20 +202,28 @@ const darkStatusColors = {
 // at hue 250, clear of
 // identity-colors' blue at 256.6 so a blue host badge and a working dot on the same row do not
 // read as related.
+//
+// Monochrome pass: `statusDotDanger`/`statusDotWarning` follow `statusDanger`/`statusWarning`
+// above — same Codex-measured hex, not a re-derived dot-band value, so the pill text and the
+// dot for the same state match exactly. `statusDotRunning` breaks from the generated family
+// entirely: the previous blue read as "a color," which is exactly what a brand-neutral run
+// state should not do. An agent running is not a status to celebrate or warn about, so the
+// dot is foregroundMuted-ish neutral grey instead of a hue — the one dot in the family that is
+// not generated, because running is the one state that is not a signal.
 const lightStatusDotColors = {
   // L=0.62, chroma 90% of gamut max
   statusDotSuccess: "#299f51",
-  statusDotDanger: "#f12e2f",
-  statusDotWarning: "#b37824",
-  statusDotRunning: "#268ae0",
+  statusDotDanger: "#d93f3a",
+  statusDotWarning: "#c4581d",
+  statusDotRunning: "#5d5d5d",
 };
 
 const darkStatusDotColors = {
   // L=0.72, chroma 90% of gamut max
   statusDotSuccess: "#35c264",
-  statusDotDanger: "#f7796d",
-  statusDotWarning: "#db932e",
-  statusDotRunning: "#5caaf6",
+  statusDotDanger: "#f0605a",
+  statusDotWarning: "#f08a4b",
+  statusDotRunning: "#b4b4b4",
 };
 
 // Alpha hairlines — composited over whatever surface draws beneath them, so one set works
@@ -246,6 +268,12 @@ export interface LightThemeConfig {
   surface4: string;
   surfaceDiffEmpty: string;
   surfaceSidebar: string;
+  /** Borderless composer fill, also the user message bubble. Defaults to `surface0` — set it
+   * only when a tint wants the composer to read as a distinct raised surface (see the
+   * monochrome default theme, which pins this to its own value). */
+  surfaceComposer?: string;
+  /** The context strip attached above the composer card. Defaults to `surface1`. */
+  surfaceComposerStrip?: string;
   foreground: string;
   foregroundMuted: string;
   foregroundExtraMuted: string;
@@ -263,9 +291,10 @@ export interface LightThemeConfig {
   terminalBrightBlack: string;
   ring: string;
   /**
-   * The bubble/wash surface used for the user's own chat messages. Defaults to `surface2` —
-   * set it only when a tint wants that surface to read differently from the rest of the
-   * secondary chrome (sidebar hover, cards) that also derives from `surface2`.
+   * The bubble/wash surface used for the user's own chat messages. Defaults to
+   * `surfaceComposer` — the user's own bubble and the composer share one fill (monochrome
+   * rule: no brand tint left to distinguish them). Set it only when a tint wants that surface
+   * to read differently.
    */
   secondary?: string;
 }
@@ -288,6 +317,8 @@ const lightTerminalAnsi = {
 } as const;
 
 export function buildLightSemanticColors(tint: LightThemeConfig) {
+  const surfaceComposer = tint.surfaceComposer ?? tint.surface0;
+  const surfaceComposerStrip = tint.surfaceComposerStrip ?? tint.surface1;
   return {
     surface0: tint.surface0,
     surface1: tint.surface1,
@@ -296,10 +327,13 @@ export function buildLightSemanticColors(tint: LightThemeConfig) {
     surface4: tint.surface4,
     surfaceDiffEmpty: tint.surfaceDiffEmpty,
     surfaceSidebar: tint.surfaceSidebar,
+    surfaceComposer,
+    surfaceComposerStrip,
     surfaceSidebarHover: tint.surface1,
     surfaceSidebarSelected: tint.surface3,
     surfaceWorkspace: tint.surface0,
-    interactionHighlight: "rgba(0, 0, 0, 0.06)",
+    interactionHighlight: "rgba(0, 0, 0, 0.04)",
+    interactionSelected: "rgba(0, 0, 0, 0.06)",
 
     foreground: tint.foreground,
     foregroundMuted: tint.foregroundMuted,
@@ -315,7 +349,11 @@ export function buildLightSemanticColors(tint: LightThemeConfig) {
 
     destructive: tint.destructive,
     destructiveForeground: tint.surface0,
-    success: tint.accent,
+    // Decoupled from `accent` (monochrome pass): success is a status signal, not the brand
+    // color, so it reads from the generated status family instead of whatever the theme's
+    // one-CTA accent happens to be. A theme whose accent is neutral (the default monochrome
+    // theme) or another hue entirely (Midnight, Claude) still shows a true status green here.
+    success: lightStatusColors.statusSuccess,
     successForeground: tint.surface0,
 
     background: tint.surface0,
@@ -323,7 +361,10 @@ export function buildLightSemanticColors(tint: LightThemeConfig) {
     popoverForeground: tint.foreground,
     primary: tint.primary,
     primaryForeground: tint.primaryForeground,
-    secondary: tint.secondary ?? tint.surface2,
+    // Defaults to `surfaceComposer`: the user's own message bubble and the composer card
+    // share one fill (monochrome rule — no brand tint left to wash the bubble a different
+    // color from the rest of the chrome).
+    secondary: tint.secondary ?? surfaceComposer,
     secondaryForeground: tint.foreground,
     muted: tint.surface2,
     mutedForeground: tint.foregroundMuted,
@@ -349,32 +390,36 @@ export function buildLightSemanticColors(tint: LightThemeConfig) {
   };
 }
 
-// Light — warm off-white chrome (sidebar, cards, dividers) around a pure white working
-// surface, with hairline borders instead of shadows to separate them. The user's own chat
-// bubble washes in a light cool/green tint instead of following the shared secondary surface.
+// Light — monochrome, Codex/ChatGPT-light style: neutral off-white chrome (sidebar, cards,
+// dividers) around a pure white working surface, hairline borders instead of shadows. No
+// brand accent — `accent` is near-black, the one primary-action fill on the page; color is
+// reserved for status (danger/warning above, success/merged in the generated family). The
+// user's own chat bubble follows `surfaceComposer`, the same fill the composer card uses —
+// see `secondary`'s default in `buildLightSemanticColors`.
 const lightSemanticColors = buildLightSemanticColors({
   surface0: "#ffffff",
-  surface1: "#f7f7f5",
-  surface2: "#f1f1ef",
-  surface3: "#e6e6e3",
-  surface4: "#d8d8d4",
-  surfaceDiffEmpty: "#f5f5f2",
-  surfaceSidebar: "#f1f1ef",
-  foreground: "#1c1c1c",
-  foregroundMuted: "#6b6b6b",
-  foregroundExtraMuted: "#9c9c94",
-  accent: "#20744A",
-  accentBright: "#239956",
+  surface1: "#f7f7f7",
+  surface2: "#f1f1f1",
+  surface3: "#e3e3e3",
+  surface4: "#d4d4d4",
+  surfaceDiffEmpty: "#f5f5f5",
+  surfaceSidebar: "#f7f7f8",
+  surfaceComposer: "#f4f4f4",
+  surfaceComposerStrip: "#f9f9f9",
+  foreground: "#0d0d0d",
+  foregroundMuted: "#5d5d5d",
+  foregroundExtraMuted: "#8f8f8f",
+  accent: "#111111",
+  // Pushes to the opposite extreme of the neutral scale from `accent`, mirroring dark's
+  // `accentBright: "#ffffff"` — the brightest point of dark's ramp is black's role in light.
+  accentBright: "#000000",
   accentForeground: "#ffffff",
-  primary: "#1c1c1c",
-  primaryForeground: "#f7f7f5",
+  primary: "#0d0d0d",
+  primaryForeground: "#f7f7f7",
   destructive: "#b04138",
   terminalBlack: "#1c1c1c",
   terminalBrightBlack: "#4a4a45",
-  ring: "#1c1c1c",
-  // Cool/green wash for the user's own message bubble, distinct from the warm-neutral
-  // surface2 that the rest of the secondary chrome shares.
-  secondary: "#eef6f3",
+  ring: "#0d0d0d",
 });
 
 // ---------------------------------------------------------------------------
@@ -389,6 +434,12 @@ export interface DarkThemeConfig {
   surface4: string;
   surfaceDiffEmpty: string;
   surfaceSidebar: string;
+  /** Borderless composer fill, also the user message bubble. Defaults to `surface1` — set it
+   * only when a tint wants the composer to read as a distinct raised surface (see the
+   * monochrome default theme, which pins this to its own value). */
+  surfaceComposer?: string;
+  /** The context strip attached above the composer card. Defaults to `surface0`. */
+  surfaceComposerStrip?: string;
   foregroundMuted: string;
   foregroundExtraMuted: string;
   /** Overrides the alpha-hairline default. Only plugin-contributed themes (whose author
@@ -427,6 +478,8 @@ export function buildDarkSemanticColors(tint: DarkThemeConfig) {
   // contrast ratio well past AA while losing the halo.
   const foreground = tint.foreground ?? "#e4e4e7";
   const ring = tint.ring ?? "#d4d4d8";
+  const surfaceComposer = tint.surfaceComposer ?? tint.surface1;
+  const surfaceComposerStrip = tint.surfaceComposerStrip ?? tint.surface0;
   return {
     surface0: tint.surface0,
     surface1: tint.surface1,
@@ -435,10 +488,13 @@ export function buildDarkSemanticColors(tint: DarkThemeConfig) {
     surface4: tint.surface4,
     surfaceDiffEmpty: tint.surfaceDiffEmpty,
     surfaceSidebar: tint.surfaceSidebar,
+    surfaceComposer,
+    surfaceComposerStrip,
     surfaceSidebarHover: tint.surface1,
     surfaceSidebarSelected: tint.surface2,
     surfaceWorkspace: tint.surface1,
-    interactionHighlight: "rgba(255, 255, 255, 0.08)",
+    interactionHighlight: "rgba(255, 255, 255, 0.06)",
+    interactionSelected: "rgba(255, 255, 255, 0.09)",
 
     foreground,
     foregroundMuted: tint.foregroundMuted,
@@ -454,7 +510,11 @@ export function buildDarkSemanticColors(tint: DarkThemeConfig) {
 
     destructive: tint.destructive,
     destructiveForeground: "#ffffff",
-    success: tint.accent,
+    // Decoupled from `accent` (monochrome pass): success is a status signal, not the brand
+    // color, so it reads from the generated status family instead of whatever the theme's
+    // one-CTA accent happens to be. A theme whose accent is neutral (the default monochrome
+    // theme) or another hue entirely (Midnight, Claude) still shows a true status green here.
+    success: darkStatusColors.statusSuccess,
     successForeground: "#ffffff",
 
     // Legacy aliases (for gradual migration)
@@ -463,7 +523,9 @@ export function buildDarkSemanticColors(tint: DarkThemeConfig) {
     popoverForeground: foreground,
     primary: foreground,
     primaryForeground: tint.surface0,
-    secondary: tint.surface2,
+    // The user's own message bubble follows `surfaceComposer` — it and the composer card
+    // share one fill (monochrome rule: no brand tint left to wash the bubble differently).
+    secondary: surfaceComposer,
     secondaryForeground: foreground,
     muted: tint.surface2,
     mutedForeground: tint.foregroundMuted,
@@ -493,24 +555,35 @@ export function buildDarkSemanticColors(tint: DarkThemeConfig) {
 // Dark tint definitions
 // ---------------------------------------------------------------------------
 
-// Paseo — subtle teal-green tint (default)
-const paseoDarkColors = buildDarkSemanticColors({
-  // Same depth as the neutral ramp, hue held: the tint is the brand, the lightness was only
-  // ever chrome. Lifting the surfaces off near-black is what made the old set read as grey.
-  surface0: "#0F1211",
-  surface1: "#141817",
-  surface2: "#1A1E1D",
-  surface3: "#262A29",
-  surface4: "#363938",
-  surfaceDiffEmpty: "#171A19",
-  surfaceSidebar: "#0B0E0D",
-  foregroundMuted: "#8E9291",
-  foregroundExtraMuted: "#5F6362",
-  accent: "#20744A",
-  accentBright: "#7ccba0",
-  destructive: "#c64f43", // warm red, hue ~7 — reads as red (not pink) against the green tint
-  terminalBlack: "#141716",
-  terminalBrightBlack: "#434645",
+// Default — monochrome, Codex/ChatGPT-desktop style (default). No brand tint: every surface
+// is a neutral grey ramp, `accent` is near-white rather than Paseo's old teal-green, and color
+// is reserved for status (danger/warning above, success/merged in the generated family). Two
+// tones carry the chrome — `surface0` (canvas) and `surfaceSidebar` (sidebar panel and icon
+// rail) — with `surfaceComposer`/`surfaceComposerStrip` as the two raised tones the composer
+// and its context strip sit on. See docs/design.md "Palette".
+const defaultDarkColors = buildDarkSemanticColors({
+  surface0: "#181818",
+  surface1: "#1e1e1e",
+  // Menus/popovers resolve to `surface2` (`popover: tint.surface2` above) — pinned to the
+  // value measured off the Codex reference.
+  surface2: "#262626",
+  surface3: "#313131",
+  surface4: "#404040",
+  surfaceDiffEmpty: "#1c1c1c",
+  surfaceSidebar: "#2b2b2b",
+  surfaceComposer: "#353535",
+  surfaceComposerStrip: "#202020",
+  foreground: "#ececec",
+  foregroundMuted: "#b4b4b4",
+  foregroundExtraMuted: "#8d8d8d",
+  accent: "#f4f4f4",
+  // Pushes to the brightest point of the neutral ramp — used for markdown links, the one
+  // place that still needs to read as "more than body text" without reaching for color.
+  accentBright: "#ffffff",
+  accentForeground: "#111111",
+  destructive: "#c64f43",
+  terminalBlack: "#1e1e1e",
+  terminalBrightBlack: "#474747",
 });
 
 // Zinc — neutral gray, no tint
@@ -818,14 +891,16 @@ export function buildDarkTheme(semanticColors: ReturnType<typeof buildDarkSemant
       palette: baseColors,
       syntax: darkHighlightColors,
       // 1px ring colour for a focused control's edge, paired with `shadow.focusRing` for
-      // the glow outside it. Accent at ~55% alpha — see docs/design.md "Finish".
-      focusBorder: hexToRgba(semanticColors.accent, 0.55),
+      // the glow outside it. Accent at ~45% alpha — see docs/design.md "Finish". On the
+      // default monochrome theme accent is near-white, so this resolves to a neutral ring,
+      // not a brand color; Midnight/Claude/etc. still focus their own accent hue.
+      focusBorder: hexToRgba(semanticColors.accent, 0.45),
     },
     shadow: {
       ...DARK_SHADOW,
-      // The focused-control glow: a 3px ring in the theme's own accent at ~22% alpha, so
+      // The focused-control glow: a 3px ring in the theme's own accent at ~18% alpha, so
       // every tint's focus state reads as "this theme's accent," not one fixed blue.
-      focusRing: `0 0 0 3px ${hexToRgba(semanticColors.accent, 0.22)}`,
+      focusRing: `0 0 0 3px ${hexToRgba(semanticColors.accent, 0.18)}`,
       // A quieter variant for a surface that already reads as "focused" through its own
       // border (the composer card) — wider and fainter than `focusRing` so it doesn't compete
       // with the full input ring used by `ControlActive` fields. See docs/design.md "Finish"
@@ -836,7 +911,7 @@ export function buildDarkTheme(semanticColors: ReturnType<typeof buildDarkSemant
   } as const;
 }
 
-export const darkTheme = buildDarkTheme(paseoDarkColors);
+export const darkTheme = buildDarkTheme(defaultDarkColors);
 export const darkZincTheme = buildDarkTheme(zincDarkColors);
 export const darkMidnightTheme = buildDarkTheme(midnightDarkColors);
 export const darkClaudeTheme = buildDarkTheme(claudeDarkColors);
@@ -878,11 +953,14 @@ export function buildLightTheme(semanticColors: ReturnType<typeof buildLightSema
       ...semanticColors,
       palette: baseColors,
       syntax: lightHighlightColors,
-      focusBorder: hexToRgba(semanticColors.accent, 0.55),
+      // Accent at ~35% alpha — lighter than dark's ~45% because the same alpha reads darker
+      // against a white surface. On the default monochrome theme accent is near-black, so
+      // this resolves to a neutral ring, not a brand color.
+      focusBorder: hexToRgba(semanticColors.accent, 0.35),
     },
     shadow: {
       ...LIGHT_SHADOW,
-      focusRing: `0 0 0 3px ${hexToRgba(semanticColors.accent, 0.22)}`,
+      focusRing: `0 0 0 3px ${hexToRgba(semanticColors.accent, 0.12)}`,
       focusRingSoft: `0 0 0 4px ${hexToRgba(semanticColors.accent, 0.12)}`,
     },
     ...commonTheme,
@@ -907,7 +985,10 @@ export const THEME_OPTIONS = [
     group: "primary",
     unistylesName: "dark",
     theme: darkTheme,
-    swatch: "#2D8B62",
+    // The theme's own canvas, not accent — accent is near-white now and would read almost
+    // identically to the "zinc" swatch. The canvas tone is what actually identifies this
+    // theme at a glance.
+    swatch: "#181818",
   },
   { name: "auto", group: "primary" },
   {
