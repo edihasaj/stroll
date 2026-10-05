@@ -1145,6 +1145,13 @@ export const ru: TranslationResources = {
         all: "Все проекты",
       },
     },
+    rail: {
+      more: "More",
+    },
+    panel: {
+      machineFilter: "Filter by machine",
+      projectsSection: "Projects",
+    },
     filterEmpty: {
       title: "Нет подходящих рабочих пространств",
       description:

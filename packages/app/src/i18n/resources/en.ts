@@ -1138,6 +1138,13 @@ export const en = {
         all: "All projects",
       },
     },
+    rail: {
+      more: "More",
+    },
+    panel: {
+      machineFilter: "Filter by machine",
+      projectsSection: "Projects",
+    },
     filterEmpty: {
       title: "No workspaces match",
       description: "Change or clear the sidebar filters to see workspaces.",

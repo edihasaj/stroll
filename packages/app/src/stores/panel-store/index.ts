@@ -90,6 +90,7 @@ export interface PanelState {
   closeDesktopAgentList: () => void;
   toggleDesktopAgentList: () => void;
   toggleDesktopSidebarRailMode: () => void;
+  toggleDesktopSidebarProjectsSection: () => void;
   openAgentListForLayout: (input: PanelLayoutInput) => void;
   closeAgentListForLayout: (input: PanelLayoutInput) => void;
   toggleAgentListForLayout: (input: PanelLayoutInput) => void;
@@ -131,6 +132,7 @@ export const usePanelStore = create<PanelState>()(
         agentListOpen: DEFAULT_DESKTOP_OPEN,
         focusModeEnabled: false,
         sidebarRailMode: false,
+        projectsSectionCollapsed: false,
       },
 
       // File explorer defaults
@@ -196,6 +198,16 @@ export const usePanelStore = create<PanelState>()(
       toggleDesktopSidebarRailMode: () =>
         set((state) => ({
           desktop: { ...state.desktop, sidebarRailMode: !state.desktop.sidebarRailMode },
+        })),
+
+      // SB2: the panel's "Projects" section chevron. Independent of rail mode and of
+      // per-project collapse (`collapsedProjectKeys`) — this hides the whole tree at once.
+      toggleDesktopSidebarProjectsSection: () =>
+        set((state) => ({
+          desktop: {
+            ...state.desktop,
+            projectsSectionCollapsed: !state.desktop.projectsSectionCollapsed,
+          },
         })),
 
       openAgentListForLayout: ({ isCompact }) =>
@@ -297,7 +309,7 @@ export const usePanelStore = create<PanelState>()(
     }),
     {
       name: "panel-state",
-      version: 16,
+      version: 17,
       storage: createValidatedPersistStorage(AsyncStorage, PanelPersistedStateSchema),
       migrate: (persistedState, version) => migratePanelState(persistedState, version),
       partialize: (state) => ({

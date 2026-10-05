@@ -3,9 +3,10 @@ import { MAX_SIDEBAR_WIDTH, MIN_SIDEBAR_WIDTH } from "@/stores/panel-store";
 
 const MIN_DESKTOP_CENTER_WIDTH = 400;
 
-// Icon-only rail width (SB1). ChatGPT/Codex-style: brand mark, nav icons, footer
-// identity/settings icons, each behind a tooltip. Workspace rows are hidden.
-export const SIDEBAR_RAIL_WIDTH = 56;
+// Icon-only rail width (SB2, Codex-parity). Chats/Projects/Schedules/plugin icons, a `•••`
+// overflow, and Settings, each behind a tooltip. In "rail" mode this is the whole sidebar; in
+// "expanded" mode it is a fixed sibling column beside the resizable panel (SidebarPanel).
+export const SIDEBAR_RAIL_WIDTH = 52;
 
 export type DesktopSidebarMode = "expanded" | "rail" | "hidden";
 
@@ -91,7 +92,11 @@ export function resolveDesktopAppContentMinimum(input: { isSettingsRoute: boolea
   return input.isSettingsRoute ? SETTINGS_DESKTOP_SPLIT_MIN_WIDTH : 0;
 }
 
-/** The pixel width the sidebar actually occupies in a given mode (M3). */
+/**
+ * The pixel width the sidebar actually occupies in a given mode (M3). `requestedWidth` is the
+ * panel's own width (SB2) — in "expanded" mode the rail is a fixed sibling column added on top
+ * of it, not part of the clamped request.
+ */
 export function resolveDesktopSidebarEffectiveWidth(input: {
   mode: DesktopSidebarMode;
   requestedWidth: number;
@@ -103,21 +108,28 @@ export function resolveDesktopSidebarEffectiveWidth(input: {
   if (input.mode === "rail") {
     return SIDEBAR_RAIL_WIDTH;
   }
-  return resolveDesktopSidebarWidth({
-    requestedWidth: input.requestedWidth,
-    viewportWidth: input.viewportWidth,
-  });
+  return (
+    SIDEBAR_RAIL_WIDTH +
+    resolveDesktopSidebarWidth({
+      requestedWidth: input.requestedWidth,
+      viewportWidth: input.viewportWidth,
+    })
+  );
 }
 
 export function canDesktopAppSidebarShare(input: {
   contentMinimumWidth: number;
-  requestedSidebarWidth: number;
+  /** "hidden" never reaches here — the caller only asks this to decide whether a visible
+   * sidebar would fit, so it is always choosing between the rail and the expanded panel. */
+  mode: "rail" | "expanded";
+  requestedPanelWidth: number;
   viewportWidth: number;
 }): boolean {
   return (
     input.viewportWidth -
-      resolveDesktopSidebarWidth({
-        requestedWidth: input.requestedSidebarWidth,
+      resolveDesktopSidebarEffectiveWidth({
+        mode: input.mode,
+        requestedWidth: input.requestedPanelWidth,
         viewportWidth: input.viewportWidth,
       }) >=
     input.contentMinimumWidth

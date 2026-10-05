@@ -1129,6 +1129,13 @@ export const ar: TranslationResources = {
         all: "كل المشاريع",
       },
     },
+    rail: {
+      more: "More",
+    },
+    panel: {
+      machineFilter: "Filter by machine",
+      projectsSection: "Projects",
+    },
     filterEmpty: {
       title: "لا توجد مساحات عمل مطابقة",
       description: "غيّر عوامل تصفية الشريط الجانبي أو امسحها لعرض مساحات العمل.",

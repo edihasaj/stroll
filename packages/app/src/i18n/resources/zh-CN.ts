@@ -1121,6 +1121,13 @@ export const zhCN: TranslationResources = {
         all: "所有项目",
       },
     },
+    rail: {
+      more: "More",
+    },
+    panel: {
+      machineFilter: "Filter by machine",
+      projectsSection: "Projects",
+    },
     filterEmpty: {
       title: "没有匹配的工作区",
       description: "更改或清除侧边栏筛选以查看工作区。",

@@ -21,11 +21,16 @@ export interface DesktopSidebarState {
   // Independent of `agentListOpen` — collapsing to rail never hides the sidebar,
   // and hiding then reopening it restores whichever of the two was last chosen.
   sidebarRailMode: boolean;
+  // SB2: the panel's "Projects" section header chevron. Collapses the whole
+  // project/workspace tree without leaving rail mode or hiding the panel.
+  projectsSectionCollapsed: boolean;
 }
 
 export type SortOption = "name" | "modified" | "size";
 
-export const DEFAULT_SIDEBAR_WIDTH = 320;
+// SB2: `sidebarWidth` is the resizable panel's width, not the rail+panel total — the 52px rail
+// (`SIDEBAR_RAIL_WIDTH`, desktop-sidebar-layout.ts) is a fixed sibling column outside it.
+export const DEFAULT_SIDEBAR_WIDTH = 240;
 export const MIN_SIDEBAR_WIDTH = 200;
 export const MAX_SIDEBAR_WIDTH = 600;
 
@@ -125,6 +130,7 @@ const DesktopSidebarStorageSchema = z.strictObject({
   agentListOpen: z.boolean().optional(),
   focusModeEnabled: z.boolean().optional(),
   sidebarRailMode: z.boolean().optional(),
+  projectsSectionCollapsed: z.boolean().optional(),
   zoomed: z.boolean().optional(),
   focused: z.boolean().optional(),
   // Accepted only so migration can discard the former docked explorer sidebar.
@@ -212,6 +218,18 @@ function migratePanelDesktopRailMode(state: MigratablePanelState): void {
   }
 }
 
+// New optional field (SB2). Unconditional, same reasoning as the rail-mode default above:
+// every persisted state that predates the Projects section header should start expanded.
+function migratePanelDesktopProjectsSection(state: MigratablePanelState): void {
+  const desktop = state.desktop;
+  if (!desktop) {
+    return;
+  }
+  if (typeof desktop.projectsSectionCollapsed !== "boolean") {
+    desktop.projectsSectionCollapsed = false;
+  }
+}
+
 // v16 narrowed the rail. Existing installs almost all carry the old 320 default,
 // so the reset is what makes the narrower rail visible to anyone but a new user.
 function migrateTreeRailWidth(state: MigratablePanelState, version: number): void {
@@ -239,6 +257,7 @@ export function migratePanelState(persistedState: unknown, version: number): Mig
   }
   migratePanelExplorerTabByCheckout(state, version);
   migratePanelDesktopRailMode(state);
+  migratePanelDesktopProjectsSection(state);
   if (version < 8) {
     migratePanelDesktopFocusMode(state);
   }

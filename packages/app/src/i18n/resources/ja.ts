@@ -1141,6 +1141,13 @@ export const ja: TranslationResources = {
         all: "すべてのプロジェクト",
       },
     },
+    rail: {
+      more: "More",
+    },
+    panel: {
+      machineFilter: "Filter by machine",
+      projectsSection: "Projects",
+    },
     filterEmpty: {
       title: "一致するワークスペースがありません",
       description:

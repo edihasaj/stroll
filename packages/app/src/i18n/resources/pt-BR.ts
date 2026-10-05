@@ -1154,6 +1154,13 @@ export const ptBR: TranslationResources = {
         all: "Todos os projetos",
       },
     },
+    rail: {
+      more: "More",
+    },
+    panel: {
+      machineFilter: "Filter by machine",
+      projectsSection: "Projects",
+    },
     filterEmpty: {
       title: "Nenhum espaço de trabalho corresponde",
       description: "Altere ou limpe os filtros da barra lateral para ver espaços de trabalho.",

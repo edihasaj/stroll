@@ -25,9 +25,7 @@ import {
   resolveDesktopSidebarWidth,
   SIDEBAR_RAIL_WIDTH,
 } from "@/components/desktop-sidebar-layout";
-import { useAppReducedMotion, withMotion } from "@/hooks/use-app-reduced-motion";
-import { appearEntering, appearExiting, webAppearStyle } from "@/styles/motion";
-import { isWeb } from "@/constants/platform";
+import { useAppReducedMotion } from "@/hooks/use-app-reduced-motion";
 import { MOTION_DURATION, MOTION_EASING } from "@/styles/theme";
 import {
   SIDEBAR_RESIZE_ACTIVATION_OFFSET,
@@ -35,8 +33,9 @@ import {
 } from "@/components/sidebar-resize-handle-layout";
 import { HostPicker } from "@/components/hosts/host-picker";
 import { SidebarDisplayPreferencesMenu } from "@/components/sidebar/display-preferences/menu";
-import { SidebarBrandRow } from "@/components/sidebar/sidebar-brand-row";
 import { SidebarNavRows } from "@/components/sidebar/sidebar-nav-rows";
+import { SidebarPanel } from "@/components/sidebar/sidebar-panel";
+import { SidebarRail } from "@/components/sidebar/sidebar-rail";
 import { SidebarSeparator } from "@/components/sidebar/sidebar-separator";
 import { SidebarHelpMenu } from "@/components/sidebar/sidebar-help-menu";
 import { SidebarResizeHandle } from "@/components/sidebar-resize-handle";
@@ -64,7 +63,6 @@ import { MobilePanelOverlay } from "@/mobile-panels/presentation";
 import { buildSettingsAddHostRoute, buildSettingsRoute } from "@/utils/host-routes";
 import { openHostOverview } from "@/navigation/settings-navigation";
 import { SidebarAgentListSkeleton } from "./sidebar-agent-list-skeleton";
-import { SidebarCalloutSlot } from "./sidebar-callout-slot";
 import { useActiveHostSummary } from "./sidebar/use-active-host-summary";
 import { SidebarWorkspaceList } from "./sidebar-workspace-list";
 
@@ -626,14 +624,12 @@ function DesktopSidebar({
   handleOpenProject,
   handleImportSession,
   handleSettings,
-  labels,
   handleAddHost,
   handleOpenHostSettings,
   insetsTop,
   active,
 }: DesktopSidebarProps) {
   const ownsTopLeft = useOwnsWindowChromeCorner("top-left");
-  const hasActiveHostFilter = useSidebarViewStore((state) => state.hostFilters.length > 0);
   const sidebarWidth = usePanelStore((state) => state.sidebarWidth);
   const setSidebarWidth = usePanelStore((state) => state.setSidebarWidth);
   // SB1: the sidebar's own inline collapse toggle. Independent of `active` — rail
@@ -641,11 +637,13 @@ function DesktopSidebar({
   const isRail = usePanelStore((state) => state.desktop.sidebarRailMode);
   const reducedMotion = useAppReducedMotion();
   const { width: viewportWidth } = useWindowDimensions();
-  const expandedWidth = resolveDesktopSidebarWidth({
+  // `sidebarWidth` is the panel's own width (SB2) — the rail is a fixed 52px sibling
+  // outside the resizable container, so the total visible width adds it back in.
+  const panelWidth = resolveDesktopSidebarWidth({
     requestedWidth: sidebarWidth,
     viewportWidth,
   });
-  const visibleSidebarWidth = isRail ? SIDEBAR_RAIL_WIDTH : expandedWidth;
+  const visibleSidebarWidth = isRail ? SIDEBAR_RAIL_WIDTH : SIDEBAR_RAIL_WIDTH + panelWidth;
 
   const startWidthRef = useRef(visibleSidebarWidth);
   const resizeWidth = useSharedValue(visibleSidebarWidth);
@@ -687,15 +685,17 @@ function DesktopSidebar({
           resizeWidth.value = visibleSidebarWidth;
         })
         .onUpdate((event) => {
-          // Dragging right (positive translationX) increases width
+          // Dragging right (positive translationX) increases width. `newWidth` is the total
+          // (rail+panel); only the panel portion is clamped and persisted.
           const newWidth = startWidthRef.current + event.translationX;
-          resizeWidth.value = resolveDesktopSidebarWidth({
-            requestedWidth: newWidth,
+          const clampedPanelWidth = resolveDesktopSidebarWidth({
+            requestedWidth: newWidth - SIDEBAR_RAIL_WIDTH,
             viewportWidth,
           });
+          resizeWidth.value = SIDEBAR_RAIL_WIDTH + clampedPanelWidth;
         })
         .onEnd(() => {
-          runOnJS(setSidebarWidth)(resizeWidth.value);
+          runOnJS(setSidebarWidth)(resizeWidth.value - SIDEBAR_RAIL_WIDTH);
         })
         .onFinalize(() => {
           scheduleOnRN(hideResizeGrip);
@@ -726,19 +726,11 @@ function DesktopSidebar({
     () => [styles.desktopSidebarBorder, { flex: 1, paddingTop: insetsTop }],
     [insetsTop],
   );
-  const sidebarHeaderGroupStyle = useMemo(
-    () => [styles.sidebarHeaderGroup, ownsTopLeft && styles.sidebarHeaderGroupBelowChrome],
-    [ownsTopLeft],
-  );
   // SB1's expanded content is `flex: 1` next to `SidebarFooter` below it — the same in-flow,
   // parent-sized-by-content shape that made the M1 message entrance collapse on web (see
   // `webAppearStyle`'s doc comment in `@/styles/motion`). The workspace list's height can change
   // while it enters (skeleton -> loaded, filtered project count), so it gets the same web CSS
   // treatment; entering stays a Reanimated Keyframe on native.
-  const expandedContentStyle = useMemo(
-    () => [staticStyles.expandedContent, webAppearStyle(reducedMotion)],
-    [reducedMotion],
-  );
   return (
     <Animated.View
       accessibilityElementsHidden={!active}
@@ -768,59 +760,40 @@ function DesktopSidebar({
           ) : (
             <TitlebarDragRegion />
           )}
-          <SidebarBrandRow
-            onAddHost={handleAddHost}
-            onOpenHostSettings={handleOpenHostSettings}
-            rail={isRail}
-          />
-          <SidebarNavRows style={sidebarHeaderGroupStyle} rail={isRail} />
-          <SidebarSeparator />
         </View>
 
-        {/* SB1: workspace rows are hidden in rail mode. Cross-fades out on
-            collapse and back in on expand (M3) instead of a hard cut. */}
-        {!isRail ? (
-          <Animated.View
-            style={expandedContentStyle}
-            entering={isWeb ? undefined : withMotion(reducedMotion, appearEntering)}
-            exiting={withMotion(reducedMotion, appearExiting)}
-          >
-            {isInitialLoad && !hasActiveHostFilter ? (
-              <SidebarAgentListSkeleton />
-            ) : (
-              <SidebarWorkspaceList
-                collapsedProjectKeys={collapsedProjectKeys}
-                onToggleProjectCollapsed={toggleProjectCollapsed}
-                shortcutIndexByWorkspaceKey={shortcutIndexByWorkspaceKey}
-                groupMode={groupMode}
-                workspaceGroups={workspaceGroups}
-                projectIconTargets={projectIconTargets}
-                pinnedGroups={pinnedGroups}
-                projects={projects}
-                hasProjectsBeforeFilter={hasProjectsBeforeFilter}
-                hasActiveProjectFilter={hasActiveProjectFilter}
-                workspaceEntriesByKey={workspaceEntriesByKey}
-                isRefreshing={isManualRefresh && isRevalidating}
-                onRefresh={handleRefresh}
-                onAddProject={handleOpenProject}
-                onImportSession={handleImportSession}
-                listHeaderComponent={workspacesSectionHeaderElement}
-              />
-            )}
-
-            <SidebarCalloutSlot />
-          </Animated.View>
-        ) : null}
-
-        <SidebarFooter
-          theme={theme}
-          handleImportSession={handleImportSession}
-          handleSettings={handleSettings}
-          labels={labels}
-          handleAddHost={handleAddHost}
-          handleOpenHostSettings={handleOpenHostSettings}
-          rail={isRail}
-        />
+        {/* SB2 (Codex parity): a fixed-width icon rail plus a resizable panel. The outer
+            Animated.View above already eases between the rail-only and rail+panel total
+            widths (M3); the panel itself is a plain conditional render rather than a second
+            entering/exiting animation — docs/design.md §17 flags exactly this shape (an
+            in-flow element whose size can change) as the web layout-animation hazard that
+            previously broke this same sidebar's rail-mode workspace list. */}
+        <View style={styles.railPanelRow}>
+          <SidebarRail handleSettings={handleSettings} handleImportSession={handleImportSession} />
+          {!isRail ? (
+            <SidebarPanel
+              workspaceGroups={workspaceGroups}
+              projectIconTargets={projectIconTargets}
+              pinnedGroups={pinnedGroups}
+              projects={projects}
+              hasProjectsBeforeFilter={hasProjectsBeforeFilter}
+              hasActiveProjectFilter={hasActiveProjectFilter}
+              workspaceEntriesByKey={workspaceEntriesByKey}
+              isInitialLoad={isInitialLoad}
+              isManualRefresh={isManualRefresh}
+              isRevalidating={isRevalidating}
+              groupMode={groupMode}
+              collapsedProjectKeys={collapsedProjectKeys}
+              shortcutIndexByWorkspaceKey={shortcutIndexByWorkspaceKey}
+              toggleProjectCollapsed={toggleProjectCollapsed}
+              handleRefresh={handleRefresh}
+              handleOpenProject={handleOpenProject}
+              handleImportSession={handleImportSession}
+              handleAddHost={handleAddHost}
+              handleOpenHostSettings={handleOpenHostSettings}
+            />
+          ) : null}
+        </View>
 
         {!isRail ? (
           <SidebarResizeHandle
@@ -869,10 +842,6 @@ const staticStyles = RNStyleSheet.create({
   desktopSidebarHidden: {
     display: "none",
   },
-  expandedContent: {
-    flex: 1,
-    minHeight: 0,
-  },
 });
 
 const styles = StyleSheet.create((theme) => ({
@@ -880,9 +849,6 @@ const styles = StyleSheet.create((theme) => ({
     paddingTop: theme.spacing[2],
     gap: 2,
     paddingBottom: theme.spacing[1.5],
-  },
-  sidebarHeaderGroupBelowChrome: {
-    paddingTop: 0,
   },
   workspacesSectionHeader: {
     flexDirection: "row",
@@ -937,6 +903,12 @@ const styles = StyleSheet.create((theme) => ({
     borderRightWidth: 1,
     borderRightColor: theme.colors.border,
     backgroundColor: theme.colors.surfaceSidebar,
+  },
+  // SB2: the rail (fixed 52px) and the panel (resizable, flex: 1) side by side.
+  railPanelRow: {
+    flex: 1,
+    minHeight: 0,
+    flexDirection: "row",
   },
   sidebarDragArea: {
     position: "relative",

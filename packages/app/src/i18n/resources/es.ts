@@ -1164,6 +1164,13 @@ export const es: TranslationResources = {
         all: "Todos los proyectos",
       },
     },
+    rail: {
+      more: "More",
+    },
+    panel: {
+      machineFilter: "Filter by machine",
+      projectsSection: "Projects",
+    },
     filterEmpty: {
       title: "Ningún espacio de trabajo coincide",
       description: "Cambia o borra los filtros de la barra lateral para ver espacios de trabajo.",
