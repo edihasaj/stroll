@@ -26,6 +26,15 @@ const MOBILE_CONTENT_16_MIGRATION = "mobile-content-16";
 const PROSE_FONT_MODERN_MIGRATION = "prose-font-modern";
 
 /**
+ * `sidebarWorkspaceTrailing` defaulted to "diff" before the sidebar's Codex-parity pass, and
+ * that default materializes into storage on first load — so a stored "diff" cannot be told
+ * apart from a deliberate pick. This flips every stored "diff" to "none" exactly once;
+ * picking diff stats again afterwards sticks.
+ * COMPAT(sidebarCodexDefaults): remove after 2027-04-01.
+ */
+const SIDEBAR_CODEX_DEFAULTS_MIGRATION = "sidebar-codex-defaults";
+
+/**
  * Brings stored settings up to date, returning what the caller should use. Owns both writes so
  * the marker can only ever be written after the settings it describes: a failed marker write
  * leaves the migration to re-run harmlessly, while a failed settings write must leave the marker
@@ -62,6 +71,15 @@ export async function migrateAppSettings(
   if (!applied.has(PROSE_FONT_MODERN_MIGRATION)) {
     migrated = migrated.proseFont === "serif" ? { ...migrated, proseFont: "system" } : migrated;
     applied.add(PROSE_FONT_MODERN_MIGRATION);
+    addedMigration = true;
+  }
+
+  if (!applied.has(SIDEBAR_CODEX_DEFAULTS_MIGRATION)) {
+    migrated =
+      migrated.sidebarWorkspaceTrailing === "diff"
+        ? { ...migrated, sidebarWorkspaceTrailing: "none" }
+        : migrated;
+    applied.add(SIDEBAR_CODEX_DEFAULTS_MIGRATION);
     addedMigration = true;
   }
 
