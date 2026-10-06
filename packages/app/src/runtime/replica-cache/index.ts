@@ -251,6 +251,13 @@ const StoredAgentSnapshotSchema = z.strictObject({
   attentionReason: z.enum(["finished", "error", "permission"]).nullable().optional(),
   attentionTimestamp: IsoDateSchema.nullable().optional(),
   archivedAt: IsoDateSchema.nullable().optional(),
+  lastTurn: z
+    .strictObject({
+      startedAt: IsoDateSchema,
+      endedAt: IsoDateSchema,
+    })
+    .nullable()
+    .optional(),
 });
 
 const StoredAgentSchema = z.strictObject({
@@ -381,13 +388,15 @@ const DirectoryCheckpointSchema = z.strictObject({
 
 // Old checkpoints could describe a baseline that an overlapping refresh had discarded.
 // Revalidate directory contents once without evicting cached rows or timelines.
+// v2: agent rows gained `lastTurn`; revalidating once lets cached agents pick it up.
+const DIRECTORY_CHECKPOINT_VERSION = 2;
 const StoredDirectoryCheckpointSchema = z.strictObject({
-  version: z.literal(1),
+  version: z.literal(DIRECTORY_CHECKPOINT_VERSION),
   cursors: DirectoryCheckpointSchema,
 });
 
 function serializeDirectoryCheckpoint(cursors: DirectoryCheckpoint) {
-  return { version: 1 as const, cursors };
+  return { version: DIRECTORY_CHECKPOINT_VERSION, cursors };
 }
 
 function deserializeDirectoryCheckpoint(payload: string): DirectoryCheckpoint {
@@ -605,6 +614,16 @@ function serializeAgentTurn(agent: Agent): NonNullable<StoredAgent["turn"]> {
   };
 }
 
+function serializeLastTurn(agent: Agent): Pick<StoredAgent["snapshot"], "lastTurn"> {
+  if (!agent.lastTurn) return {};
+  return {
+    lastTurn: {
+      startedAt: agent.lastTurn.startedAt.toISOString(),
+      endedAt: agent.lastTurn.endedAt.toISOString(),
+    },
+  };
+}
+
 function serializeAgent(agent: Agent): StoredAgent {
   const snapshot = {
     id: agent.id,
@@ -657,6 +676,7 @@ function serializeAgent(agent: Agent): StoredAgent {
     attentionReason: agent.attentionReason ?? null,
     attentionTimestamp: agent.attentionTimestamp?.toISOString() ?? null,
     archivedAt: agent.archivedAt?.toISOString() ?? null,
+    ...serializeLastTurn(agent),
   };
   return {
     snapshot,

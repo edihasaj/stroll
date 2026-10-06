@@ -319,6 +319,47 @@ describe("ReplicaCache", () => {
     expect(restoredTimeline).toEqual(timeline());
   });
 
+  it("round-trips an agent's last turn so finished subagents keep their duration", async () => {
+    const storage = new MemoryStorage();
+    const writer = createCache(storage);
+    const value = directory();
+    const lastTurn = {
+      startedAt: new Date("2026-07-18T08:00:10.000Z"),
+      endedAt: new Date("2026-07-18T08:00:20.000Z"),
+    };
+    value.agents.set("agent-1", { ...agent(), lastTurn });
+    commitDirectory(writer, SERVER_ID, value);
+    await writer.flush();
+
+    const restored = await createCache(storage).readDirectory(SERVER_ID);
+
+    expect(restored.agents.get("agent-1")?.lastTurn).toEqual(lastTurn);
+  });
+
+  it("rejects a checkpoint written before agents carried their last turn", async () => {
+    const storage = new MemoryStorage();
+    const writer = createCache(storage);
+    const baseline = directory();
+    writer.replaceDirectoryBaseline(SERVER_ID, baseline);
+    await writer.flush();
+    await storage.apply({
+      deletes: [],
+      upserts: [
+        {
+          serverId: SERVER_ID,
+          kind: "checkpoint",
+          id: "singleton",
+          payload: JSON.stringify({ version: 1, cursors: baseline.checkpoint }),
+        },
+      ],
+    });
+
+    const restored = await createCache(storage).readDirectory(SERVER_ID);
+
+    expect(restored.checkpoint).toBeUndefined();
+    expect([...restored.agents.keys()]).toEqual([...baseline.agents.keys()]);
+  });
+
   it("preserves pending timeline updates across directory baseline replacement", async () => {
     const storage = new MemoryStorage();
     const writer = createCache(storage);
