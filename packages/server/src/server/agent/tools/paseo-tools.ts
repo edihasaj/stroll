@@ -37,6 +37,7 @@ import type { RouteCreationResolution, RouteCreationResolver } from "../routes/r
 import {
   AgentRouteFailoverModeSchema,
   AgentRoutePrivacySchema,
+  readAgentRouteLabels,
   resolveEntryPrivacy,
   resolveRouteFailoverMode,
   resolveRoutePrivacy,
@@ -46,8 +47,14 @@ import {
   ROUTE_THREAD_LABEL,
   type AgentRoute,
   type AgentRouteEntry,
+  type AgentRoutePrivacy,
 } from "@getpaseo/protocol/agent-route";
 import type { AgentProfile } from "@getpaseo/protocol/agent-profile";
+import {
+  checkCreateAgentPrivacyGuard,
+  type CreateAgentPrivacyGuardTarget,
+} from "../routes/create-agent-privacy-guard.js";
+import { requireRoute } from "../routes/route-config.js";
 import type { VoiceCallerContext, VoiceSpeakHandler } from "../../voice-types.js";
 import type { FirstAgentContext } from "../../messages.js";
 import { everyMsToFiveFieldCron } from "@getpaseo/protocol/schedule/cadence";
@@ -898,6 +905,56 @@ export function createPaseoToolCatalog(options: PaseoToolHostDependencies): Pase
     return parentAgent;
   };
 
+  /** The caller's own route id/privacy, or null when it is not on a route (docs/agent-routes.md). */
+  const resolveCallerRouteContext = (): { routeId: string; privacy: AgentRoutePrivacy } | null => {
+    const callerAgent = resolveCallerAgent();
+    if (!callerAgent) {
+      return null;
+    }
+    const labels = readAgentRouteLabels(callerAgent.labels);
+    if (!labels) {
+      return null;
+    }
+    const route = (daemonConfigStore?.get().agentRoutes ?? []).find(
+      (candidate) => candidate.id === labels.routeId,
+    );
+    if (!route) {
+      return null;
+    }
+    return { routeId: route.id, privacy: resolveRoutePrivacy(route) };
+  };
+
+  /** The resolved privacy of a route id known to exist (`create_agent` already resolved it). */
+  const resolveRouteTargetPrivacy = (routeId: string): AgentRoutePrivacy => {
+    const config = daemonConfigStore?.get();
+    if (!config) {
+      throw new Error(`Agent route not found: ${routeId}`);
+    }
+    return resolveRoutePrivacy(requireRoute(config, routeId));
+  };
+
+  /** Throws the privacy-guard message when `resolution` would move the caller's thread off a local route. */
+  const enforceCreateAgentPrivacyGuard = (
+    callerRouteContext: { routeId: string; privacy: AgentRoutePrivacy } | null,
+    resolution: CreateAgentProviderResolution,
+  ): void => {
+    if (callerRouteContext?.privacy !== "local") {
+      return;
+    }
+    const target: CreateAgentPrivacyGuardTarget =
+      resolution.kind === "route"
+        ? {
+            kind: "route",
+            routeId: resolution.routeId,
+            privacy: resolveRouteTargetPrivacy(resolution.routeId),
+          }
+        : { kind: "provider" };
+    const violation = checkCreateAgentPrivacyGuard(callerRouteContext, target);
+    if (violation) {
+      throw new Error(violation);
+    }
+  };
+
   const resolveInheritedProviderConfig = (
     selectedProvider: string,
   ): Pick<AgentSessionConfig, "providerOptions" | "accountProfileId"> | undefined => {
@@ -1256,7 +1313,8 @@ export function createPaseoToolCatalog(options: PaseoToolHostDependencies): Pase
       .max(60, "Title must be 60 characters or fewer")
       .describe("Short descriptive title (<= 60 chars) summarizing the agent's focus."),
     provider: ProviderModelInputSchema.optional().describe(
-      "provider/model pair, for example codex/gpt-5.4. Omit it when you pass `route`.",
+      "provider/model pair, for example codex/gpt-5.4. Omit it when you pass `route`; rejected " +
+        "when this agent is on a local route.",
     ),
     route: z
       .string()
@@ -1723,6 +1781,7 @@ export function createPaseoToolCatalog(options: PaseoToolHostDependencies): Pase
         route: parsedArgs.route,
         provider: parsedArgs.provider,
       });
+      enforceCreateAgentPrivacyGuard(resolveCallerRouteContext(), providerResolution);
       const routeFields = buildRouteAwareCreateAgentFields(
         providerResolution,
         parsedArgs.settings,
@@ -3243,8 +3302,10 @@ export function createPaseoToolCatalog(options: PaseoToolHostDependencies): Pase
       description:
         "List agent routes and profiles. A route is a role (worker, reviewer, …) with an ordered " +
         "fallback list of profiles; pass its id as create_agent `route` and the daemon picks the " +
-        "model. Profiles are the provider/model bundles routes are made of; copy one into " +
-        "create_agent only when no route fits. Returns empty lists when none are configured.",
+        "model. Profiles are the provider/model bundles routes are made of; when no route fits, " +
+        "copy a profile's `provider`/`model`, `modeId`, `thinkingOptionId`, and `featureValues` " +
+        "into create_agent, and `accountProfileId` too when present (there is no `profile` " +
+        "parameter). Returns empty lists when none are configured.",
       inputSchema: {},
       outputSchema: {
         profiles: z.array(AgentProfileSchema),

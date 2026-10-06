@@ -3839,6 +3839,157 @@ describe("create_agent MCP tool", () => {
     expect(tool.description).toContain("worker — Implements and fixes code.");
     expect(tool.description).toContain("reviewer — Reviewer");
   });
+
+  function routedCallerAgent(routeId: string): ManagedAgent {
+    return {
+      id: "parent-agent",
+      cwd: existingCwd,
+      workspaceId: "wks_parent",
+      provider: "claude",
+      currentModeId: "bypassPermissions",
+      labels: { [ROUTE_ID_LABEL]: routeId },
+    } as ManagedAgent;
+  }
+
+  it("rejects an explicit provider from a caller on a local route", async () => {
+    const { agentManager, agentStorage, spies } = createTestDeps();
+    spies.agentManager.getAgent.mockReturnValue(routedCallerAgent("worker"));
+    const server = await createAgentMcpServer({
+      agentManager,
+      agentStorage,
+      providerSnapshotManager: createOpenCodeManager().manager,
+      callerAgentId: "parent-agent",
+      daemonConfigStore: daemonConfigStoreStub(undefined, {
+        agentRoutes: [{ id: "worker", name: "Worker", entries: [{ profileId: "qwen" }] }],
+      }),
+      logger,
+    });
+
+    await expect(
+      registeredTool(server, "create_agent").handler({
+        title: "Child",
+        provider: "codex/gpt-5.4",
+        initialPrompt: "Do work",
+      }),
+    ).rejects.toThrow(
+      "This agent runs on the local route `worker`, so its subagents must run on a local route " +
+        "too. Pass `route` with a local route (see list_profiles).",
+    );
+  });
+
+  it("rejects a cloud route from a caller on a local route", async () => {
+    const { agentManager, agentStorage, spies } = createTestDeps();
+    spies.agentManager.getAgent.mockReturnValue(routedCallerAgent("worker"));
+    const agentRouteCreation = routeCreationResolverStub({
+      entryIndex: 0,
+      profile: { id: "claude-profile", name: "Claude", provider: "claude" },
+    });
+    const server = await createAgentMcpServer({
+      agentManager,
+      agentStorage,
+      providerSnapshotManager: createOpenCodeManager().manager,
+      callerAgentId: "parent-agent",
+      agentRouteCreation,
+      daemonConfigStore: daemonConfigStoreStub(undefined, {
+        agentRoutes: [
+          { id: "worker", name: "Worker", entries: [{ profileId: "qwen" }] },
+          { id: "planner", name: "Planner", privacy: "cloud", entries: [{ profileId: "claude" }] },
+        ],
+      }),
+      logger,
+    });
+
+    await expect(
+      registeredTool(server, "create_agent").handler({
+        title: "Child",
+        route: "planner",
+        initialPrompt: "Do work",
+      }),
+    ).rejects.toThrow(
+      "This agent runs on the local route `worker`, so its subagents must run on a local route " +
+        "too. Route `planner` is not local — pass `route` with a local route (see list_profiles).",
+    );
+  });
+
+  it("allows a local route from a caller on a local route", async () => {
+    const { agentManager, agentStorage, spies } = createTestDeps();
+    spies.agentManager.getAgent.mockReturnValue(routedCallerAgent("worker"));
+    spies.agentManager.createAgent.mockResolvedValue({
+      id: "child-agent",
+      provider: "omp",
+      cwd: existingCwd,
+      lifecycle: "idle",
+      currentModeId: null,
+      availableModes: [],
+      config: { title: "Child" },
+    } as ManagedAgent);
+    const agentRouteCreation = routeCreationResolverStub({
+      entryIndex: 0,
+      profile: { id: "qwen", name: "Qwen (Spark)", provider: "omp", model: "spark" },
+    });
+    const server = await createAgentMcpServer({
+      agentManager,
+      agentStorage,
+      providerSnapshotManager: createOpenCodeManager().manager,
+      callerAgentId: "parent-agent",
+      agentRouteCreation,
+      daemonConfigStore: daemonConfigStoreStub(undefined, {
+        agentRoutes: [{ id: "worker", name: "Worker", entries: [{ profileId: "qwen" }] }],
+      }),
+      logger,
+    });
+
+    await registeredTool(server, "create_agent").handler({
+      title: "Child",
+      route: "worker",
+      initialPrompt: "Do work",
+    });
+
+    expect(agentRouteCreation.resolveForCreate).toHaveBeenCalledWith("worker");
+    expect(spies.agentManager.createAgent).toHaveBeenCalledWith(
+      expect.objectContaining({ provider: "omp", model: "spark" }),
+      undefined,
+      expect.any(Object),
+    );
+  });
+
+  it("allows an explicit provider from a caller on a cloud route", async () => {
+    const { agentManager, agentStorage, spies } = createTestDeps();
+    spies.agentManager.getAgent.mockReturnValue(routedCallerAgent("planner"));
+    spies.agentManager.createAgent.mockResolvedValue({
+      id: "child-agent",
+      provider: "codex",
+      cwd: existingCwd,
+      lifecycle: "idle",
+      currentModeId: null,
+      availableModes: [],
+      config: { title: "Child" },
+    } as ManagedAgent);
+    const server = await createAgentMcpServer({
+      agentManager,
+      agentStorage,
+      providerSnapshotManager: createOpenCodeManager().manager,
+      callerAgentId: "parent-agent",
+      daemonConfigStore: daemonConfigStoreStub(undefined, {
+        agentRoutes: [
+          { id: "planner", name: "Planner", privacy: "cloud", entries: [{ profileId: "claude" }] },
+        ],
+      }),
+      logger,
+    });
+
+    await registeredTool(server, "create_agent").handler({
+      title: "Child",
+      provider: "codex/gpt-5.4",
+      initialPrompt: "Do work",
+    });
+
+    expect(spies.agentManager.createAgent).toHaveBeenCalledWith(
+      expect.objectContaining({ provider: "codex", model: "gpt-5.4" }),
+      undefined,
+      expect.any(Object),
+    );
+  });
 });
 
 const HELD_TURN_CAPABILITIES = {

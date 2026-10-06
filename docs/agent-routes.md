@@ -112,6 +112,12 @@ when one is set: `create_agent` behaves exactly as if `route: defaultAgentRoute`
 including the route labels in [Creating a routed agent](#creating-a-routed-agent). A call with
 neither and no default route fails before creating anything, naming both ways to fix it.
 
+A thread on a local route is local-only by default, so its subagents must stay local too: when the
+calling agent is itself on a route resolving to `privacy: "local"`, `create_agent` rejects an
+explicit `provider`, and rejects `route` (explicit or defaulted) when that route's resolved privacy
+is not `"local"`, naming the offending route in the error. Unrouted callers, callers on a cloud
+route, and top-level calls (no caller agent) are unaffected.
+
 `list_profiles` returns `routes` alongside `profiles`: each route's `id`, `name`, `description`,
 resolved `privacy` and `failover`, and its entries with the resolved profile name/provider/model,
 the entry's resolved `privacy`, and `allowed` (false when a local route has a non-local entry — the
