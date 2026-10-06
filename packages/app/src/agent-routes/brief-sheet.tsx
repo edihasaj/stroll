@@ -153,18 +153,27 @@ function AgentBriefSheetBody({
   }
 
   if (!edit) {
+    // No brief yet (e.g. the agent failed before finishing a turn), but the route history and the
+    // handoff packet still exist and are what the user needs most in that moment.
     return (
-      <View style={styles.centered} testID="agent-brief-empty">
-        <Text style={styles.emptyText}>{t("agentRoutes.brief.empty")}</Text>
-        <Button
-          size="sm"
-          variant="secondary"
-          onPress={handleRefresh}
-          loading={isRefreshing}
-          testID="agent-brief-empty-refresh"
-        >
-          {t("agentRoutes.brief.refresh")}
-        </Button>
+      <View style={styles.form}>
+        <View style={styles.centered} testID="agent-brief-empty">
+          <Text style={styles.emptyText}>{t("agentRoutes.brief.empty")}</Text>
+          <Button
+            size="sm"
+            variant="secondary"
+            onPress={handleRefresh}
+            loading={isRefreshing}
+            testID="agent-brief-empty-refresh"
+          >
+            {t("agentRoutes.brief.refresh")}
+          </Button>
+        </View>
+        <AgentBriefHistorySection
+          handoffPreview={briefQuery.data?.handoffPreview ?? null}
+          events={briefQuery.data?.events ?? []}
+          profiles={profiles}
+        />
       </View>
     );
   }

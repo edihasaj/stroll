@@ -1,5 +1,5 @@
 import type { TFunction } from "i18next";
-import type { AgentRouteLabels } from "@getpaseo/protocol/agent-route";
+import type { AgentRouteFailureReason, AgentRouteLabels } from "@getpaseo/protocol/agent-route";
 import { agentRouteFailureReasonText } from "./reason-text";
 
 export interface RouteBannerNone {
@@ -39,10 +39,15 @@ export interface ResolveRouteBannerInput {
   labels: AgentRouteLabels | null;
   /** Display name of `labels.nextProfileId`, resolved from the host's `agentProfiles`. */
   nextProfileName: string | null;
-  /** Title of the agent named by `labels.continuedByAgentId`. */
+  /** Profile name (or title) of the agent named by `labels.continuedByAgentId`. */
   continuedByAgentTitle: string | null;
-  /** Title of the agent named by `labels.continuesAgentId`. */
+  /** Profile name (or title) of the agent named by `labels.continuesAgentId`. */
   previousAgentTitle: string | null;
+  /**
+   * The failure that moved the thread off the previous agent. It is stamped on that agent's
+   * labels, not on the continuation's.
+   */
+  previousReason: AgentRouteFailureReason | null;
 }
 
 /** Maps a routed agent's labels to the banner the agent panel shows above its composer. */
@@ -81,10 +86,11 @@ export function resolveRouteBannerViewModel(
 
   if (labels.state === "active" && labels.continuesAgentId) {
     const name = input.previousAgentTitle ?? t("agentRoutes.banner.unknownAgent");
-    const message = labels.reason
+    const reason = labels.reason ?? input.previousReason;
+    const message = reason
       ? t("agentRoutes.banner.continuedFromWithReason", {
           name,
-          reason: agentRouteFailureReasonText(labels.reason, t),
+          reason: agentRouteFailureReasonText(reason, t),
         })
       : t("agentRoutes.banner.continuedFrom", { name });
     return { kind: "continued_from", message };

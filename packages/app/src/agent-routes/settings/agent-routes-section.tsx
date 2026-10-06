@@ -73,7 +73,7 @@ export function AgentRoutesSection({ serverId }: { serverId: string }): ReactEle
 
   return (
     <SettingsSection title={t("agentRoutes.sectionTitle")} testID="agent-routes-section">
-      <View style={settingsStyles.card} testID="agent-routes-default-card">
+      <View style={[settingsStyles.card, styles.defaultCard]} testID="agent-routes-default-card">
         <SelectField
           label={t("agentRoutes.default.label")}
           value={defaultRouteValue}
@@ -110,6 +110,9 @@ export function AgentRoutesSection({ serverId }: { serverId: string }): ReactEle
 }
 
 const styles = StyleSheet.create((theme) => ({
+  defaultCard: {
+    padding: theme.spacing[3],
+  },
   routesCard: {
     marginTop: theme.spacing[3],
   },

@@ -1,6 +1,8 @@
-import { useCallback, useMemo, useState, type ReactElement } from "react";
+import { useCallback, useMemo, useState, type ReactElement, type ReactNode } from "react";
+import { View } from "react-native";
+import { StyleSheet } from "react-native-unistyles";
 import { useTranslation } from "react-i18next";
-import { readAgentRouteLabels } from "@getpaseo/protocol/agent-route";
+import { readAgentRouteLabels, type AgentRouteFailureReason } from "@getpaseo/protocol/agent-route";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import type { ToastApi } from "@/components/toast-host";
@@ -10,13 +12,42 @@ import { useSessionStore } from "@/stores/session-store";
 import { useAgentRoutesConfig } from "./internal/use-agent-routes-config";
 import { resolveRouteBannerViewModel } from "./internal/route-banner-model";
 
-function useAgentDisplayName(serverId: string, agentId: string | null): string | null {
-  return useSessionStore((state) => {
+interface RoutedAgentSummary {
+  /** The route profile the agent runs on, falling back to its title. */
+  name: string | null;
+  reason: AgentRouteFailureReason | null;
+}
+
+/**
+ * A continuation usually carries its predecessor's title, so the banner names the profile each
+ * agent ran on ("Qwen (Spark)", "Codex (personal)") instead.
+ */
+function useRoutedAgentSummary(
+  serverId: string,
+  agentId: string | null,
+  config: Pick<ReturnType<typeof useAgentRoutesConfig>, "routes" | "profiles">,
+): RoutedAgentSummary {
+  const agent = useSessionStore((state) => {
     if (!agentId) return null;
     const session = state.sessions[serverId];
-    const agent = session?.agents.get(agentId) ?? session?.agentDetails.get(agentId);
-    return agent?.title ?? agent?.model ?? null;
+    return session?.agents.get(agentId) ?? session?.agentDetails.get(agentId) ?? null;
   });
+  return useMemo(() => {
+    if (!agent) return { name: null, reason: null };
+    const labels = readAgentRouteLabels(agent.labels ?? null);
+    const route = config.routes?.find((candidate) => candidate.id === labels?.routeId);
+    const entry =
+      labels?.entryIndex !== null && labels?.entryIndex !== undefined
+        ? route?.entries[labels.entryIndex]
+        : undefined;
+    const profileName = entry
+      ? (config.profiles?.find((profile) => profile.id === entry.profileId)?.name ?? null)
+      : null;
+    return {
+      name: profileName ?? agent.title ?? agent.model ?? null,
+      reason: labels?.reason ?? null,
+    };
+  }, [agent, config.routes, config.profiles]);
 }
 
 /**
@@ -39,20 +70,32 @@ export function RouteBanner({
     (state) => state.sessions[serverId]?.agents.get(agentId)?.labels,
   );
   const labels = useMemo(() => readAgentRouteLabels(labelsSnapshot ?? null), [labelsSnapshot]);
-  const { profiles } = useAgentRoutesConfig(serverId);
+  const { routes, profiles } = useAgentRoutesConfig(serverId);
   const nextProfileName = useMemo(
     () => profiles?.find((profile) => profile.id === labels?.nextProfileId)?.name ?? null,
     [profiles, labels?.nextProfileId],
   );
-  const continuedByAgentTitle = useAgentDisplayName(serverId, labels?.continuedByAgentId ?? null);
-  const previousAgentTitle = useAgentDisplayName(serverId, labels?.continuesAgentId ?? null);
+  const continuedBy = useRoutedAgentSummary(serverId, labels?.continuedByAgentId ?? null, {
+    routes,
+    profiles,
+  });
+  const previous = useRoutedAgentSummary(serverId, labels?.continuesAgentId ?? null, {
+    routes,
+    profiles,
+  });
   const viewModel = useMemo(
     () =>
       resolveRouteBannerViewModel(
-        { labels, nextProfileName, continuedByAgentTitle, previousAgentTitle },
+        {
+          labels,
+          nextProfileName,
+          continuedByAgentTitle: continuedBy.name,
+          previousAgentTitle: previous.name,
+          previousReason: previous.reason,
+        },
         t,
       ),
-    [labels, nextProfileName, continuedByAgentTitle, previousAgentTitle, t],
+    [labels, nextProfileName, continuedBy.name, previous.name, previous.reason, t],
   );
   const [isMoving, setIsMoving] = useState(false);
 
@@ -90,62 +133,92 @@ export function RouteBanner({
 
   if (viewModel.kind === "awaiting_choice") {
     return (
-      <Alert variant="info" description={viewModel.message} testID="agent-route-banner">
-        <Button
-          size="sm"
-          variant="outline"
-          onPress={handleContinue}
-          loading={isMoving}
-          testID="agent-route-banner-continue"
-        >
-          {t("agentRoutes.banner.continueAction")}
-        </Button>
-      </Alert>
+      <BannerFrame>
+        <Alert variant="info" description={viewModel.message} testID="agent-route-banner">
+          <Button
+            size="sm"
+            variant="outline"
+            onPress={handleContinue}
+            loading={isMoving}
+            testID="agent-route-banner-continue"
+          >
+            {t("agentRoutes.banner.continueAction")}
+          </Button>
+        </Alert>
+      </BannerFrame>
     );
   }
 
   if (viewModel.kind === "paused") {
     return (
-      <Alert variant="warning" description={viewModel.message} testID="agent-route-banner">
-        <Button
-          size="sm"
-          variant="outline"
-          onPress={handleContinue}
-          loading={isMoving}
-          testID="agent-route-banner-resume"
-        >
-          {t("agentRoutes.banner.resumeAction")}
-        </Button>
-      </Alert>
+      <BannerFrame>
+        <Alert variant="warning" description={viewModel.message} testID="agent-route-banner">
+          <Button
+            size="sm"
+            variant="outline"
+            onPress={handleContinue}
+            loading={isMoving}
+            testID="agent-route-banner-resume"
+          >
+            {t("agentRoutes.banner.resumeAction")}
+          </Button>
+        </Alert>
+      </BannerFrame>
     );
   }
 
   if (viewModel.kind === "continued") {
     return (
-      <Alert variant="default" description={viewModel.message} testID="agent-route-banner">
-        <Button
-          size="sm"
-          variant="outline"
-          onPress={handleOpenContinuation}
-          testID="agent-route-banner-open"
-        >
-          {t("agentRoutes.banner.openAction")}
-        </Button>
-      </Alert>
+      <BannerFrame>
+        <Alert variant="default" description={viewModel.message} testID="agent-route-banner">
+          <Button
+            size="sm"
+            variant="outline"
+            onPress={handleOpenContinuation}
+            testID="agent-route-banner-open"
+          >
+            {t("agentRoutes.banner.openAction")}
+          </Button>
+        </Alert>
+      </BannerFrame>
     );
   }
 
   return (
-    <Alert variant="default" description={viewModel.message} testID="agent-route-banner">
-      <Button
-        size="sm"
-        variant="outline"
-        onPress={handleUndo}
-        loading={isMoving}
-        testID="agent-route-banner-undo"
-      >
-        {t("agentRoutes.banner.undoAction")}
-      </Button>
-    </Alert>
+    <BannerFrame>
+      <Alert variant="default" description={viewModel.message} testID="agent-route-banner">
+        <Button
+          size="sm"
+          variant="outline"
+          onPress={handleUndo}
+          loading={isMoving}
+          testID="agent-route-banner-undo"
+        >
+          {t("agentRoutes.banner.undoAction")}
+        </Button>
+      </Alert>
+    </BannerFrame>
   );
 }
+
+/** Lines the banner up with the composer column below it. */
+function BannerFrame({ children }: { children: ReactNode }): ReactElement {
+  return (
+    <View style={styles.frame}>
+      <View style={styles.column}>{children}</View>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create((theme) => ({
+  frame: {
+    width: "100%",
+    alignItems: "center",
+    paddingHorizontal: theme.spacing[4],
+    paddingBottom: theme.spacing[2],
+  },
+  column: {
+    width: "100%",
+    maxWidth: theme.contentMaxWidth,
+  },
+}));

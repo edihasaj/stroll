@@ -30,6 +30,7 @@ describe("resolveRouteBannerViewModel", () => {
           nextProfileName: null,
           continuedByAgentTitle: null,
           previousAgentTitle: null,
+          previousReason: null,
         },
         i18n.t,
       ),
@@ -44,6 +45,7 @@ describe("resolveRouteBannerViewModel", () => {
           nextProfileName: null,
           continuedByAgentTitle: null,
           previousAgentTitle: null,
+          previousReason: null,
         },
         i18n.t,
       ),
@@ -61,6 +63,7 @@ describe("resolveRouteBannerViewModel", () => {
         nextProfileName: "Codex (personal)",
         continuedByAgentTitle: null,
         previousAgentTitle: null,
+        previousReason: null,
       },
       i18n.t,
     );
@@ -77,6 +80,7 @@ describe("resolveRouteBannerViewModel", () => {
         nextProfileName: null,
         continuedByAgentTitle: null,
         previousAgentTitle: null,
+        previousReason: null,
       },
       i18n.t,
     );
@@ -93,6 +97,7 @@ describe("resolveRouteBannerViewModel", () => {
         nextProfileName: null,
         continuedByAgentTitle: null,
         previousAgentTitle: null,
+        previousReason: null,
       },
       i18n.t,
     );
@@ -109,6 +114,7 @@ describe("resolveRouteBannerViewModel", () => {
         nextProfileName: null,
         continuedByAgentTitle: "Codex (personal)",
         previousAgentTitle: null,
+        previousReason: null,
       },
       i18n.t,
     );
@@ -130,6 +136,7 @@ describe("resolveRouteBannerViewModel", () => {
         nextProfileName: null,
         continuedByAgentTitle: null,
         previousAgentTitle: "Qwen (Spark)",
+        previousReason: null,
       },
       i18n.t,
     );
@@ -146,12 +153,30 @@ describe("resolveRouteBannerViewModel", () => {
         nextProfileName: null,
         continuedByAgentTitle: null,
         previousAgentTitle: "Qwen (Spark)",
+        previousReason: null,
       },
       i18n.t,
     );
     expect(view).toEqual({
       kind: "continued_from",
       message: "Continued from Qwen (Spark)",
+    });
+  });
+
+  it("names the previous profile and the reason it failed, read from the previous agent", () => {
+    const view = resolveRouteBannerViewModel(
+      {
+        labels: buildLabels({ state: "active", continuesAgentId: "agent-1", reason: null }),
+        nextProfileName: null,
+        continuedByAgentTitle: null,
+        previousAgentTitle: "Qwen (Spark)",
+        previousReason: "unreachable",
+      },
+      i18n.t,
+    );
+    expect(view).toEqual({
+      kind: "continued_from",
+      message: "Continued from Qwen (Spark) — Not reachable",
     });
   });
 });
