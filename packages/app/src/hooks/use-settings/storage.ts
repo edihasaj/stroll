@@ -140,7 +140,7 @@ export const DEFAULT_OPEN_IN_SIDE_PANE_PREFERENCES: OpenInSidePanePreferences = 
   diffs: false,
   chatFiles: false,
   diffFiles: false,
-  subagents: false,
+  subagents: true,
 };
 
 export interface Settings extends AppSettings {

@@ -24,6 +24,13 @@ function settingsWithSidebarTrailing(
   return { ...DEFAULT_CLIENT_SETTINGS, sidebarWorkspaceTrailing };
 }
 
+function settingsWithSubagentsOpenInSidePane(subagents: boolean): AppSettings {
+  return {
+    ...DEFAULT_CLIENT_SETTINGS,
+    openInSidePane: { ...DEFAULT_CLIENT_SETTINGS.openInSidePane, subagents },
+  };
+}
+
 type Storage = ReturnType<typeof createInMemoryKeyValueStorage>;
 
 function appliedIds(storage: Storage): string[] {
@@ -51,6 +58,11 @@ function storedSidebarWorkspaceTrailing(storage: Storage): SidebarWorkspaceTrail
   return raw === undefined ? undefined : JSON.parse(raw).sidebarWorkspaceTrailing;
 }
 
+function storedSubagentsOpenInSidePane(storage: Storage): boolean | undefined {
+  const raw = storage.entries.get(APP_SETTINGS_KEY);
+  return raw === undefined ? undefined : JSON.parse(raw).openInSidePane?.subagents;
+}
+
 /** An in-memory storage whose write to `failingKey` always throws, as a full disk would. */
 function createFailingWriteStorage(failingKey: string): Storage {
   const storage = createInMemoryKeyValueStorage();
@@ -75,6 +87,7 @@ describe("migrateAppSettings", () => {
       "steer-default",
       "prose-font-modern",
       "sidebar-codex-defaults",
+      "subagents-open-beside-default",
     ]);
   });
 
@@ -98,6 +111,7 @@ describe("migrateAppSettings", () => {
       "steer-default",
       "prose-font-modern",
       "sidebar-codex-defaults",
+      "subagents-open-beside-default",
     ]);
   });
 
@@ -111,6 +125,7 @@ describe("migrateAppSettings", () => {
       "steer-default",
       "prose-font-modern",
       "sidebar-codex-defaults",
+      "subagents-open-beside-default",
     ]);
   });
 
@@ -126,6 +141,7 @@ describe("migrateAppSettings", () => {
       "steer-default",
       "prose-font-modern",
       "sidebar-codex-defaults",
+      "subagents-open-beside-default",
     ]);
   });
 
@@ -142,6 +158,7 @@ describe("migrateAppSettings", () => {
       "mobile-content-16",
       "prose-font-modern",
       "sidebar-codex-defaults",
+      "subagents-open-beside-default",
     ]);
   });
 
@@ -157,6 +174,7 @@ describe("migrateAppSettings", () => {
       "steer-default",
       "prose-font-modern",
       "sidebar-codex-defaults",
+      "subagents-open-beside-default",
     ]);
   });
 
@@ -200,6 +218,7 @@ describe("migrateAppSettings", () => {
       "steer-default",
       "prose-font-modern",
       "sidebar-codex-defaults",
+      "subagents-open-beside-default",
     ]);
   });
 
@@ -214,6 +233,7 @@ describe("migrateAppSettings", () => {
       "steer-default",
       "prose-font-modern",
       "sidebar-codex-defaults",
+      "subagents-open-beside-default",
     ]);
   });
 
@@ -246,6 +266,7 @@ describe("migrateAppSettings", () => {
       "steer-default",
       "prose-font-modern",
       "sidebar-codex-defaults",
+      "subagents-open-beside-default",
     ]);
   });
 
@@ -265,5 +286,38 @@ describe("migrateAppSettings", () => {
 
     expect(result.sidebarWorkspaceTrailing).toBe("timestamp");
     expect(storedSidebarWorkspaceTrailing(storage)).toBeUndefined();
+  });
+
+  it("flips a stored false open-beside-for-subagents default to true and marks itself applied", async () => {
+    const storage = createInMemoryKeyValueStorage();
+
+    const result = await migrateAppSettings(settingsWithSubagentsOpenInSidePane(false), storage);
+
+    expect(result.openInSidePane.subagents).toBe(true);
+    expect(storedSubagentsOpenInSidePane(storage)).toBe(true);
+    expect(appliedIds(storage)).toEqual([
+      "steer-default",
+      "prose-font-modern",
+      "sidebar-codex-defaults",
+      "subagents-open-beside-default",
+    ]);
+  });
+
+  it("keeps false the user picked after the migration ran", async () => {
+    const storage = createInMemoryKeyValueStorage();
+    await migrateAppSettings(settingsWithSubagentsOpenInSidePane(false), storage);
+
+    const result = await migrateAppSettings(settingsWithSubagentsOpenInSidePane(false), storage);
+
+    expect(result.openInSidePane.subagents).toBe(false);
+  });
+
+  it("leaves a true open-beside-for-subagents preference alone", async () => {
+    const storage = createInMemoryKeyValueStorage();
+
+    const result = await migrateAppSettings(settingsWithSubagentsOpenInSidePane(true), storage);
+
+    expect(result.openInSidePane.subagents).toBe(true);
+    expect(storedSubagentsOpenInSidePane(storage)).toBeUndefined();
   });
 });

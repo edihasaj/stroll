@@ -35,6 +35,15 @@ const PROSE_FONT_MODERN_MIGRATION = "prose-font-modern";
 const SIDEBAR_CODEX_DEFAULTS_MIGRATION = "sidebar-codex-defaults";
 
 /**
+ * `openInSidePane.subagents` defaulted to `false` before subagents opened beside their parent by
+ * default, and that default materializes into storage on first load — so a stored `false` cannot
+ * be told apart from a deliberate pick. This flips every stored `false` to `true` exactly once;
+ * turning it off again afterwards sticks.
+ * COMPAT(subagentsOpenBesideDefault): remove after 2027-04-01.
+ */
+const SUBAGENTS_OPEN_BESIDE_DEFAULT_MIGRATION = "subagents-open-beside-default";
+
+/**
  * Brings stored settings up to date, returning what the caller should use. Owns both writes so
  * the marker can only ever be written after the settings it describes: a failed marker write
  * leaves the migration to re-run harmlessly, while a failed settings write must leave the marker
@@ -80,6 +89,15 @@ export async function migrateAppSettings(
         ? { ...migrated, sidebarWorkspaceTrailing: "none" }
         : migrated;
     applied.add(SIDEBAR_CODEX_DEFAULTS_MIGRATION);
+    addedMigration = true;
+  }
+
+  if (!applied.has(SUBAGENTS_OPEN_BESIDE_DEFAULT_MIGRATION)) {
+    migrated =
+      migrated.openInSidePane.subagents === false
+        ? { ...migrated, openInSidePane: { ...migrated.openInSidePane, subagents: true } }
+        : migrated;
+    applied.add(SUBAGENTS_OPEN_BESIDE_DEFAULT_MIGRATION);
     addedMigration = true;
   }
 

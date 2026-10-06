@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState, type ReactElement, type ReactNode } from "react";
-import { Pressable, Text, View } from "react-native";
+import { Pressable, Text, View, type GestureResponderEvent } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
+import { useAuxClickRef } from "@/hooks/use-aux-click-ref";
 import {
   MenuRoot,
   MenuSeparator,
@@ -190,8 +191,18 @@ export function ComposerTrackActions({
 export interface ComposerTrackRowProps {
   /** A function child receives the row's own hover/press state, for hover-revealed actions. */
   children: ReactNode | ((state: { active: boolean }) => ReactNode);
-  /** Rows that open something are pressable and fill on press or hover. A read-only row is not. */
-  onPress?: () => void;
+  /**
+   * Rows that open something are pressable and fill on press or hover. A read-only row is not.
+   * Receives the underlying press event so a caller can read modifier keys off
+   * `event.nativeEvent` (web) — see `@/subagents/open-gesture`.
+   */
+  onPress?: (event: GestureResponderEvent) => void;
+  /**
+   * Middle click, web only. Browsers never fire a `click` event for the middle button — only
+   * `auxclick` — so `onPress` never sees it; a row that wants middle-click behavior (opening its
+   * target as a tab instead of the default place) wires this instead.
+   */
+  onAuxClick?: (event: MouseEvent) => void;
   /**
    * Dismiss the panel when this row is chosen. Same name, same default as `MenuItem`, because it
    * is the same decision: a row that navigates away is done with the panel, a row whose result
@@ -218,6 +229,7 @@ export interface ComposerTrackRowProps {
 export function ComposerTrackRow({
   children,
   onPress,
+  onAuxClick,
   closeOnSelect = true,
   disabled = false,
   accessibilityLabel,
@@ -228,9 +240,10 @@ export function ComposerTrackRow({
   const handlePointerEnter = useCallback(() => setHovered(true), []);
   const handlePointerLeave = useCallback(() => setHovered(false), []);
   const handleSelect = useCallback(
-    () => selectItem(onPress, closeOnSelect),
+    (event: GestureResponderEvent) => selectItem(() => onPress?.(event), closeOnSelect),
     [closeOnSelect, onPress, selectItem],
   );
+  const auxClickRef = useAuxClickRef(onAuxClick);
 
   const renderRow = useCallback(
     (active: boolean) => (
@@ -250,7 +263,7 @@ export function ComposerTrackRow({
   }
 
   return (
-    <View onPointerEnter={handlePointerEnter} onPointerLeave={handlePointerLeave}>
+    <View ref={auxClickRef} onPointerEnter={handlePointerEnter} onPointerLeave={handlePointerLeave}>
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={accessibilityLabel}
