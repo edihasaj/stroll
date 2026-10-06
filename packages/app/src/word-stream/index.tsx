@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from "react";
 import type { MarkdownPhase } from "@/components/markdown/fence/types";
+import { useAppReducedMotion } from "@/hooks/use-app-reduced-motion";
 import { Reveal } from "./internal/reveal";
 import type { SourceText } from "./internal/markdown-source";
 import { WordStream } from "./internal/model";
@@ -38,13 +39,16 @@ export function WordFadeScope({ source, children }: { source: SourceText; childr
 export function useWordFadeSurface() {
   const reveal = useContext(StreamingWordsContext);
   const source = useContext(SurfaceContext);
+  // Reduced motion keeps the paced reveal (text still arrives word by word) but drops the fade.
+  const reducedMotion = useAppReducedMotion();
   const plain = useMemo(() => source && { text: source.text, ranges: [] }, [source]);
   return useMemo(() => {
     const text = source?.text ?? reveal.text;
+    if (reducedMotion) return plain ?? { text, ranges: [] };
     const offsets = source?.offsets ?? Array.from({ length: text.length }, (_, i) => i);
     const ranges = reveal.surface(text, offsets, Date.now());
     return ranges.length === 0 && plain ? plain : { text, ranges };
-  }, [reveal, source, plain]);
+  }, [reveal, source, plain, reducedMotion]);
 }
 
 export function useWordStream(text: string, phase: MarkdownPhase): PacedText {
@@ -54,15 +58,17 @@ export function useWordStream(text: string, phase: MarkdownPhase): PacedText {
     spanMs: model.spanMs,
   });
   const lastFrame = useRef<number | null>(null);
+  const published = useRef(visible);
 
   useEffect(() => {
     model.receive(text, phase === "streaming");
+    // Most frames release no word. Skipping setState on those keeps React from scheduling a
+    // render that only bails out — at 60 frames a second that was a third of all commits.
     const publish = () => {
-      setVisible((current) =>
-        current.text === model.text && current.spanMs === model.spanMs
-          ? current
-          : { text: model.text, spanMs: model.spanMs },
-      );
+      const current = published.current;
+      if (current.text === model.text && current.spanMs === model.spanMs) return;
+      published.current = { text: model.text, spanMs: model.spanMs };
+      setVisible(published.current);
     };
     publish();
     if (!model.pending) {

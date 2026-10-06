@@ -1,5 +1,5 @@
 import { useEffect, type ReactNode } from "react";
-import { Text, type StyleProp, type TextStyle } from "react-native";
+import { Text, View, type StyleProp, type TextStyle } from "react-native";
 import Animated, {
   cancelAnimation,
   useAnimatedStyle,
@@ -11,15 +11,22 @@ import { StyleSheet } from "react-native-unistyles";
 import { isWeb } from "@/constants/platform";
 import { useAppReducedMotion } from "@/hooks/use-app-reduced-motion";
 
-// Web: a moving gradient clipped to the text (the live-footer "Working · 2m 41s" shimmer,
-// docs/design.md §16's Codex parity). This is the turn footer's own small, self-contained
-// keyframe injection — the pattern mirrors `startup-splash-screen.tsx`'s logo shimmer, but
-// is independent of it (that one masks an SVG mark, not text).
+// Web: a bright window sweeping across the live-footer "Working" label (docs/design.md §16's
+// Codex parity). The label is drawn once in full foreground; a wide veil the colour of the
+// canvas lies over it, translucent everywhere except a soft clear window in its middle, and
+// slides across with a transform. Only the veil moves, and a transform on a layer with a
+// static gradient is pure compositor work.
+// Two earlier versions cost far more while streaming: a gradient clipped to the text with an
+// animated `background-position` repainted the text every frame (14% of a core), and a masked
+// band carrying a bright copy of the text needed an extra render pass every frame (7%).
 const WEB_SHIMMER_KEYFRAME_ID = "paseo-working-shimmer-keyframes";
 const WEB_SHIMMER_ANIMATION_NAME = "paseo-working-shimmer";
+// The veil is three label-widths wide. Sliding it from -2 widths to 0 carries the clear window
+// (at its centre) from half a width before the label to half a width past it.
 const WEB_SHIMMER_KEYFRAME_CSS = `
   @keyframes ${WEB_SHIMMER_ANIMATION_NAME} {
-    to { background-position: -200% 0; }
+    from { transform: translateX(-66.667%); }
+    to { transform: translateX(0); }
   }
 `;
 
@@ -49,7 +56,7 @@ interface WorkingShimmerTextProps {
   testID?: string;
 }
 
-/** The live turn footer's "Working" label: a shimmering gradient sweep on web (the
+/** The live turn footer's "Working" label: a shimmering highlight sweep on web (the
  * animation itself is the running indicator — no separate spinner), a plain label inside
  * an opacity-pulsing wrapper on native. Reduced motion drops to a static label on both. */
 export function WorkingShimmerText({
@@ -63,9 +70,12 @@ export function WorkingShimmerText({
   }, []);
   if (isWeb && !reducedMotion) {
     return (
-      <Text style={[style, webShimmerStyles.gradient]} testID={testID}>
-        {children}
-      </Text>
+      <View style={webShimmerStyles.frame}>
+        <Text style={[style, webShimmerStyles.label]} numberOfLines={1} testID={testID}>
+          {children}
+        </Text>
+        <View style={webShimmerStyles.veil} aria-hidden />
+      </View>
     );
   }
   if (!isWeb && !reducedMotion) {
@@ -82,19 +92,32 @@ export function WorkingShimmerText({
   );
 }
 
-const webShimmerStyles = StyleSheet.create((theme) => ({
-  gradient: {
-    backgroundImage: `linear-gradient(90deg, ${theme.colors.foregroundExtraMuted} 0%, ${theme.colors.foreground} 50%, ${theme.colors.foregroundExtraMuted} 100%)`,
-    backgroundSize: "200% 100%",
-    backgroundClip: "text",
-    WebkitBackgroundClip: "text",
-    color: "transparent",
-    animationName: WEB_SHIMMER_ANIMATION_NAME,
-    animationDuration: "1.6s",
-    animationTimingFunction: "linear",
-    animationIterationCount: "infinite",
-  },
-}));
+const webShimmerStyles = StyleSheet.create((theme) => {
+  const veil = `color-mix(in srgb, ${theme.colors.surface0} 62%, transparent)`;
+  return {
+    frame: {
+      position: "relative",
+      overflow: "hidden",
+    },
+    label: {
+      color: theme.colors.foreground,
+    },
+    veil: {
+      position: "absolute",
+      top: 0,
+      bottom: 0,
+      left: 0,
+      width: "300%",
+      pointerEvents: "none",
+      backgroundImage: `linear-gradient(90deg, ${veil} 0%, ${veil} 40%, transparent 50%, ${veil} 60%, ${veil} 100%)`,
+      animationName: WEB_SHIMMER_ANIMATION_NAME,
+      animationDuration: "1.6s",
+      animationTimingFunction: "linear",
+      animationIterationCount: "infinite",
+      willChange: "transform",
+    },
+  };
+});
 
 // Reanimated-driven opacity lives on a plain wrapping `Animated.View` with a theme-free
 // style, not on the themed `Text` itself — applying a `StyleSheet.create((theme) => ...)`
