@@ -17,7 +17,7 @@ import { resolve } from "node:path";
 import { lookup } from "mime-types";
 import { parseDuration } from "../../utils/duration.js";
 import { collectMultiple } from "../../utils/command-options.js";
-import { resolveProviderAndModel } from "../../utils/provider-model.js";
+import { resolveProviderAndModel, type ResolvedProviderModel } from "../../utils/provider-model.js";
 import { buildWorkspaceSource } from "../workspace/create.js";
 
 export { resolveProviderAndModel } from "../../utils/provider-model.js";
@@ -40,6 +40,10 @@ export function addRunOptions(cmd: Command): Command {
       .option(
         "--model <model>",
         "Model to use (e.g., claude-sonnet-4-20250514, claude-3-5-haiku-20241022)",
+      )
+      .option(
+        "--route <id>",
+        "Run on this agent route instead of --provider/--model (docs/agent-routes.md)",
       )
       .option("--thinking <id>", "Thinking option ID to use for this run")
       .option("--mode <mode>", "Provider-specific mode (e.g., plan, default, bypass)")
@@ -119,6 +123,7 @@ export interface AgentRunOptions extends CommandOptions {
   name?: string;
   provider?: string;
   model?: string;
+  route?: string;
   thinking?: string;
   mode?: string;
   account?: string;
@@ -602,6 +607,18 @@ async function resolveRunWorkspace(
   return { id: result.workspace.id, cwd: result.workspace.workspaceDirectory ?? cwd };
 }
 
+/**
+ * `--route` replaces --provider/--model: the daemon resolves the profile. A truthy placeholder
+ * still satisfies the client's "provider and cwd are required" check; the daemon overrides it
+ * once the route resolves (docs/agent-routes.md).
+ */
+function resolveRunProviderModel(options: AgentRunOptions): ResolvedProviderModel {
+  if (options.route) {
+    return { provider: options.provider?.trim() || options.route, model: options.model?.trim() };
+  }
+  return resolveProviderAndModel(options);
+}
+
 export async function runRunCommand(
   prompt: string,
   options: AgentRunOptions,
@@ -612,7 +629,7 @@ export async function runRunCommand(
   validateRunOptions(prompt, options, outputSchema);
   const waitTimeoutMs = parseWaitTimeoutOption(options.waitTimeout);
 
-  const resolvedProviderModel = resolveProviderAndModel(options);
+  const resolvedProviderModel = resolveRunProviderModel(options);
   const resolvedTitle = options.title ?? options.name;
 
   const client = await connectToDaemon({ target: options.daemonTarget });
@@ -657,6 +674,7 @@ export async function runRunCommand(
             title: resolvedTitle,
             modeId: options.mode,
             model: resolvedProviderModel.model,
+            route: options.route,
             thinkingOptionId,
             initialPrompt: structuredPrompt,
             outputSchema,
@@ -729,6 +747,7 @@ export async function runRunCommand(
       title: resolvedTitle,
       modeId: options.mode,
       model: resolvedProviderModel.model,
+      route: options.route,
       thinkingOptionId,
       initialPrompt: prompt,
       images,

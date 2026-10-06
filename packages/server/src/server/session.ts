@@ -194,6 +194,16 @@ import {
   isAgentRoutingMessage,
 } from "./session/agent-routing/agent-routing-session.js";
 import type { AgentRouting } from "./agent/routes/handlers.js";
+import type {
+  RouteCreationResolution,
+  RouteCreationResolver,
+} from "./agent/routes/route-service.js";
+import {
+  ROUTE_ENTRY_LABEL,
+  ROUTE_ID_LABEL,
+  ROUTE_STATE_LABEL,
+  ROUTE_THREAD_LABEL,
+} from "@getpaseo/protocol/agent-route";
 import { WorkspaceFilesSession } from "./session/files/workspace-files-session.js";
 import { AgentConfigSession } from "./session/agent-config/agent-config-session.js";
 import { ProjectConfigSession } from "./session/project-config/project-config-session.js";
@@ -458,6 +468,8 @@ type AgentMcpTransportFactory = () => Promise<unknown>;
 export interface SessionOptions {
   /** Agent routes and the brief (docs/agent-routes.md). Absent on hosts that do not wire them. */
   agentRouting?: AgentRouting | null;
+  /** Resolves the `route` field on a create request to a profile (docs/agent-routes.md). */
+  agentRouteCreation?: RouteCreationResolver | null;
   browserToolsBroker?: BrowserToolsBroker | null;
   clientId: string;
   permissions: readonly DaemonPermission[];
@@ -691,6 +703,63 @@ interface ClientActivity {
   appVisibilityChangedAt: Date;
 }
 
+/** The first usable entry for `route`, or null when the request didn't ask for one. */
+async function resolveRouteCreationProfile(
+  agentRouteCreation: RouteCreationResolver | null | undefined,
+  routeId: string | undefined,
+): Promise<RouteCreationResolution | null> {
+  if (!routeId) {
+    return null;
+  }
+  if (!agentRouteCreation) {
+    throw new Error("Agent routes are not available on this host.");
+  }
+  return agentRouteCreation.resolveForCreate(routeId);
+}
+
+/** `route` replaces the client's provider choice (docs/agent-routes.md). */
+function applyRouteResolutionToConfig(
+  config: AgentSessionConfig,
+  routeResolution: RouteCreationResolution | null,
+): AgentSessionConfig {
+  if (!routeResolution) {
+    return config;
+  }
+  return {
+    ...config,
+    provider: routeResolution.profile.provider,
+    model: routeResolution.profile.model,
+    modeId: routeResolution.profile.modeId,
+    thinkingOptionId: routeResolution.profile.thinkingOptionId,
+    featureValues: routeResolution.profile.featureValues,
+    accountProfileId: routeResolution.profile.accountProfileId,
+  };
+}
+
+/**
+ * Stamps route id/entry/state/thread labels on a freshly created agent and returns its live
+ * snapshot so the create response reflects them immediately, rather than waiting for the next
+ * `agent_state` broadcast.
+ */
+async function stampRouteLabelsIfNeeded(
+  agentManager: Pick<AgentManager, "setLabels" | "getAgent">,
+  agentId: string,
+  routeId: string | undefined,
+  routeResolution: RouteCreationResolution | null,
+  fallbackSnapshot: ManagedAgent,
+): Promise<ManagedAgent> {
+  if (!routeResolution) {
+    return fallbackSnapshot;
+  }
+  await agentManager.setLabels(agentId, {
+    [ROUTE_ID_LABEL]: routeId!,
+    [ROUTE_ENTRY_LABEL]: String(routeResolution.entryIndex),
+    [ROUTE_STATE_LABEL]: "active",
+    [ROUTE_THREAD_LABEL]: agentId,
+  });
+  return agentManager.getAgent(agentId) ?? fallbackSnapshot;
+}
+
 export class Session {
   readonly delivery = new SessionDelivery(
     (source, message) => {
@@ -814,6 +883,7 @@ export class Session {
   private readonly providerAccountSession: ProviderAccountSession;
   private readonly usageSession: UsageSession;
   private readonly agentRoutingSession: AgentRoutingSession;
+  private readonly agentRouteCreation: RouteCreationResolver | null | undefined;
   private readonly workspaceFilesSession: WorkspaceFilesSession;
   private readonly agentConfigSession: AgentConfigSession;
   private readonly projectConfigSession: ProjectConfigSession;
@@ -1041,6 +1111,7 @@ export class Session {
       emit: (msg) => this.emit(msg),
       logger: this.sessionLogger,
     });
+    this.agentRouteCreation = options.agentRouteCreation;
     this.providerAccountSession = new ProviderAccountSession({
       host: { emit: (msg) => this.emit(msg) },
       providerAccounts,
@@ -4322,6 +4393,7 @@ export class Session {
     let createdWorktreeForCleanup: CreatePaseoWorktreeWorkflowResult | null = null;
     let createdAgentId: string | null = null;
     try {
+      const routeResolution = await resolveRouteCreationProfile(this.agentRouteCreation, msg.route);
       const requestedCwd = resolve(config.cwd);
       const needsRequestedDirectory =
         Boolean(worktreeName || git || worktree) || (!msg.workspaceId && !msg.callerAgentId);
@@ -4351,6 +4423,7 @@ export class Session {
         createdWorktree,
         workspacePromptTitle,
       });
+      resolvedIntent.config = applyRouteResolutionToConfig(resolvedIntent.config, routeResolution);
       const resolvedCwd = resolve(resolvedIntent.config.cwd);
       if (!(await this.filesystem.isDirectory(resolvedCwd))) {
         throw new Error(`Working directory does not exist or is not a directory: ${resolvedCwd}`);
@@ -4410,7 +4483,14 @@ export class Session {
         { agentId: snapshot.id, provider: snapshot.provider },
         "Created agent",
       );
-      return this.buildAgentPayload(liveSnapshot);
+      const finalSnapshot = await stampRouteLabelsIfNeeded(
+        this.agentManager,
+        snapshot.id,
+        msg.route,
+        routeResolution,
+        liveSnapshot,
+      );
+      return this.buildAgentPayload(finalSnapshot);
     } catch (error) {
       await this.createAgentLifecycleDispatch.cleanupCreatedWorktreeAfterFailedAgentCreate({
         createdWorktree: createdWorktreeForCleanup,

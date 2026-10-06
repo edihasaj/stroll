@@ -44,6 +44,7 @@ import {
 import type { HubRelationshipManagement } from "./hub/relationship-controller.js";
 import type { ProviderAccountService } from "./provider-accounts/service.js";
 import type { AgentRouting } from "./agent/routes/handlers.js";
+import type { RouteCreationResolver } from "./agent/routes/route-service.js";
 import { WorkspaceSetupRuntime } from "./workspace-setup-runtime.js";
 import type { HubExecutionAgents } from "./hub/daemon-executions.js";
 import type { AgentProvider } from "./agent/agent-sdk-types.js";
@@ -535,17 +536,20 @@ function resolveOptionalWebSocketServices(params: {
   workspaceServiceRuntime: WorkspaceServiceRuntime | undefined;
   providerAccounts: ProviderAccountService | undefined;
   agentRouting: AgentRouting | null | undefined;
+  agentRouteCreation: RouteCreationResolver | null | undefined;
 }): {
   workspaceLabelService: WorkspaceLabelService | null;
   workspaceServiceRuntime: WorkspaceServiceRuntime | null;
   providerAccounts: ProviderAccountService | null;
   agentRouting: AgentRouting | null;
+  agentRouteCreation: RouteCreationResolver | null;
 } {
   return {
     workspaceLabelService: params.workspaceLabelService ?? null,
     workspaceServiceRuntime: params.workspaceServiceRuntime ?? null,
     providerAccounts: params.providerAccounts ?? null,
     agentRouting: params.agentRouting ?? null,
+    agentRouteCreation: params.agentRouteCreation ?? null,
   };
 }
 
@@ -614,6 +618,7 @@ export class VoiceAssistantWebSocketServer {
   private unsubscribeDaemonConfigChange: (() => void) | null = null;
   private readonly providerAccounts: ProviderAccountService | null;
   private readonly agentRouting: AgentRouting | null;
+  private readonly agentRouteCreation: RouteCreationResolver | null;
   private unsubscribeTerminalActivity: (() => void) | null = null;
   private readonly browserToolsBroker: BrowserToolsBroker | null;
   private readonly hubRelationships: HubRelationshipManagement | null;
@@ -692,6 +697,7 @@ export class VoiceAssistantWebSocketServer {
     workspaceServiceRuntime?: WorkspaceServiceRuntime,
     providerAccounts?: ProviderAccountService,
     agentRouting?: AgentRouting | null,
+    agentRouteCreation?: RouteCreationResolver | null,
   ) {
     this.logger = logger.child({ module: "websocket-server" });
     this.workspaceSetupRuntime = workspaceSetupRuntime;
@@ -725,8 +731,10 @@ export class VoiceAssistantWebSocketServer {
       workspaceServiceRuntime,
       providerAccounts,
       agentRouting,
+      agentRouteCreation,
     });
     this.agentRouting = optionalServices.agentRouting;
+    this.agentRouteCreation = optionalServices.agentRouteCreation;
     this.workspaceLabelService = optionalServices.workspaceLabelService;
     this.workspaceServiceRuntime = optionalServices.workspaceServiceRuntime;
     this.providerAccounts = optionalServices.providerAccounts;
@@ -1498,6 +1506,7 @@ export class VoiceAssistantWebSocketServer {
   private createSocketSession(options: SocketSessionOptions): Session {
     return new Session({
       agentRouting: this.agentRouting,
+      agentRouteCreation: this.agentRouteCreation,
       browserToolsBroker: this.browserToolsBroker,
       clientId: options.clientId,
       appVersion: options.appVersion,

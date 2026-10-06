@@ -33,6 +33,13 @@ import {
   type ArchiveDependencies,
 } from "../../workspace-archive-service.js";
 import { createAgentCommand, type CreateAgentFromMcpInput } from "../create-agent/create.js";
+import type { RouteCreationResolution, RouteCreationResolver } from "../routes/route-service.js";
+import {
+  ROUTE_ENTRY_LABEL,
+  ROUTE_ID_LABEL,
+  ROUTE_STATE_LABEL,
+  ROUTE_THREAD_LABEL,
+} from "@getpaseo/protocol/agent-route";
 import type { VoiceCallerContext, VoiceSpeakHandler } from "../../voice-types.js";
 import type { FirstAgentContext } from "../../messages.js";
 import { everyMsToFiveFieldCron } from "@getpaseo/protocol/schedule/cadence";
@@ -103,6 +110,8 @@ import { isPaseoToolEnabled } from "../paseo-tool-policy.js";
 export interface PaseoToolHostDependencies {
   agentManager: AgentManager;
   agentStorage: AgentStorage;
+  /** Resolves the `route` field on `create_agent` to a profile (docs/agent-routes.md). */
+  agentRouteCreation?: RouteCreationResolver | null;
   terminalManager?: TerminalManager | null;
   getDaemonTcpPort?: () => number | null;
   scheduleService?: ScheduleService | null;
@@ -191,6 +200,82 @@ function mergeRequestedProviderAccount(
     merged.accountProfileId = settings?.accountProfileId;
   }
   return merged;
+}
+
+/** The first usable entry for `routeId`, or null when the call didn't ask for a route. */
+async function resolveCreateAgentRoute(
+  agentRouteCreation: RouteCreationResolver | null | undefined,
+  routeId: string | undefined,
+): Promise<RouteCreationResolution | null> {
+  if (!routeId) {
+    return null;
+  }
+  if (!agentRouteCreation) {
+    throw new Error("Agent routes are not available on this host.");
+  }
+  return agentRouteCreation.resolveForCreate(routeId);
+}
+
+interface RouteAwareCreateAgentFields {
+  provider: string;
+  config: Partial<AgentSessionConfig>;
+  thinking: string | undefined;
+  features: Record<string, unknown> | undefined;
+  mode: string | undefined;
+}
+
+interface RouteAwareCreateAgentSettings {
+  accountProfileId?: string | null;
+  thinkingOptionId?: string;
+  features?: Record<string, unknown>;
+  modeId?: string;
+}
+
+/** `route` replaces the tool caller's provider/mode/thinking/feature/account choices. */
+function buildRouteAwareCreateAgentFields(
+  routeResolution: RouteCreationResolution | null,
+  parsedArgs: { provider: string; settings?: RouteAwareCreateAgentSettings },
+  inheritedConfig: Partial<AgentSessionConfig> | undefined,
+): RouteAwareCreateAgentFields {
+  const mergedConfig = mergeRequestedProviderAccount(inheritedConfig, parsedArgs.settings);
+  if (!routeResolution) {
+    return {
+      provider: parsedArgs.provider,
+      config: mergedConfig,
+      thinking: parsedArgs.settings?.thinkingOptionId,
+      features: parsedArgs.settings?.features,
+      mode: parsedArgs.settings?.modeId,
+    };
+  }
+  return {
+    provider: routeResolution.profile.provider,
+    config: {
+      ...mergedConfig,
+      model: routeResolution.profile.model,
+      accountProfileId: routeResolution.profile.accountProfileId,
+    },
+    thinking: routeResolution.profile.thinkingOptionId,
+    features: routeResolution.profile.featureValues,
+    mode: routeResolution.profile.modeId,
+  };
+}
+
+/** Stamps route id/entry/state/thread labels on a freshly created routed agent. */
+async function stampRouteLabelsIfNeeded(
+  agentManager: Pick<AgentManager, "setLabels">,
+  agentId: string,
+  routeId: string | undefined,
+  routeResolution: RouteCreationResolution | null,
+): Promise<void> {
+  if (!routeResolution) {
+    return;
+  }
+  await agentManager.setLabels(agentId, {
+    [ROUTE_ID_LABEL]: routeId!,
+    [ROUTE_ENTRY_LABEL]: String(routeResolution.entryIndex),
+    [ROUTE_STATE_LABEL]: "active",
+    [ROUTE_THREAD_LABEL]: agentId,
+  });
 }
 
 const WorkspaceAutomationSummarySchema = z.object({
@@ -1032,6 +1117,14 @@ export function createPaseoToolCatalog(options: PaseoToolHostDependencies): Pase
     provider: ProviderModelInputSchema.describe(
       "Required provider/model pair, for example codex/gpt-5.4.",
     ),
+    route: z
+      .string()
+      .optional()
+      .describe(
+        "Run on this agent route instead of provider/model (docs/agent-routes.md): the daemon " +
+          "picks the first usable entry and overrides provider, model, mode, thinking, and " +
+          "account from its profile. `provider` is still required by this schema but is ignored.",
+      ),
     labels: z.record(z.string(), z.string()).optional().describe("Labels to set on the agent"),
     settings: CreateAgentSettingsInputSchema.optional().describe(
       "Initial runtime settings for the new agent.",
@@ -1484,9 +1577,19 @@ export function createPaseoToolCatalog(options: PaseoToolHostDependencies): Pase
         requestedBackground = resolvedArgs.parsedArgs.background;
         notifyOnFinish = resolvedArgs.parsedArgs.notifyOnFinish ?? false;
       }
-      const selectedProvider = resolveRequiredProviderModel(parsedArgs.provider).provider;
-      const inheritedConfig = resolveInheritedProviderConfig(selectedProvider);
-      const createConfig = mergeRequestedProviderAccount(inheritedConfig, parsedArgs.settings);
+      const routeResolution = await resolveCreateAgentRoute(
+        options.agentRouteCreation,
+        parsedArgs.route,
+      );
+      const routeFields = buildRouteAwareCreateAgentFields(
+        routeResolution,
+        parsedArgs,
+        resolveInheritedProviderConfig(
+          routeResolution
+            ? routeResolution.profile.provider
+            : resolveRequiredProviderModel(parsedArgs.provider).provider,
+        ),
+      );
       const {
         snapshot,
         background: createdInBackground,
@@ -1507,16 +1610,16 @@ export function createPaseoToolCatalog(options: PaseoToolHostDependencies): Pase
         },
         {
           kind: "mcp",
-          provider: parsedArgs.provider,
+          provider: routeFields.provider,
           title: parsedArgs.title,
           initialPrompt: parsedArgs.initialPrompt,
-          config: createConfig,
+          config: routeFields.config,
           cwd: resolvedArgs.cwd,
           workspaceId: resolvedArgs.workspaceId,
-          thinking: parsedArgs.settings?.thinkingOptionId,
-          features: parsedArgs.settings?.features,
+          thinking: routeFields.thinking,
+          features: routeFields.features,
           labels: parsedArgs.labels,
-          mode: parsedArgs.settings?.modeId,
+          mode: routeFields.mode,
           background: requestedBackground,
           notifyOnFinish,
           detached: resolvedArgs.detached,
@@ -1525,6 +1628,7 @@ export function createPaseoToolCatalog(options: PaseoToolHostDependencies): Pase
           worktree,
         },
       );
+      await stampRouteLabelsIfNeeded(agentManager, snapshot.id, parsedArgs.route, routeResolution);
 
       try {
         if (!createdInBackground && initialPromptStarted) {

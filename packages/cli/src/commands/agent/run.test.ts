@@ -149,6 +149,16 @@ describe("runRunCommand option validation", () => {
     ).rejects.not.toMatchObject({ code: "INVALID_OPTIONS" });
   });
 
+  it("does not require --provider when --route is given", async () => {
+    // --route replaces --provider/--model; the daemon resolves the profile. Proves the
+    // provider-required guard (resolveProviderAndModel) is skipped for a routed run — it still
+    // fails later trying to reach a daemon that doesn't exist, which is enough to show the
+    // rejection is not MISSING_PROVIDER.
+    await expect(
+      runRunCommand("do something", { route: "worker", daemonTarget }, {} as never),
+    ).rejects.not.toMatchObject({ code: "MISSING_PROVIDER" });
+  });
+
   it("rejects unknown new workspace kinds", async () => {
     await expectInvalidOptions({ newWorkspace: "container" }, /Unsupported new workspace kind/);
   });
