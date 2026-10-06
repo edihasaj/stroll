@@ -4,7 +4,6 @@ import { useTranslation } from "react-i18next";
 import { Activity, Gift, History, Import, Keyboard, MoreHorizontal } from "lucide-react-native";
 import { Text, View, type PressableStateCallbackType } from "react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
-import { DiscordIcon } from "@/components/icons/discord-icon";
 import { GitHubIcon } from "@/components/icons/github-icon";
 import {
   DropdownMenu,
@@ -29,8 +28,7 @@ import { openChangelog } from "@/changelog";
 import { openExternalUrl } from "@/utils/open-external-url";
 import { buildSessionsRoute } from "@/utils/host-routes";
 
-const DISCORD_URL = "https://discord.gg/jz8T2uahpH";
-const GITHUB_ISSUE_URL = "https://github.com/getpaseo/paseo/issues/new";
+const GITHUB_ISSUE_URL = "https://github.com/edihasaj/stroll/issues/new";
 
 const ThemedMoreHorizontal = withUnistyles(MoreHorizontal);
 const ThemedHistory = withUnistyles(History);
@@ -38,7 +36,6 @@ const ThemedImport = withUnistyles(Import);
 const ThemedActivity = withUnistyles(Activity);
 const ThemedGift = withUnistyles(Gift);
 const ThemedKeyboard = withUnistyles(Keyboard);
-const ThemedDiscordIcon = withUnistyles(DiscordIcon);
 const ThemedGitHubIcon = withUnistyles(GitHubIcon);
 
 const foregroundColorMapping = (theme: Theme) => ({ color: theme.colors.foreground });
@@ -52,9 +49,6 @@ const importLeadingIcon = (
 );
 const shortcutsLeadingIcon = (
   <ThemedKeyboard size={ICON_SIZE.sm} uniProps={foregroundMutedColorMapping} />
-);
-const discordLeadingIcon = (
-  <ThemedDiscordIcon size={ICON_SIZE.sm} uniProps={foregroundMutedColorMapping} />
 );
 const githubLeadingIcon = (
   <ThemedGitHubIcon size={ICON_SIZE.sm} uniProps={foregroundMutedColorMapping} />
@@ -114,10 +108,6 @@ export function SidebarMoreMenu({
   const openKeyboardShortcuts = useCallback(() => {
     setShortcutsDialogOpen(true);
   }, [setShortcutsDialogOpen]);
-
-  const openDiscord = useCallback(() => {
-    void openExternalUrl(DISCORD_URL);
-  }, []);
 
   const openGitHubIssue = useCallback(() => {
     void openExternalUrl(GITHUB_ISSUE_URL);
@@ -197,13 +187,6 @@ export function SidebarMoreMenu({
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuLabel>{t("sidebar.help.reportIssue")}</DropdownMenuLabel>
-        <DropdownMenuItem
-          testID="sidebar-more-discord"
-          leading={discordLeadingIcon}
-          onSelect={openDiscord}
-        >
-          {t("sidebar.help.discord")}
-        </DropdownMenuItem>
         <DropdownMenuItem
           testID="sidebar-more-github"
           leading={githubLeadingIcon}

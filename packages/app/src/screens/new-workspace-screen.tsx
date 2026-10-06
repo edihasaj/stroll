@@ -2672,7 +2672,6 @@ export function NewWorkspaceScreen({
       }),
       submitButtonAccessibilityLabel: t("newWorkspace.create"),
       submitButtonTestID: "workspace-create-submit",
-      submitIcon: "return" as const,
       isSubmitLoading: isPending,
       waitForForgeAutoAttachOnSubmit: true,
       submitBehavior: "preserve-and-lock" as const,
