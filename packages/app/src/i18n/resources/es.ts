@@ -1381,8 +1381,8 @@ export const es: TranslationResources = {
         pending: "Pendientes: {{count}}",
       },
       nested: {
-        count_one: "{{count}} chat",
-        count_other: "{{count}} chats",
+        count_one: "{{count}} subagente",
+        count_other: "{{count}} subagentes",
       },
       actions: {
         menu: "AccionesWorkspace",

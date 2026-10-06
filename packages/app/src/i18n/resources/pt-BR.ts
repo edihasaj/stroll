@@ -1371,8 +1371,8 @@ export const ptBR: TranslationResources = {
         pending: "Pendentes: {{count}}",
       },
       nested: {
-        count_one: "{{count}} chat",
-        count_other: "{{count}} chats",
+        count_one: "{{count}} subagente",
+        count_other: "{{count}} subagentes",
       },
       actions: {
         menu: "Ações do workspace",

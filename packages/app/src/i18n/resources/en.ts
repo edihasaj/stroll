@@ -1353,8 +1353,8 @@ export const en = {
         pending: "Pending: {{count}}",
       },
       nested: {
-        count_one: "{{count}} chat",
-        count_other: "{{count}} chats",
+        count_one: "{{count}} subagent",
+        count_other: "{{count}} subagents",
       },
       actions: {
         menu: "Workspace actions",

@@ -1352,8 +1352,8 @@ export const ko: TranslationResources = {
         pending: "대기 중: {{count}}개",
       },
       nested: {
-        count_one: "{{count}}개 채팅",
-        count_other: "{{count}}개 채팅",
+        count_one: "하위 에이전트 {{count}}개",
+        count_other: "하위 에이전트 {{count}}개",
       },
       actions: {
         menu: "워크스페이스 작업",

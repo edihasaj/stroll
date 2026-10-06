@@ -12,6 +12,7 @@ import {
 import type { AgentProfile } from "@getpaseo/protocol/messages";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { createControlGeometry } from "@/components/ui/control-geometry";
 import { EditingTextInput } from "@/components/ui/text-input";
 import { useToast } from "@/contexts/toast-context";
 import { settingsStyles } from "@/styles/settings";
@@ -94,6 +95,7 @@ function RouteDescriptionField({
         onChangeText={setDraft}
         onBlur={handleBlur}
         placeholder={t("agentRoutes.description.placeholder")}
+        placeholderTextColor={styles.descriptionPlaceholder.color}
         style={styles.descriptionInput}
       />
     </View>
@@ -183,54 +185,67 @@ export function AgentRouteRow({
   );
 }
 
-const styles = StyleSheet.create((theme) => ({
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: theme.spacing[3],
-    paddingHorizontal: theme.spacing[4],
-    paddingTop: theme.spacing[4],
-  },
-  headerText: {
-    flex: 1,
-    minWidth: 0,
-    gap: theme.spacing[1],
-  },
-  badgeRow: {
-    flexDirection: "row",
-    gap: theme.spacing[2],
-  },
-  descriptionField: {
-    paddingHorizontal: theme.spacing[4],
-    paddingTop: theme.spacing[2],
-    gap: theme.spacing[1],
-  },
-  descriptionLabel: {
-    color: theme.colors.foregroundMuted,
-    fontSize: theme.fontSize.sm,
-  },
-  descriptionInput: {
-    fontSize: theme.fontSize.base,
-  },
-  entries: {
-    paddingBottom: theme.spacing[2],
-  },
-  entryRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: theme.spacing[3],
-    paddingHorizontal: theme.spacing[4],
-    paddingVertical: theme.spacing[2],
-  },
-  entryText: {
-    flex: 1,
-    minWidth: 0,
-  },
-  entryMeta: {
-    color: theme.colors.foregroundMuted,
-    fontSize: theme.fontSize.sm,
-    marginTop: theme.spacing[1],
-  },
-}));
+const styles = StyleSheet.create((theme) => {
+  const geometry = createControlGeometry(theme);
+  return {
+    header: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: theme.spacing[3],
+      paddingHorizontal: theme.spacing[4],
+      paddingTop: theme.spacing[4],
+    },
+    headerText: {
+      flex: 1,
+      minWidth: 0,
+      gap: theme.spacing[1],
+    },
+    badgeRow: {
+      flexDirection: "row",
+      gap: theme.spacing[2],
+    },
+    descriptionField: {
+      paddingHorizontal: theme.spacing[4],
+      paddingTop: theme.spacing[2],
+      gap: theme.spacing[1],
+    },
+    descriptionLabel: {
+      color: theme.colors.foregroundMuted,
+      fontSize: theme.fontSize.sm,
+    },
+    // The shared field geometry gives the input its fill and hairline border, so it reads as editable.
+    descriptionInput: {
+      ...geometry.controlRest,
+      minHeight: 36,
+      paddingVertical: theme.spacing[2],
+      paddingHorizontal: theme.spacing[3],
+      borderRadius: theme.borderRadius.lg,
+      color: theme.colors.foreground,
+      fontSize: theme.fontSize.base,
+    },
+    descriptionPlaceholder: {
+      color: theme.colors.foregroundMuted,
+    },
+    entries: {
+      paddingBottom: theme.spacing[2],
+    },
+    entryRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: theme.spacing[3],
+      paddingHorizontal: theme.spacing[4],
+      paddingVertical: theme.spacing[2],
+    },
+    entryText: {
+      flex: 1,
+      minWidth: 0,
+    },
+    entryMeta: {
+      color: theme.colors.foregroundMuted,
+      fontSize: theme.fontSize.sm,
+      marginTop: theme.spacing[1],
+    },
+  };
+});

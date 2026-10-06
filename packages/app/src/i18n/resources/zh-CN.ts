@@ -1335,8 +1335,8 @@ export const zhCN: TranslationResources = {
         pending: "等待中: {{count}}",
       },
       nested: {
-        count_one: "{{count}} 个聊天",
-        count_other: "{{count}} 个聊天",
+        count_one: "{{count}} 个 subagent",
+        count_other: "{{count}} 个 subagent",
       },
       actions: {
         menu: "Workspace 操作",

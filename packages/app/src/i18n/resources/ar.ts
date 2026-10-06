@@ -1345,8 +1345,8 @@ export const ar: TranslationResources = {
         pending: "قيد الانتظار: {{count}}",
       },
       nested: {
-        count_one: "{{count}} محادثة",
-        count_other: "{{count}} محادثات",
+        count_one: "{{count}} وكيل فرعي",
+        count_other: "{{count}} وكلاء فرعيين",
       },
       actions: {
         menu: "إجراءات Workspace",

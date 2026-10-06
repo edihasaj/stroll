@@ -1359,8 +1359,8 @@ export const ja: TranslationResources = {
         pending: "保留中: {{count}}",
       },
       nested: {
-        count_one: "{{count}} 件のチャット",
-        count_other: "{{count}} 件のチャット",
+        count_one: "サブエージェント {{count}} 件",
+        count_other: "サブエージェント {{count}} 件",
       },
       actions: {
         menu: "ワークスペースアクション",

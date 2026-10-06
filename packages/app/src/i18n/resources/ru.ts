@@ -1363,8 +1363,8 @@ export const ru: TranslationResources = {
         pending: "Ожидают: {{count}}",
       },
       nested: {
-        count_one: "{{count}} чат",
-        count_other: "{{count}} чатов",
+        count_one: "{{count}} субагент",
+        count_other: "Субагентов: {{count}}",
       },
       actions: {
         menu: "Действия рабочего пространства",
