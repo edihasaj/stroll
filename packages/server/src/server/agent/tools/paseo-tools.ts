@@ -35,11 +35,19 @@ import {
 import { createAgentCommand, type CreateAgentFromMcpInput } from "../create-agent/create.js";
 import type { RouteCreationResolution, RouteCreationResolver } from "../routes/route-service.js";
 import {
+  AgentRouteFailoverModeSchema,
+  AgentRoutePrivacySchema,
+  resolveEntryPrivacy,
+  resolveRouteFailoverMode,
+  resolveRoutePrivacy,
   ROUTE_ENTRY_LABEL,
   ROUTE_ID_LABEL,
   ROUTE_STATE_LABEL,
   ROUTE_THREAD_LABEL,
+  type AgentRoute,
+  type AgentRouteEntry,
 } from "@getpaseo/protocol/agent-route";
+import type { AgentProfile } from "@getpaseo/protocol/agent-profile";
 import type { VoiceCallerContext, VoiceSpeakHandler } from "../../voice-types.js";
 import type { FirstAgentContext } from "../../messages.js";
 import { everyMsToFiveFieldCron } from "@getpaseo/protocol/schedule/cadence";
@@ -216,6 +224,59 @@ async function resolveCreateAgentRoute(
   return agentRouteCreation.resolveForCreate(routeId);
 }
 
+/** How `create_agent` resolved its model: a route's first usable entry, or an explicit provider/model. */
+type CreateAgentProviderResolution =
+  | { kind: "route"; routeId: string; routeResolution: RouteCreationResolution }
+  | { kind: "provider"; provider: string };
+
+/**
+ * Resolves `create_agent`'s `route`/`provider` inputs to one model, in this order: an explicit
+ * `route`; else an explicit `provider`; else the daemon's `defaultAgentRoute`, when route creation
+ * is available; else a required-input error. See docs/agent-routes.md.
+ */
+async function resolveCreateAgentProvider(params: {
+  agentRouteCreation: RouteCreationResolver | null | undefined;
+  defaultAgentRoute: string | null | undefined;
+  route: string | undefined;
+  provider: string | undefined;
+}): Promise<CreateAgentProviderResolution> {
+  if (params.route) {
+    return {
+      kind: "route",
+      routeId: params.route,
+      routeResolution: await requireCreateAgentRoute(params.agentRouteCreation, params.route),
+    };
+  }
+  if (params.provider) {
+    return { kind: "provider", provider: params.provider };
+  }
+  if (params.defaultAgentRoute && params.agentRouteCreation) {
+    return {
+      kind: "route",
+      routeId: params.defaultAgentRoute,
+      routeResolution: await requireCreateAgentRoute(
+        params.agentRouteCreation,
+        params.defaultAgentRoute,
+      ),
+    };
+  }
+  throw new Error(
+    "create_agent needs a route (see list_profiles) or a provider/model pair such as codex/gpt-5.4",
+  );
+}
+
+/** Like {@link resolveCreateAgentRoute}, but `routeId` is known to be set. */
+async function requireCreateAgentRoute(
+  agentRouteCreation: RouteCreationResolver | null | undefined,
+  routeId: string,
+): Promise<RouteCreationResolution> {
+  const routeResolution = await resolveCreateAgentRoute(agentRouteCreation, routeId);
+  if (!routeResolution) {
+    throw new Error("Agent routes are not available on this host.");
+  }
+  return routeResolution;
+}
+
 interface RouteAwareCreateAgentFields {
   provider: string;
   config: Partial<AgentSessionConfig>;
@@ -233,30 +294,31 @@ interface RouteAwareCreateAgentSettings {
 
 /** `route` replaces the tool caller's provider/mode/thinking/feature/account choices. */
 function buildRouteAwareCreateAgentFields(
-  routeResolution: RouteCreationResolution | null,
-  parsedArgs: { provider: string; settings?: RouteAwareCreateAgentSettings },
+  providerResolution: CreateAgentProviderResolution,
+  settings: RouteAwareCreateAgentSettings | undefined,
   inheritedConfig: Partial<AgentSessionConfig> | undefined,
 ): RouteAwareCreateAgentFields {
-  const mergedConfig = mergeRequestedProviderAccount(inheritedConfig, parsedArgs.settings);
-  if (!routeResolution) {
+  const mergedConfig = mergeRequestedProviderAccount(inheritedConfig, settings);
+  if (providerResolution.kind === "provider") {
     return {
-      provider: parsedArgs.provider,
+      provider: providerResolution.provider,
       config: mergedConfig,
-      thinking: parsedArgs.settings?.thinkingOptionId,
-      features: parsedArgs.settings?.features,
-      mode: parsedArgs.settings?.modeId,
+      thinking: settings?.thinkingOptionId,
+      features: settings?.features,
+      mode: settings?.modeId,
     };
   }
+  const { profile } = providerResolution.routeResolution;
   return {
-    provider: routeResolution.profile.provider,
+    provider: profile.provider,
     config: {
       ...mergedConfig,
-      model: routeResolution.profile.model,
-      accountProfileId: routeResolution.profile.accountProfileId,
+      model: profile.model,
+      accountProfileId: profile.accountProfileId,
     },
-    thinking: routeResolution.profile.thinkingOptionId,
-    features: routeResolution.profile.featureValues,
-    mode: routeResolution.profile.modeId,
+    thinking: profile.thinkingOptionId,
+    features: profile.featureValues,
+    mode: profile.modeId,
   };
 }
 
@@ -264,18 +326,97 @@ function buildRouteAwareCreateAgentFields(
 async function stampRouteLabelsIfNeeded(
   agentManager: Pick<AgentManager, "setLabels">,
   agentId: string,
-  routeId: string | undefined,
-  routeResolution: RouteCreationResolution | null,
+  providerResolution: CreateAgentProviderResolution,
 ): Promise<void> {
-  if (!routeResolution) {
+  if (providerResolution.kind !== "route") {
     return;
   }
   await agentManager.setLabels(agentId, {
-    [ROUTE_ID_LABEL]: routeId!,
-    [ROUTE_ENTRY_LABEL]: String(routeResolution.entryIndex),
+    [ROUTE_ID_LABEL]: providerResolution.routeId,
+    [ROUTE_ENTRY_LABEL]: String(providerResolution.routeResolution.entryIndex),
     [ROUTE_STATE_LABEL]: "active",
     [ROUTE_THREAD_LABEL]: agentId,
   });
+}
+
+const CREATE_AGENT_DESCRIPTION_MAX_ROUTES = 12;
+const CREATE_AGENT_ROUTE_DESCRIPTION_MAX_CHARS = 160;
+
+/** A compact `id — description` list of configured routes, appended to the `create_agent` description. */
+function describeConfiguredRoutesForCreateAgent(routes: readonly AgentRoute[] | undefined): string {
+  if (!routes || routes.length === 0) {
+    return "";
+  }
+  const entries = routes.slice(0, CREATE_AGENT_DESCRIPTION_MAX_ROUTES).map((route) => {
+    const label = route.description ?? route.name;
+    return `${route.id} — ${label.slice(0, CREATE_AGENT_ROUTE_DESCRIPTION_MAX_CHARS)}`;
+  });
+  return ` Routes: ${entries.join("; ")}.`;
+}
+
+/**
+ * Built once per catalog from the routes configured at the time (docs/agent-routes.md): the
+ * daemon still resolves `route` at call time, so a stale snapshot here only affects the hint text.
+ */
+function buildCreateAgentDescription(routes: readonly AgentRoute[] | undefined): string {
+  return (
+    "Create an agent. Agent-scoped creation defaults to your workspace and creates your subagent; " +
+    "you are notified when it finishes. Top-level creation without workspaceId creates a new " +
+    "local workspace. Pick a role with `route` (list_profiles lists the routes and what each is " +
+    "for); pass `provider` (provider/model, for example codex/gpt-5.4) only when no route fits. " +
+    "initialPrompt is required." +
+    describeConfiguredRoutesForCreateAgent(routes)
+  );
+}
+
+const AgentRouteEntrySummarySchema = z.object({
+  profileId: z.string(),
+  profileName: z.string().nullable(),
+  provider: z.string().nullable(),
+  model: z.string().nullable(),
+  privacy: AgentRoutePrivacySchema,
+  allowed: z.boolean(),
+});
+
+const AgentRouteSummarySchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  description: z.string().optional(),
+  privacy: AgentRoutePrivacySchema,
+  failover: AgentRouteFailoverModeSchema,
+  entries: z.array(AgentRouteEntrySummarySchema),
+});
+
+/** `allowed` is the preflight `privacy` rule (docs/agent-routes.md): a local route only runs entries marked local. */
+function toAgentRouteEntrySummary(
+  entry: AgentRouteEntry,
+  route: Pick<AgentRoute, "privacy">,
+  profiles: readonly AgentProfile[],
+): z.infer<typeof AgentRouteEntrySummarySchema> {
+  const profile = profiles.find((candidate) => candidate.id === entry.profileId) ?? null;
+  const entryPrivacy = resolveEntryPrivacy(entry);
+  return {
+    profileId: entry.profileId,
+    profileName: profile?.name ?? null,
+    provider: profile?.provider ?? null,
+    model: profile?.model ?? null,
+    privacy: entryPrivacy,
+    allowed: resolveRoutePrivacy(route) !== "local" || entryPrivacy === "local",
+  };
+}
+
+function toAgentRouteSummary(
+  route: AgentRoute,
+  profiles: readonly AgentProfile[],
+): z.infer<typeof AgentRouteSummarySchema> {
+  return {
+    id: route.id,
+    name: route.name,
+    ...(route.description !== undefined ? { description: route.description } : {}),
+    privacy: resolveRoutePrivacy(route),
+    failover: resolveRouteFailoverMode(route),
+    entries: route.entries.map((entry) => toAgentRouteEntrySummary(entry, route, profiles)),
+  };
 }
 
 const WorkspaceAutomationSummarySchema = z.object({
@@ -1114,16 +1255,16 @@ export function createPaseoToolCatalog(options: PaseoToolHostDependencies): Pase
       .min(1, "Title is required")
       .max(60, "Title must be 60 characters or fewer")
       .describe("Short descriptive title (<= 60 chars) summarizing the agent's focus."),
-    provider: ProviderModelInputSchema.describe(
-      "Required provider/model pair, for example codex/gpt-5.4.",
+    provider: ProviderModelInputSchema.optional().describe(
+      "provider/model pair, for example codex/gpt-5.4. Omit it when you pass `route`.",
     ),
     route: z
       .string()
       .optional()
       .describe(
-        "Run on this agent route instead of provider/model (docs/agent-routes.md): the daemon " +
-          "picks the first usable entry and overrides provider, model, mode, thinking, and " +
-          "account from its profile. `provider` is still required by this schema but is ignored.",
+        "Role to run the agent as: a route id from list_profiles `routes` (for example `worker`). " +
+          "The daemon runs it on the route's first usable model and moves it to the next one when " +
+          "that model fails. Prefer this over `provider`.",
       ),
     labels: z.record(z.string(), z.string()).optional().describe("Labels to set on the agent"),
     settings: CreateAgentSettingsInputSchema.optional().describe(
@@ -1549,8 +1690,7 @@ export function createPaseoToolCatalog(options: PaseoToolHostDependencies): Pase
     "create_agent",
     {
       title: "Create agent",
-      description:
-        "Create an agent. Agent-scoped creation defaults to your workspace and creates your subagent. Top-level creation without workspaceId creates a new local workspace. Requires provider/model (for example codex/gpt-5.4) and an initial prompt. Do not guess; call list_providers and list_models first if uncertain.",
+      description: buildCreateAgentDescription(daemonConfigStore?.get().agentRoutes),
       inputSchema: createAgentInputSchema,
       outputSchema: {
         agentId: z.string(),
@@ -1577,17 +1717,19 @@ export function createPaseoToolCatalog(options: PaseoToolHostDependencies): Pase
         requestedBackground = resolvedArgs.parsedArgs.background;
         notifyOnFinish = resolvedArgs.parsedArgs.notifyOnFinish ?? false;
       }
-      const routeResolution = await resolveCreateAgentRoute(
-        options.agentRouteCreation,
-        parsedArgs.route,
-      );
+      const providerResolution = await resolveCreateAgentProvider({
+        agentRouteCreation: options.agentRouteCreation,
+        defaultAgentRoute: daemonConfigStore?.get().defaultAgentRoute,
+        route: parsedArgs.route,
+        provider: parsedArgs.provider,
+      });
       const routeFields = buildRouteAwareCreateAgentFields(
-        routeResolution,
-        parsedArgs,
+        providerResolution,
+        parsedArgs.settings,
         resolveInheritedProviderConfig(
-          routeResolution
-            ? routeResolution.profile.provider
-            : resolveRequiredProviderModel(parsedArgs.provider).provider,
+          providerResolution.kind === "route"
+            ? providerResolution.routeResolution.profile.provider
+            : resolveRequiredProviderModel(providerResolution.provider).provider,
         ),
       );
       const {
@@ -1628,7 +1770,7 @@ export function createPaseoToolCatalog(options: PaseoToolHostDependencies): Pase
           worktree,
         },
       );
-      await stampRouteLabelsIfNeeded(agentManager, snapshot.id, parsedArgs.route, routeResolution);
+      await stampRouteLabelsIfNeeded(agentManager, snapshot.id, providerResolution);
 
       try {
         if (!createdInBackground && initialPromptStarted) {
@@ -3099,22 +3241,27 @@ export function createPaseoToolCatalog(options: PaseoToolHostDependencies): Pase
     {
       title: "List agent profiles",
       description:
-        "List agent profiles: named provider/model/mode bundles a human configured for specific " +
-        "kinds of work. Read each profile's `notes` to pick the one that fits the task you're " +
-        "delegating, then copy its `provider`, `model`, `modeId`, `thinkingOptionId`, and " +
-        "`featureValues` into create_agent; copy `accountProfileId` too when present (there is no " +
-        "`profile` parameter). Returns an empty " +
-        "list if none are configured.",
+        "List agent routes and profiles. A route is a role (worker, reviewer, …) with an ordered " +
+        "fallback list of profiles; pass its id as create_agent `route` and the daemon picks the " +
+        "model. Profiles are the provider/model bundles routes are made of; copy one into " +
+        "create_agent only when no route fits. Returns empty lists when none are configured.",
       inputSchema: {},
       outputSchema: {
         profiles: z.array(AgentProfileSchema),
+        routes: z.array(AgentRouteSummarySchema),
+        defaultRoute: z.string().nullable(),
       },
     },
     async () => {
-      const profiles = daemonConfigStore?.get().agentProfiles ?? [];
+      const config = daemonConfigStore?.get();
+      const profiles = config?.agentProfiles ?? [];
+      const routes = (config?.agentRoutes ?? []).map((route) =>
+        toAgentRouteSummary(route, profiles),
+      );
+      const defaultRoute = config?.defaultAgentRoute ?? null;
       return {
         content: [],
-        structuredContent: ensureValidJson({ profiles }),
+        structuredContent: ensureValidJson({ profiles, routes, defaultRoute }),
       };
     },
   );

@@ -36,6 +36,7 @@ Routes live in the daemon config next to agent profiles. Each entry names an age
       {
         "id": "worker",
         "name": "Worker",
+        "description": "Implements and fixes code on the local Spark model.",
         "entries": [
           { "profileId": "qwen", "privacy": "local", "probeUrl": "http://spark-689b:8000/v1" }
         ]
@@ -43,6 +44,7 @@ Routes live in the daemon config next to agent profiles. Each entry names an age
       {
         "id": "planner",
         "name": "Planner",
+        "description": "Plans and reviews work on cloud models.",
         "privacy": "cloud",
         "failover": "auto",
         "entries": [{ "profileId": "claude" }, { "profileId": "codex-a" }]
@@ -96,6 +98,27 @@ thinking, feature values, account), and stamps the agent's labels:
 | `stroll.route.state`  | `active`, `awaiting_choice`, `continued`, or `paused`.                       |
 
 When no entry is usable, creation fails with the per-entry preflight reasons in the error.
+
+## Spawning subagents by role
+
+`create_agent`'s `route` parameter spawns a subagent by role instead of by provider/model: pass a
+route id (for example `worker`) and the daemon resolves it the same way as any other routed
+agent — preflight in entry order, first usable entry wins. `provider` is optional on `create_agent`;
+omit it when you pass `route`, and pass it (provider/model, for example `codex/gpt-5.4`) only when
+no route fits.
+
+A call with neither `route` nor `provider` falls back to the daemon config's `defaultAgentRoute`,
+when one is set: `create_agent` behaves exactly as if `route: defaultAgentRoute` had been passed,
+including the route labels in [Creating a routed agent](#creating-a-routed-agent). A call with
+neither and no default route fails before creating anything, naming both ways to fix it.
+
+`list_profiles` returns `routes` alongside `profiles`: each route's `id`, `name`, `description`,
+resolved `privacy` and `failover`, and its entries with the resolved profile name/provider/model,
+the entry's resolved `privacy`, and `allowed` (false when a local route has a non-local entry — the
+same check as Preflight's `privacy` reason, computed without running preflight). It also returns
+`defaultRoute`. A route's `description` is one sentence on what the route is for; an agent choosing
+a role for a subagent reads it, and the `create_agent` tool description lists configured routes by
+id and description so a model can often pick one without a separate `list_profiles` call.
 
 ## Failover
 

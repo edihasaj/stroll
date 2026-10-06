@@ -63,7 +63,15 @@ import { areEquivalentPaths } from "../../utils/path.js";
 import type { TerminalManager } from "../../terminal/terminal-manager.js";
 import { PARENT_AGENT_ID_LABEL } from "@getpaseo/protocol/agent-labels";
 import { MutableDaemonConfigSchema, type AgentProfile } from "@getpaseo/protocol/messages";
+import {
+  ROUTE_ENTRY_LABEL,
+  ROUTE_ID_LABEL,
+  ROUTE_STATE_LABEL,
+  ROUTE_THREAD_LABEL,
+  type AgentRoute,
+} from "@getpaseo/protocol/agent-route";
 import type { DaemonConfigStore } from "../daemon-config-store.js";
+import type { RouteCreationResolution, RouteCreationResolver } from "./routes/route-service.js";
 import type { BrowserToolsBroker, BrowserToolsExecuteInput } from "../browser-tools/broker.js";
 import type { BrowserToolsResponsePayload } from "../browser-tools/errors.js";
 import { readPaseoWorktreeMetadata } from "../../utils/worktree-metadata.js";
@@ -98,6 +106,7 @@ interface LooseContentBlock {
 
 interface RegisteredMcpTool {
   inputSchema: LooseInputSchema;
+  description?: string;
   callback?: (
     input: unknown,
     extra?: unknown,
@@ -1557,7 +1566,7 @@ describe("create_agent MCP tool", () => {
     );
   });
 
-  it("requires provider as provider/model and rejects the old model field", async () => {
+  it("makes provider optional at the schema level, validates its format when given, and rejects the old model field", async () => {
     const { agentManager, agentStorage } = createTestDeps();
     const server = await createAgentMcpServer({
       agentManager,
@@ -1574,12 +1583,7 @@ describe("create_agent MCP tool", () => {
       title: "Short title",
       initialPrompt: "test",
     });
-    expect(missingProvider.success).toBe(false);
-    expect(
-      missingProvider.error.issues.some(
-        (issue: { path: Array<string | number> }) => issue.path[0] === "provider",
-      ),
-    ).toBe(true);
+    expect(missingProvider.success).toBe(true);
 
     const providerWithoutModel = await tool.inputSchema.safeParseAsync({
       ...detachedDirectoryWorkspace(existingCwd),
@@ -3693,6 +3697,148 @@ describe("create_agent MCP tool", () => {
       expect.any(Object),
     );
   });
+
+  function routeCreationResolverStub(resolution: RouteCreationResolution): RouteCreationResolver {
+    return { resolveForCreate: vi.fn().mockResolvedValue(resolution) };
+  }
+
+  it("creates the agent on the route's first usable profile and stamps route labels when route is given", async () => {
+    const { agentManager, agentStorage, spies } = createTestDeps();
+    spies.agentManager.createAgent.mockResolvedValue({
+      id: "routed-agent",
+      provider: "claude",
+      cwd: existingCwd,
+      workspaceId: "workspace-created",
+      lifecycle: "idle",
+      currentModeId: null,
+      availableModes: [],
+      config: { title: "Routed agent" },
+    } as ManagedAgent);
+    const agentRouteCreation = routeCreationResolverStub({
+      entryIndex: 1,
+      profile: {
+        id: "claude-profile",
+        name: "Claude",
+        provider: "claude",
+        model: "claude-sonnet-5",
+      },
+    });
+    const ensureWorkspace = vi.fn(async () => "workspace-created");
+    const server = await createAgentMcpServer({
+      agentManager,
+      agentStorage,
+      providerSnapshotManager: createOpenCodeManager().manager,
+      ensureWorkspaceForCreate: ensureWorkspace,
+      agentRouteCreation,
+      logger,
+    });
+
+    await registeredTool(server, "create_agent").handler({
+      title: "Routed agent",
+      route: "worker",
+      initialPrompt: "Do work",
+      background: true,
+    });
+
+    expect(agentRouteCreation.resolveForCreate).toHaveBeenCalledWith("worker");
+    expect(spies.agentManager.createAgent).toHaveBeenCalledWith(
+      expect.objectContaining({ provider: "claude", model: "claude-sonnet-5" }),
+      undefined,
+      { workspaceId: "workspace-created" },
+    );
+    expect(spies.agentManager.setLabels).toHaveBeenCalledWith("routed-agent", {
+      [ROUTE_ID_LABEL]: "worker",
+      [ROUTE_ENTRY_LABEL]: "1",
+      [ROUTE_STATE_LABEL]: "active",
+      [ROUTE_THREAD_LABEL]: "routed-agent",
+    });
+  });
+
+  it("falls back to the daemon's defaultAgentRoute when neither route nor provider is given", async () => {
+    const { agentManager, agentStorage, spies } = createTestDeps();
+    spies.agentManager.createAgent.mockResolvedValue({
+      id: "default-routed-agent",
+      provider: "claude",
+      cwd: existingCwd,
+      workspaceId: "workspace-created",
+      lifecycle: "idle",
+      currentModeId: null,
+      availableModes: [],
+      config: { title: "Default routed agent" },
+    } as ManagedAgent);
+    const agentRouteCreation = routeCreationResolverStub({
+      entryIndex: 0,
+      profile: { id: "worker-profile", name: "Worker profile", provider: "claude" },
+    });
+    const ensureWorkspace = vi.fn(async () => "workspace-created");
+    const server = await createAgentMcpServer({
+      agentManager,
+      agentStorage,
+      providerSnapshotManager: createOpenCodeManager().manager,
+      ensureWorkspaceForCreate: ensureWorkspace,
+      agentRouteCreation,
+      daemonConfigStore: daemonConfigStoreStub(undefined, { defaultAgentRoute: "worker" }),
+      logger,
+    });
+
+    await registeredTool(server, "create_agent").handler({
+      title: "Default routed agent",
+      initialPrompt: "Do work",
+      background: true,
+    });
+
+    expect(agentRouteCreation.resolveForCreate).toHaveBeenCalledWith("worker");
+    expect(spies.agentManager.setLabels).toHaveBeenCalledWith(
+      "default-routed-agent",
+      expect.objectContaining({ [ROUTE_ID_LABEL]: "worker" }),
+    );
+  });
+
+  it("fails when neither route nor provider is given and there is no default route", async () => {
+    const { agentManager, agentStorage } = createTestDeps();
+    const server = await createAgentMcpServer({
+      agentManager,
+      agentStorage,
+      providerSnapshotManager: createOpenCodeManager().manager,
+      ensureWorkspaceForCreate,
+      logger,
+    });
+
+    await expect(
+      registeredTool(server, "create_agent").handler({
+        title: "No route or provider",
+        initialPrompt: "Do work",
+        background: true,
+      }),
+    ).rejects.toThrow(
+      "create_agent needs a route (see list_profiles) or a provider/model pair such as codex/gpt-5.4",
+    );
+  });
+
+  it("lists configured routes in its description", async () => {
+    const { agentManager, agentStorage } = createTestDeps();
+    const routes: AgentRoute[] = [
+      {
+        id: "worker",
+        name: "Worker",
+        description: "Implements and fixes code.",
+        entries: [{ profileId: "qwen" }],
+      },
+      { id: "reviewer", name: "Reviewer", entries: [{ profileId: "claude" }] },
+    ];
+    const server = await createAgentMcpServer({
+      agentManager,
+      agentStorage,
+      providerSnapshotManager: createOpenCodeManager().manager,
+      daemonConfigStore: daemonConfigStoreStub(undefined, { agentRoutes: routes }),
+      logger,
+    });
+
+    const tool = registeredTool(server, "create_agent");
+
+    expect(tool.description).toContain("worker — Implements and fixes code.");
+    expect(tool.description).toContain("reviewer — Reviewer");
+  });
 });
 
 const HELD_TURN_CAPABILITIES = {
@@ -5402,11 +5548,18 @@ describe("provider listing MCP tool", () => {
   });
 });
 
-function daemonConfigStoreStub(agentProfiles?: AgentProfile[]): Pick<DaemonConfigStore, "get"> {
+function daemonConfigStoreStub(
+  agentProfiles?: AgentProfile[],
+  routeOptions?: { agentRoutes?: AgentRoute[]; defaultAgentRoute?: string | null },
+): Pick<DaemonConfigStore, "get"> {
   const config = MutableDaemonConfigSchema.parse({
     relay: { enabled: true },
     mcp: { injectIntoAgents: true },
     ...(agentProfiles !== undefined ? { agentProfiles } : {}),
+    ...(routeOptions?.agentRoutes !== undefined ? { agentRoutes: routeOptions.agentRoutes } : {}),
+    ...(routeOptions?.defaultAgentRoute !== undefined
+      ? { defaultAgentRoute: routeOptions.defaultAgentRoute }
+      : {}),
   });
   return { get: () => config };
 }
@@ -5440,7 +5593,7 @@ describe("agent profile listing MCP tool", () => {
 
     const response = await tool.handler({});
 
-    expect(response.structuredContent).toEqual({ profiles });
+    expect(response.structuredContent).toEqual({ profiles, routes: [], defaultRoute: null });
   });
 
   it("returns an empty array when no profiles are configured", async () => {
@@ -5456,7 +5609,7 @@ describe("agent profile listing MCP tool", () => {
 
     const response = await tool.handler({});
 
-    expect(response.structuredContent).toEqual({ profiles: [] });
+    expect(response.structuredContent).toEqual({ profiles: [], routes: [], defaultRoute: null });
   });
 
   it("returns an empty array when no daemon config store is provided", async () => {
@@ -5471,7 +5624,103 @@ describe("agent profile listing MCP tool", () => {
 
     const response = await tool.handler({});
 
-    expect(response.structuredContent).toEqual({ profiles: [] });
+    expect(response.structuredContent).toEqual({ profiles: [], routes: [], defaultRoute: null });
+  });
+
+  it("returns routes with resolved privacy/failover, entry details, and the default route", async () => {
+    const { agentManager, agentStorage } = createTestDeps();
+    const profiles: AgentProfile[] = [
+      { id: "qwen", name: "Qwen (Spark)", provider: "omp", model: "spark-a/qwen3.8-flash-next" },
+      { id: "claude", name: "Claude", provider: "claude", model: "claude-sonnet-5" },
+    ];
+    const routes: AgentRoute[] = [
+      {
+        id: "worker",
+        name: "Worker",
+        description: "Implements and fixes code.",
+        entries: [
+          { profileId: "qwen", privacy: "local" },
+          { profileId: "claude" },
+          { profileId: "ghost" },
+        ],
+      },
+      {
+        id: "planner",
+        name: "Planner",
+        privacy: "cloud",
+        failover: "ask",
+        entries: [{ profileId: "claude" }],
+      },
+    ];
+    const server = await createAgentMcpServer({
+      agentManager,
+      agentStorage,
+      providerSnapshotManager: createOpenCodeManager().manager,
+      daemonConfigStore: daemonConfigStoreStub(profiles, {
+        agentRoutes: routes,
+        defaultAgentRoute: "worker",
+      }),
+      logger,
+    });
+    const tool = registeredTool(server, "list_profiles");
+
+    const response = await tool.handler({});
+
+    expect(response.structuredContent).toEqual({
+      profiles,
+      defaultRoute: "worker",
+      routes: [
+        {
+          id: "worker",
+          name: "Worker",
+          description: "Implements and fixes code.",
+          privacy: "local",
+          failover: "auto",
+          entries: [
+            {
+              profileId: "qwen",
+              profileName: "Qwen (Spark)",
+              provider: "omp",
+              model: "spark-a/qwen3.8-flash-next",
+              privacy: "local",
+              allowed: true,
+            },
+            {
+              profileId: "claude",
+              profileName: "Claude",
+              provider: "claude",
+              model: "claude-sonnet-5",
+              privacy: "cloud",
+              allowed: false,
+            },
+            {
+              profileId: "ghost",
+              profileName: null,
+              provider: null,
+              model: null,
+              privacy: "cloud",
+              allowed: false,
+            },
+          ],
+        },
+        {
+          id: "planner",
+          name: "Planner",
+          privacy: "cloud",
+          failover: "ask",
+          entries: [
+            {
+              profileId: "claude",
+              profileName: "Claude",
+              provider: "claude",
+              model: "claude-sonnet-5",
+              privacy: "cloud",
+              allowed: true,
+            },
+          ],
+        },
+      ],
+    });
   });
 });
 

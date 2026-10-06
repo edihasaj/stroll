@@ -32,6 +32,8 @@ export const AgentRouteSchema = z
   .object({
     id: z.string(),
     name: z.string(),
+    /** What the route is for, in one sentence. Agents read it when choosing a role for a subagent. */
+    description: z.string().optional(),
     /** Defaults to "local". */
     privacy: AgentRoutePrivacySchema.optional(),
     /** Defaults to "auto". */
