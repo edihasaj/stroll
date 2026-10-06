@@ -67,7 +67,7 @@ export function SidebarPanel({
   handleAddHost: () => void;
   handleOpenHostSettings: (serverId: string) => void;
 }) {
-  const { items } = useSidebarNavItems();
+  const { items } = useSidebarNavItems("header");
   const panelItems = useMemo(() => deriveSidebarPanelItems(items), [items]);
   const projectsCollapsed = usePanelStore((state) => state.desktop.projectsSectionCollapsed);
   const hasActiveHostFilter = useSidebarViewStore((state) => state.hostFilters.length > 0);

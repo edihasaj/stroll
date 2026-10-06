@@ -1,4 +1,5 @@
 import path from "node:path";
+import { createRequire } from "node:module";
 import os from "node:os";
 import { app } from "electron";
 
@@ -12,6 +13,10 @@ export function getCliTargetPath(): string {
 }
 
 export function getBundledCliShimPath(): string {
+  if (!app.isPackaged) {
+    return createRequire(__filename).resolve("@getpaseo/cli/bin/stroll");
+  }
+
   const cliShimFilename = process.platform === "win32" ? "stroll.cmd" : "stroll";
 
   if (process.platform === "darwin") {

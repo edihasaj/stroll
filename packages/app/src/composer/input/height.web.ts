@@ -6,7 +6,7 @@ import { MOTION_DURATION } from "@/styles/theme";
 import type { ComposerHeightResult } from "./height.types";
 
 interface ComposerHeightArgs {
-  value: string;
+  getText: () => string;
   textareaRef: RefObject<HTMLElement | null>;
   minHeight: number;
   maxHeight: number;
@@ -35,7 +35,7 @@ const COPIED_STYLES = [
 ] as const;
 
 export function useComposerHeight({
-  value,
+  getText,
   textareaRef,
   minHeight,
   maxHeight,
@@ -43,8 +43,8 @@ export function useComposerHeight({
   const [height, setHeight] = useState(minHeight);
   const heightRef = useRef(minHeight);
   const reducedMotion = useAppReducedMotion();
-  const paramsRef = useRef({ value, minHeight, maxHeight });
-  paramsRef.current = { value, minHeight, maxHeight };
+  const paramsRef = useRef({ getText, minHeight, maxHeight });
+  paramsRef.current = { getText, minHeight, maxHeight };
   const mirrorRef = useRef<HTMLTextAreaElement | null>(null);
 
   const setBoundedHeight = useCallback((nextHeight: number) => {
@@ -96,7 +96,7 @@ export function useComposerHeight({
     });
     document.body.appendChild(mirror);
     mirrorRef.current = mirror;
-    measure(paramsRef.current.value);
+    measure(paramsRef.current.getText());
     return () => {
       mirror.remove();
       mirrorRef.current = null;
@@ -104,8 +104,8 @@ export function useComposerHeight({
   }, [measure]);
 
   useLayoutEffect(() => {
-    measure(value);
-  }, [maxHeight, minHeight, value, measure]);
+    measure(getText());
+  }, [maxHeight, minHeight, getText, measure]);
 
   useEffect(() => {
     const source = textareaRef.current;
@@ -115,7 +115,7 @@ export function useComposerHeight({
       const nextWidth = source.clientWidth;
       if (Math.abs(nextWidth - previousWidth) < 1) return;
       previousWidth = nextWidth;
-      measure(paramsRef.current.value);
+      measure(paramsRef.current.getText());
     });
     observer.observe(source);
     return () => observer.disconnect();

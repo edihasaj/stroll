@@ -60,6 +60,6 @@ const styles = StyleSheet.create((theme) => ({
     backgroundColor: theme.colors.interactionHighlight,
   },
   glyph: {
-    color: theme.colors.accentForeground,
+    color: theme.colors.foreground,
   },
 }));

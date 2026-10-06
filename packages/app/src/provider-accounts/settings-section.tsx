@@ -10,7 +10,7 @@ import type {
 import { Alert as InlineAlert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { getProviderIcon } from "@/components/provider-icons";
+import { useProviderIcon } from "@/components/provider-icons";
 import { SettingsSection } from "@/components/settings/headings/settings-section";
 import { settingsStyles } from "@/styles/settings";
 import { ICON_SIZE } from "@/styles/theme";
@@ -147,7 +147,7 @@ function ProviderAccountGroup({
   onRemove: (account: ProviderAccountProfile) => void;
   onLogin: (account: ProviderAccountProfile) => void;
 }): ReactElement {
-  const ProviderIcon = getProviderIcon(provider);
+  const ProviderIcon = useProviderIcon(provider);
   const systemIsDefault = defaultId === null;
   const handleSystemDefault = useCallback(
     () => onSystemDefault(provider),

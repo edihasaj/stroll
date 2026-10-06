@@ -20,6 +20,7 @@ export interface AppearanceInput {
   contentFontSize: number; // already clamped
   codeFontSize: number; // already clamped
   proseFont: ProseFontPreference;
+  contentMaxWidth: number; // already clamped, default resolved
   syntaxTheme: SyntaxThemeId;
 }
 
@@ -58,7 +59,7 @@ function scaleFontSize(
  * always current and makes ordering vs `setTheme`/`setAdaptiveThemes` irrelevant.
  *
  * The updater preserves the active theme wholesale (surfaces, accents,
- * terminal) and only patches the font ramp and syntax palette.
+ * terminal) and only patches the font ramp, content width, and syntax palette.
  * `updateTheme` replaces the stored theme rather than merging, so we spread
  * `...t` first.
  */
@@ -92,6 +93,7 @@ export function applyAppearance(input: AppearanceInput): void {
           fontFamily,
           fontSize,
           lineHeight,
+          contentMaxWidth: input.contentMaxWidth,
           colors: { ...t.colors, syntax: resolveSyntaxColors(input.syntaxTheme, t.colorScheme) },
         };
       }
@@ -100,6 +102,7 @@ export function applyAppearance(input: AppearanceInput): void {
         fontFamily,
         fontSize,
         lineHeight,
+        contentMaxWidth: input.contentMaxWidth,
         colors: { ...t.colors, syntax: resolveSyntaxColors(input.syntaxTheme, t.colorScheme) },
       };
     });

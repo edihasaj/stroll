@@ -1,3 +1,4 @@
+import { ASSISTANT_IMAGE_DEFAULT_ASPECT_RATIO } from "@/utils/assistant-image-metadata";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { TaskListRow } from "@/components/task-list-row";
 import {
@@ -75,7 +76,7 @@ import { HighlightedCodeBlock } from "@/components/highlighted-code-block";
 import { MarkdownFenceBlock } from "@/components/markdown/fence";
 import type { MarkdownPhase } from "@/components/markdown/fence/types";
 import { splitMarkdownBlocks } from "@/utils/split-markdown-blocks";
-import { StreamingWords, useWordStream } from "@/word-stream";
+import { useRevealedText } from "@/hooks/use-revealed-text";
 import { colorMarkdownLinkChildren } from "@/components/markdown/link-children";
 import { createAssistantMarkdownParser } from "@/utils/assistant-markdown-parser";
 import { formatDuration, formatMessageTimestamp } from "@/utils/time";
@@ -118,6 +119,7 @@ import { AssistantForkMenu, type AssistantForkTarget } from "@/components/assist
 import { useRetainedPanelActive } from "@/components/retained-panel";
 import {
   markdownCopyDataSet,
+  markdownCopyImageDataSet,
   markdownCopyOrderedListDataSet,
   markdownCopyTableCellDataSet,
   type MarkdownCopyInlineTag,
@@ -560,6 +562,11 @@ function useUserMessageHostBadge(input: {
   return badges.get(input.serverId ?? "") ?? null;
 }
 
+const MESSAGE_TEXT_DATASET = { messageText: "true" };
+// Shared stable reference (see CONTENT_SURFACE_DATASET's comment) carrying both the
+// prose font-routing tag and chat find's messageText tag on the same element.
+const MESSAGE_PROSE_DATASET = { ...CONTENT_SURFACE_DATASET, ...MESSAGE_TEXT_DATASET };
+
 export const UserMessage = memo(function UserMessage({
   serverId,
   agentId,
@@ -692,7 +699,7 @@ export const UserMessage = memo(function UserMessage({
             </View>
           ) : null}
           {hasText ? (
-            <Text selectable dataSet={CONTENT_SURFACE_DATASET} style={userMessageStylesheet.text}>
+            <Text selectable dataSet={MESSAGE_PROSE_DATASET} style={userMessageStylesheet.text}>
               {message}
             </Text>
           ) : null}
@@ -935,6 +942,7 @@ export const LiveElapsed = memo(function LiveElapsed({
 });
 
 interface AssistantMessageProps {
+  renderFullContent?: boolean;
   occurrenceKey: string;
   message: string;
   timestamp: number;
@@ -1003,8 +1011,6 @@ export const assistantMessageStylesheet = StyleSheet.create((theme) => ({
   },
 }));
 
-const ASSISTANT_IMAGE_MIN_HEIGHT = 160;
-
 function AssistantMarkdownImage({
   source,
   occurrenceKey,
@@ -1049,11 +1055,9 @@ function AssistantMarkdownImage({
     [containerStyle],
   );
   const imageSizeStyle = useMemo<ViewStyle>(() => {
-    if (aspectRatio) {
-      return { aspectRatio };
-    }
-    return { height: ASSISTANT_IMAGE_MIN_HEIGHT };
-  }, [aspectRatio]);
+    if (image.status === "failed") return { height: 160 };
+    return { aspectRatio: aspectRatio ?? ASSISTANT_IMAGE_DEFAULT_ASPECT_RATIO };
+  }, [aspectRatio, image.status]);
   const surfaceStyle = useMemo<StyleProp<ViewStyle>>(
     () => [assistantMessageStylesheet.imageSurface, imageSizeStyle],
     [imageSizeStyle],
@@ -1071,15 +1075,16 @@ function AssistantMarkdownImage({
     () => [
       assistantMessageStylesheet.imageFrame,
       containerStyle,
-      { height: ASSISTANT_IMAGE_MIN_HEIGHT },
+      imageSizeStyle,
       assistantMessageStylesheet.imageState,
     ],
-    [containerStyle],
+    [containerStyle, imageSizeStyle],
   );
+  const copyDataSet = useMemo(() => markdownCopyImageDataSet(source, alt), [source, alt]);
 
   if (image.status === "failed") {
     return (
-      <View style={stateFrameStyle}>
+      <View style={stateFrameStyle} dataSet={copyDataSet}>
         <Text style={assistantMessageStylesheet.imageErrorText}>{image.message}</Text>
       </View>
     );
@@ -1087,14 +1092,14 @@ function AssistantMarkdownImage({
 
   if (!binding) {
     return (
-      <View style={stateFrameStyle}>
+      <View style={stateFrameStyle} dataSet={copyDataSet}>
         <ThemedLoadingSpinner size="small" uniProps={foregroundMutedColorMapping} />
       </View>
     );
   }
 
   return (
-    <View style={frameStyle}>
+    <View style={frameStyle} dataSet={copyDataSet}>
       <Pressable
         accessibilityLabel={t("composer.attachments.openImage")}
         accessibilityRole="button"
@@ -1592,7 +1597,6 @@ function AssistantMessageBlockContainer({
 
 interface MemoizedMarkdownBlockProps {
   text: string;
-  sourceOffset: number;
   rules: RenderRules;
   parser: MarkdownIt;
   onLinkPress: (url: string) => boolean;
@@ -1600,7 +1604,6 @@ interface MemoizedMarkdownBlockProps {
 
 const MemoizedMarkdownBlock = React.memo(function MemoizedMarkdownBlock({
   text,
-  sourceOffset,
   rules,
   parser,
   onLinkPress,
@@ -1608,7 +1611,6 @@ const MemoizedMarkdownBlock = React.memo(function MemoizedMarkdownBlock({
   return (
     <MarkdownRenderer
       text={text}
-      sourceOffset={sourceOffset}
       enableHtmlish={false}
       rules={rules}
       markdownit={parser}
@@ -1697,6 +1699,7 @@ function MarkdownListView({
 }
 
 export const AssistantMessage = memo(function AssistantMessage({
+  renderFullContent = false,
   occurrenceKey,
   message,
   timestamp: _timestamp,
@@ -1715,14 +1718,14 @@ export const AssistantMessage = memo(function AssistantMessage({
     () => createAssistantMarkdownParser({ streaming: true }),
     [],
   );
-  const renderedMessage = useMemo(
-    () => capAssistantMessageForRender(rewriteAssistantAnnotations(message)),
-    [message],
-  );
-  // Paint a paced prefix while the turn is streaming so text arrives at a steady
-  // rate instead of in whatever lumps the daemon's coalescing window produced.
-  const stream = useWordStream(renderedMessage.text, phase);
-  const revealedMessage = stream.text;
+  const renderedMessage = useMemo(() => {
+    const annotated = rewriteAssistantAnnotations(message);
+    return renderFullContent
+      ? { text: annotated, capped: false }
+      : capAssistantMessageForRender(annotated);
+  }, [message, renderFullContent]);
+  const revealedText = useRevealedText(renderedMessage.text, phase);
+  const revealedMessage = renderFullContent ? renderedMessage.text : revealedText;
   const fullMessageByteLength = useMemo(
     () => (renderedMessage.capped && phase === "complete" ? getUtf8ByteLength(message) : null),
     [message, phase, renderedMessage.capped],
@@ -2166,14 +2169,10 @@ export const AssistantMessage = memo(function AssistantMessage({
   }, [client, fileLinkActions, markdownParser, occurrenceKey, phase, serverId, workspaceRoot]);
 
   const blocks = useMemo(() => splitMarkdownBlocks(revealedMessage), [revealedMessage]);
-  const keyedBlocks = useMemo(() => {
-    let cursor = 0;
-    return blocks.map((block) => {
-      const sourceOffset = revealedMessage.indexOf(block, cursor);
-      cursor = sourceOffset + block.length;
-      return { key: `block:${sourceOffset}`, block, sourceOffset };
-    });
-  }, [blocks, revealedMessage]);
+  const keyedBlocks = useMemo(
+    () => blocks.map((block, index) => ({ key: `block:${index}`, block })),
+    [blocks],
+  );
 
   const assistantContainerStyle = useMemo(
     () => [
@@ -2189,17 +2188,17 @@ export const AssistantMessage = memo(function AssistantMessage({
     () =>
       isRenderProfileEnabled()
         ? {
-            ...CONTENT_SURFACE_DATASET,
+            ...MESSAGE_PROSE_DATASET,
             revealKey: occurrenceKey,
             revealLength: String(revealedMessage.length),
           }
-        : CONTENT_SURFACE_DATASET,
+        : MESSAGE_PROSE_DATASET,
     [occurrenceKey, revealedMessage.length],
   );
 
   const prose = (
     <View testID="assistant-message" dataSet={revealDataSet} style={assistantContainerStyle}>
-      {keyedBlocks.map(({ key, block, sourceOffset }, index) => (
+      {keyedBlocks.map(({ key, block }, index) => (
         <AssistantMessageBlockContainer
           key={key}
           block={block}
@@ -2207,7 +2206,6 @@ export const AssistantMessage = memo(function AssistantMessage({
         >
           <MemoizedMarkdownBlock
             text={block}
-            sourceOffset={sourceOffset}
             rules={markdownRules}
             parser={
               phase === "streaming" && index === keyedBlocks.length - 1
@@ -2230,11 +2228,9 @@ export const AssistantMessage = memo(function AssistantMessage({
   );
 
   return (
-    <StreamingWords stream={stream}>
-      <Animated.View entering={entranceEntering} style={entranceWebStyle}>
-        {prose}
-      </Animated.View>
-    </StreamingWords>
+    <Animated.View entering={entranceEntering} style={entranceWebStyle}>
+      {prose}
+    </Animated.View>
   );
 });
 

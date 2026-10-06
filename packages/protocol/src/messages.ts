@@ -1,3 +1,22 @@
+import { PluginRegistryIdentitySchema } from "./plugin-registry.js";
+import { AgentProfileSchema, AgentSkillSelectionSchema } from "./agent-profile.js";
+export {
+  AgentProfileSchema,
+  AgentSkillSelectionSchema,
+  type AgentProfile,
+  type AgentSkillSelection,
+} from "./agent-profile.js";
+import { PluginIdSchema, PluginRequirementsSchema, PluginSourceSchema } from "./plugin-config.js";
+export {
+  PluginIdSchema,
+  PluginRequirementsSchema,
+  DirectoryPluginSourceSchema,
+  PluginSourceSchema,
+  type PluginRequirements,
+  type PluginSource,
+} from "./plugin-config.js";
+import { TerminalProfileSchema } from "./terminal-profile.js";
+export { TerminalProfileSchema, type TerminalProfile } from "./terminal-profile.js";
 import { z } from "zod";
 import { TerminalActivitySchema } from "./terminal-activity.js";
 import { CLIENT_CAPS } from "./client-capabilities.js";
@@ -148,48 +167,6 @@ const MutableMetadataGenerationConfigSchema = z
   })
   .passthrough();
 
-export const TerminalProfileSchema = z
-  .object({
-    id: z.string(),
-    name: z.string(),
-    command: z.string(),
-    args: z.array(z.string()).optional(),
-    icon: z.string().optional(),
-  })
-  .passthrough();
-
-export type TerminalProfile = z.infer<typeof TerminalProfileSchema>;
-
-/**
- * A named launch bundle: a provider plus the agent-config values a client would
- * otherwise set one control at a time. Field names mirror `AgentSessionConfig`
- * so applying a profile is a copy rather than a translation table.
- *
- * There is deliberately no system prompt here. `AgentSessionConfig.systemPrompt`
- * is creation-only, so a profile carrying one would apply when starting a new
- * agent and silently do nothing when applied to a running one.
- */
-export const AgentProfileSchema = z
-  .object({
-    id: z.string(),
-    name: z.string(),
-    /** A key into the client's icon registry, not a glyph. Unknown keys draw the default. */
-    icon: z.string().optional(),
-    /** An identity colour name shared with host badges. Unknown values draw unthemed. */
-    color: z.string().optional(),
-    provider: z.string(),
-    accountProfileId: z.string().nullable().optional(),
-    model: z.string().optional(),
-    modeId: z.string().optional(),
-    thinkingOptionId: z.string().optional(),
-    featureValues: z.record(z.string(), z.unknown()).optional(),
-    /** Free text, surfaced to orchestrating agents by the `list_profiles` MCP tool. */
-    notes: z.string().optional(),
-  })
-  .passthrough();
-
-export type AgentProfile = z.infer<typeof AgentProfileSchema>;
-
 const MutableBrowserToolsConfigSchema = z
   .object({
     enabled: z.boolean().default(false),
@@ -200,29 +177,6 @@ const MutableRelayConfigSchema = z
     enabled: z.boolean(),
   })
   .passthrough();
-
-export const PluginIdSchema = z.string().regex(/^[a-z][a-z0-9-]*$/);
-// Semver validation belongs at the manifest/runtime boundary, not on the wire.
-export const PluginRequirementsSchema = z.object({ paseo: z.string().optional() });
-export type PluginRequirements = z.infer<typeof PluginRequirementsSchema>;
-
-export const DirectoryPluginSourceSchema = z
-  .object({
-    source: z.literal("directory"),
-    path: z.string().min(1),
-    enabled: z.boolean().optional(),
-  })
-  .strict();
-
-export const PluginSourceSchema = z.discriminatedUnion("source", [DirectoryPluginSourceSchema]);
-
-export type PluginSource = z.infer<typeof PluginSourceSchema>;
-
-export const AgentSkillSelectionSchema = z.discriminatedUnion("mode", [
-  z.object({ mode: z.literal("all") }).strict(),
-  z.object({ mode: z.literal("custom"), skills: z.array(z.string()) }).strict(),
-]);
-export type AgentSkillSelection = z.infer<typeof AgentSkillSelectionSchema>;
 
 export const MutableDaemonConfigSchema = z
   .object({
@@ -356,6 +310,7 @@ export const AgentFeatureSelectSchema = z.object({
   description: z.string().optional(),
   tooltip: z.string().optional(),
   icon: z.string().optional(),
+  desktopTrigger: z.enum(["icon", "label"]).optional(),
   value: z.string().nullable(),
   options: z.array(AgentSelectOptionSchema),
 });
@@ -472,7 +427,7 @@ const McpServerConfigSchema = z.discriminatedUnion("type", [
   McpSseServerConfigSchema,
 ]);
 
-const ProviderOptionsSchema = z.record(z.string(), z.json());
+const ProviderOptionsSchema = z.record(z.string(), z.unknown());
 
 const McpToolRefSchema = z
   .object({
@@ -1451,9 +1406,8 @@ export const FetchAgentHistoryRequestMessageSchema = z.object({
   type: z.literal("fetch_agent_history_request"),
   requestId: z.string(),
   filter: AgentDirectoryFilterSchema.optional(),
-  // A ranked free-text query over agent title, workspace name, branch, and
-  // project name. Present only on history: agent subscriptions filter on
-  // structure, not on relevance. Ranking replaces `sort` when it is set.
+  // A free-text filter over agent title, workspace name, branch, and project name.
+  // Matching rows follow the requested sort and cursor pagination.
   search: z.string().optional(),
   sort: z
     .array(
@@ -1588,6 +1542,63 @@ export const PluginSourceInstallRequestSchema = z.object({
   ref: z.string().min(1).optional(),
   // COMPAT(plugin-source-path): accepted for v0.7 clients; remove after 2027-09-01.
   pluginPath: z.string().min(1).optional(),
+});
+
+export const PluginSourceIdentitySchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("directory"), path: z.string() }),
+  z.object({
+    kind: z.literal("git"),
+    remote: z.string(),
+    pluginPath: z.string(),
+    registry: PluginRegistryIdentitySchema.optional(),
+  }),
+  z.object({
+    kind: z.literal("npm"),
+    packageName: z.string(),
+    pluginPath: z.string(),
+    registry: PluginRegistryIdentitySchema.optional(),
+  }),
+]);
+export const PluginInstallationSchema = z.object({
+  identity: PluginSourceIdentitySchema,
+  currentRevision: z.string().optional(),
+});
+export type PluginInstallation = z.infer<typeof PluginInstallationSchema>;
+export const PluginUpdateTargetSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("git"), commit: z.string().regex(/^[0-9a-f]{40,64}$/) }),
+  z.object({
+    kind: z.literal("npm"),
+    version: z.string().min(1),
+    resolved: z.string().url(),
+    integrity: z.string().min(1),
+  }),
+]);
+export type PluginUpdateTarget = z.infer<typeof PluginUpdateTargetSchema>;
+export const PluginUpdateProposalSchema = z.object({
+  id: PluginIdSchema,
+  expected: z.object({
+    identity: PluginSourceIdentitySchema,
+    installationRoot: z.string(),
+    revision: z.string(),
+  }),
+  target: PluginUpdateTargetSchema,
+});
+export type PluginUpdateProposal = z.infer<typeof PluginUpdateProposalSchema>;
+export const PluginUpdateSelectionSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("git"), ref: z.string().min(1) }),
+  z.object({ kind: z.literal("npm"), version: z.string().min(1) }),
+]);
+export type PluginUpdateSelection = z.infer<typeof PluginUpdateSelectionSchema>;
+export const PluginUpdatePreviewRequestSchema = z.object({
+  type: z.literal("plugin.source.update.preview.request"),
+  requestId: z.string(),
+  pluginId: PluginIdSchema.optional(),
+  target: PluginUpdateSelectionSchema.optional(),
+});
+export const PluginUpdateApplyRequestSchema = z.object({
+  type: z.literal("plugin.source.update.apply.request"),
+  requestId: z.string(),
+  proposals: z.array(PluginUpdateProposalSchema).min(1),
 });
 
 export const PluginSourceStatusRequestSchema = z.object({
@@ -1870,6 +1881,14 @@ export const ProviderUsageListRequestMessageSchema = z.object({
   forceRefresh: z.boolean().optional(),
 });
 
+export const UsageListReportsRequestMessageSchema = z.object({
+  type: z.literal("usage.list_reports.request"),
+  agentId: z.string().optional(),
+  requestId: z.string(),
+  reportIds: z.array(z.string()).optional(),
+  forceRefresh: z.boolean().optional(),
+});
+
 export const ResumeAgentRequestMessageSchema = z.object({
   type: z.literal("resume_agent_request"),
   handle: AgentPersistenceHandleSchema,
@@ -1934,6 +1953,14 @@ export const FetchAgentTimelineRequestMessageSchema = z.object({
   projection: z.enum(["projected", "canonical"]).optional(),
   // Allow the client to merge this bounded page outside its contiguous loaded range.
   mergeWindow: z.boolean().optional(),
+});
+
+export const AgentTimelineSearchRequestMessageSchema = z.object({
+  type: z.literal("agent.timeline.search.request"),
+  agentId: z.string(),
+  requestId: z.string(),
+  query: z.string(),
+  cursor: z.number().int().nonnegative().optional(),
 });
 
 export const AgentTimelineListPromptsRequestMessageSchema = z.object({
@@ -3359,6 +3386,8 @@ export const SessionInboundMessageSchema = z.discriminatedUnion("type", [
   PluginSourceInstallRequestSchema,
   PluginSourceStatusRequestSchema,
   PluginSourceUpdateRequestSchema,
+  PluginUpdatePreviewRequestSchema,
+  PluginUpdateApplyRequestSchema,
   PluginReloadRequestSchema,
   PluginEnableRequestSchema,
   PluginDisableRequestSchema,
@@ -3387,6 +3416,7 @@ export const SessionInboundMessageSchema = z.discriminatedUnion("type", [
   RefreshProvidersSnapshotRequestMessageSchema,
   ProviderDiagnosticRequestMessageSchema,
   ProviderUsageListRequestMessageSchema,
+  UsageListReportsRequestMessageSchema,
   ResumeAgentRequestMessageSchema,
   ImportAgentRequestMessageSchema,
   RefreshAgentRequestMessageSchema,
@@ -3395,6 +3425,7 @@ export const SessionInboundMessageSchema = z.discriminatedUnion("type", [
   RestartServerRequestMessageSchema,
   DaemonUpdateRequestMessageSchema,
   FetchAgentTimelineRequestMessageSchema,
+  AgentTimelineSearchRequestMessageSchema,
   AgentTimelineListPromptsRequestMessageSchema,
   ProviderSubagentListRequestMessageSchema,
   ProviderSubagentTimelineRequestMessageSchema,
@@ -3675,6 +3706,7 @@ const ServerCapabilitiesFromUnknownSchema = z
 export const ServerInfoStatusPayloadSchema = z
   .object({
     status: z.literal("server_info"),
+    protocolVersion: z.number().int().optional(),
     serverId: z.string().trim().min(1),
     hostname: ServerInfoHostnameSchema.optional(),
     version: ServerInfoVersionSchema.optional(),
@@ -3694,6 +3726,7 @@ export const ServerInfoStatusPayloadSchema = z
         // COMPAT(hubAgentRpc): added in v0.8.0; remove gate after 2027-03-05.
         hubAgentRpc: z.boolean().optional(),
         providersSnapshot: z.boolean().optional(),
+        usageSources: z.boolean().optional(),
         // COMPAT(providersSnapshotCwd): added in v0.3.2, remove gate after 2027-02-10.
         providersSnapshotCwd: z.boolean().optional(),
         // COMPAT(directorySync): added in v0.3.x, remove gate after 2027-02-12.
@@ -3742,6 +3775,10 @@ export const ServerInfoStatusPayloadSchema = z
         pluginLogs: z.boolean().optional(),
         // COMPAT(pluginGitManagement): added in v0.7.0, remove gate after 2027-08-26.
         pluginGitManagement: z.boolean().optional(),
+        // COMPAT(pluginSourceInstallation): added in v0.8.0; remove gate after 2027-03-16 once daemon floor supports source identifiers.
+        pluginSourceInstallation: z.boolean().optional(),
+        // COMPAT(pluginSourceUpdates): added in v0.8.0; remove gate after 2027-03-16 once daemon floor supports reviewed updates.
+        pluginSourceUpdates: z.boolean().optional(),
         // COMPAT(pluginThemes): added in v0.5.0, remove gate after 2027-08-20.
         // A daemon that predates this flag keeps `addTheme` in the server bundle it compiles,
         // so a theme plugin cannot start there at all.
@@ -4281,13 +4318,10 @@ export type AgentSearchMatch = z.infer<typeof AgentSearchMatchSchema>;
 const AgentDirectoryResponseEntrySchema = z.object({
   agent: AgentSnapshotPayloadSchema,
   project: ProjectPlacementPayloadSchema,
-  // Relevance of this entry to the request's `search`, lower being better.
-  // Set only when the request carried a query; a client merging results from
-  // several hosts needs it to interleave their separately ranked pages.
+  // Legacy relevance metadata remains accepted from older daemons.
+  // Current history responses use the requested chronological sort.
   searchScore: z.number().optional(),
-  // Where the query matched, so the row can mark it. The ranker computes this
-  // anyway; sending it keeps the client from re-deriving a second opinion that
-  // could disagree with the ranking it is explaining.
+  // Legacy server-generated highlights. Current clients highlight displayed text locally.
   searchMatches: z.array(AgentSearchMatchSchema).optional(),
   // COMPAT(directorySync): sequence of this latest directory projection.
   syncSeq: z.number().int().positive().optional(),
@@ -4316,9 +4350,7 @@ export const FetchAgentHistoryResponseMessageSchema = z.object({
     requestId: z.string(),
     entries: z.array(AgentDirectoryResponseEntrySchema),
     pageInfo: AgentDirectoryPageInfoSchema,
-    // More sessions matched the request's `search` than the page could hold.
-    // Distinct from `pageInfo.hasMore`, which promises a fetchable next page —
-    // a ranked result set has none, and the way on is a narrower query.
+    // Older daemons truncate relevance-ranked searches instead of returning a cursor.
     searchTruncated: z.boolean().optional(),
   }),
 });
@@ -4854,6 +4886,26 @@ export const AgentTimelineReplacementMessageSchema = z.object({
     subscriptionId: z.string().optional(),
     agentId: z.string(),
     epoch: z.string(),
+  }),
+});
+
+export const AgentTimelineSearchResponseMessageSchema = z.object({
+  type: z.literal("agent.timeline.search.response"),
+  payload: z.object({
+    requestId: z.string(),
+    agentId: z.string(),
+    epoch: z.string(),
+    locations: z.array(
+      z.object({
+        seq: z.number().int().nonnegative(),
+        role: z.enum(["user", "assistant"]),
+        // Estimated occurrences in the message; the client verifies against rendered text.
+        // COMPAT(timelineSearchCount): added in v0.9.0, remove optional after 2027-09-22.
+        count: z.number().int().positive().optional(),
+      }),
+    ),
+    nextCursor: z.number().int().nonnegative().nullable(),
+    error: z.string().nullable(),
   }),
 });
 
@@ -6485,6 +6537,13 @@ export const ProviderUsageStatusSchema = z.enum(["available", "unavailable", "er
 export const ProviderUsageWindowSchema = z.object({
   id: z.string(),
   label: z.string(),
+  /**
+   * A few characters naming the window where space is tight, e.g. "5h" or "wk". An empty string
+   * shows the percent alone; leaving it out shows `label`.
+   */
+  shortLabel: z.string().optional(),
+  /** Shown in the usage summary until the user pins windows of their own. */
+  summary: z.boolean().optional(),
   usedPct: z.number().nullable().optional(),
   remainingPct: z.number().nullable().optional(),
   resetsAt: z.string().nullable().optional(),
@@ -6534,6 +6593,59 @@ export const ProviderUsageListResponseMessageSchema = z.object({
     fetchedAt: z.string(),
     providers: z.array(ProviderUsageSchema),
   }),
+});
+
+export const UsageProblemSchema = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.literal("expired"),
+    expiresAt: z.iso.datetime(),
+    refreshedBy: z.string().optional(),
+  }),
+  z.object({
+    kind: z.literal("rejected"),
+    status: z.number().int(),
+    refreshedBy: z.string().optional(),
+  }),
+  z.object({ kind: z.literal("no_quota"), detail: z.string() }),
+]);
+export const UsageReportSchema = z.discriminatedUnion("status", [
+  z.object({
+    status: z.literal("available"),
+    planLabel: z.string().optional(),
+    windows: z.array(ProviderUsageWindowSchema),
+    balances: z.array(ProviderUsageBalanceSchema).optional(),
+    details: z.array(ProviderUsageDetailSchema).optional(),
+  }),
+  z.object({ status: z.literal("unavailable"), problem: UsageProblemSchema }),
+  z.object({ status: z.literal("error"), error: z.string() }),
+]);
+export const UsageReportEntrySchema = z.object({
+  id: z.string(),
+  account: z.object({ label: z.string().optional() }),
+  fetchedAt: z.string(),
+  sourceId: z.string(),
+  sourceLabel: z.string(),
+  icon: z.string().optional(),
+  report: UsageReportSchema,
+  loginErrors: z
+    .array(
+      z.object({
+        harness: z.string(),
+        report: z.discriminatedUnion("status", [
+          z.object({ status: z.literal("unavailable"), problem: UsageProblemSchema }),
+          z.object({ status: z.literal("error"), error: z.string() }),
+        ]),
+      }),
+    )
+    .optional(),
+});
+export const UsageListReportsUpdateMessageSchema = z.object({
+  type: z.literal("usage.list_reports.update"),
+  payload: z.object({ requestId: z.string(), report: UsageReportEntrySchema }),
+});
+export const UsageListReportsResponseMessageSchema = z.object({
+  type: z.literal("usage.list_reports.response"),
+  payload: z.object({ requestId: z.string(), error: z.string().nullable() }),
 });
 
 const AgentSlashCommandSchema = z.object({
@@ -6849,12 +6961,22 @@ export const PluginCatalogGetResponseSchema = z.object({
 export const PluginStatusSchema = z.enum(["running", "disabled", "failed"]);
 export type PluginStatus = z.infer<typeof PluginStatusSchema>;
 
+export const PluginNpmInstallationSchema = z.object({
+  packageName: z.string(),
+  requestedSpec: z.string(),
+  version: z.string(),
+  integrity: z.string(),
+});
+
 export const PluginListItemSchema = z.object({
   id: PluginIdSchema,
+  description: z.string().optional(),
   path: z.string(),
   enabled: z.boolean(),
   status: PluginStatusSchema,
   source: z.enum(["directory", "git"]).optional(),
+  npm: PluginNpmInstallationSchema.optional(),
+  installation: PluginInstallationSchema.optional(),
   remote: z.string().optional(),
   ref: z.string().optional(),
   commit: z.string().optional(),
@@ -6902,6 +7024,8 @@ export const PluginSourceInstallResponseSchema = z.object({
 export const PluginSourceStatusItemSchema = z.object({
   id: PluginIdSchema,
   source: z.enum(["directory", "git"]),
+  npm: PluginNpmInstallationSchema.optional(),
+  installation: PluginInstallationSchema.optional(),
   path: z.string(),
   remote: z.string().optional(),
   ref: z.string().optional(),
@@ -6929,6 +7053,33 @@ export type PluginSourceUpdateItem = z.infer<typeof PluginSourceUpdateItemSchema
 export const PluginSourceUpdateResponseSchema = z.object({
   type: z.literal("plugin.source.update.response"),
   payload: z.object({ requestId: z.string(), plugins: z.array(PluginSourceUpdateItemSchema) }),
+});
+
+export const PluginUpdatePreviewSchema = z.object({
+  id: PluginIdSchema,
+  outcome: z.enum(["update", "current", "installed-newer", "local", "error"]),
+  current: PluginInstallationSchema.optional(),
+  target: PluginUpdateTargetSchema.optional(),
+  links: z.array(z.string()),
+  proposal: PluginUpdateProposalSchema.optional(),
+  error: z.string().optional(),
+});
+export type PluginUpdatePreview = z.infer<typeof PluginUpdatePreviewSchema>;
+export const PluginUpdateResultSchema = z.object({
+  id: PluginIdSchema,
+  outcome: z.enum(["updated", "error"]),
+  plugin: PluginListItemSchema.optional(),
+  error: z.string().optional(),
+  warning: z.string().optional(),
+});
+export type PluginUpdateResult = z.infer<typeof PluginUpdateResultSchema>;
+export const PluginUpdatePreviewResponseSchema = z.object({
+  type: z.literal("plugin.source.update.preview.response"),
+  payload: z.object({ requestId: z.string(), plugins: z.array(PluginUpdatePreviewSchema) }),
+});
+export const PluginUpdateApplyResponseSchema = z.object({
+  type: z.literal("plugin.source.update.apply.response"),
+  payload: z.object({ requestId: z.string(), plugins: z.array(PluginUpdateResultSchema) }),
 });
 
 function pluginActionResponse<const Type extends string>(type: Type) {
@@ -7010,6 +7161,8 @@ export const SessionOutboundMessageSchema = z.discriminatedUnion("type", [
   PluginSourceInstallResponseSchema,
   PluginSourceStatusResponseSchema,
   PluginSourceUpdateResponseSchema,
+  PluginUpdatePreviewResponseSchema,
+  PluginUpdateApplyResponseSchema,
   PluginReloadResponseSchema,
   PluginEnableResponseSchema,
   PluginDisableResponseSchema,
@@ -7081,6 +7234,7 @@ export const SessionOutboundMessageSchema = z.discriminatedUnion("type", [
   FetchAgentResponseMessageSchema,
   FetchAgentTimelineResponseMessageSchema,
   AgentTimelineReplacementMessageSchema,
+  AgentTimelineSearchResponseMessageSchema,
   AgentTimelineListPromptsResponseMessageSchema,
   ProviderSubagentListResponseMessageSchema,
   ProviderSubagentTimelineResponseMessageSchema,
@@ -7196,6 +7350,8 @@ export const SessionOutboundMessageSchema = z.discriminatedUnion("type", [
   RefreshProvidersSnapshotResponseMessageSchema,
   ProviderDiagnosticResponseMessageSchema,
   ProviderUsageListResponseMessageSchema,
+  UsageListReportsUpdateMessageSchema,
+  UsageListReportsResponseMessageSchema,
   ListCommandsResponseSchema,
   ListTerminalsResponseSchema,
   TerminalsChangedSchema,
@@ -7386,6 +7542,10 @@ export type ProviderDiagnosticResponseMessage = z.infer<
   typeof ProviderDiagnosticResponseMessageSchema
 >;
 export type ProviderUsageTone = z.infer<typeof ProviderUsageToneSchema>;
+export type UsageProblem = z.infer<typeof UsageProblemSchema>;
+export type UsageReport = z.infer<typeof UsageReportSchema>;
+export type UsageReportEntry = z.infer<typeof UsageReportEntrySchema>;
+export type UsageListReportsResponseMessage = z.infer<typeof UsageListReportsResponseMessageSchema>;
 export type ProviderUsageStatus = z.infer<typeof ProviderUsageStatusSchema>;
 export type ProviderUsage = z.infer<typeof ProviderUsageSchema>;
 export type ProviderUsageWindow = z.infer<typeof ProviderUsageWindowSchema>;
@@ -7707,10 +7867,17 @@ export const WSHelloMessageSchema = z.object({
   clientId: z.string().min(1),
   clientType: z.enum(["mobile", "browser", "cli", "mcp", "hub"]),
   protocolVersion: z.number().int(),
+  auth: z
+    .discriminatedUnion("kind", [
+      z.object({ kind: z.literal("password"), password: z.string() }),
+      z.object({ kind: z.literal("localCredential"), token: z.string() }),
+    ])
+    .optional(),
   appVersion: z.string().optional(),
   capabilities: z
     .object({
       voice: z.boolean().optional(),
+      [CLIENT_CAPS.helloRejection]: z.boolean().optional(),
       pushNotifications: z.boolean().optional(),
       [CLIENT_CAPS.explicitEventSubscriptions]: z.boolean().optional(),
       [CLIENT_CAPS.allProviders]: z.boolean().optional(),
@@ -7748,6 +7915,12 @@ export const WSSessionOutboundSchema = z.object({
   message: SessionOutboundMessageSchema,
 });
 
+export const WSHelloRejectedMessageSchema = z.object({
+  type: z.literal("hello.rejected"),
+  reason: z.enum(["password_required", "incorrect_password", "incompatible_protocol"]),
+  accepts: z.array(z.literal("password")),
+});
+
 // Complete WebSocket message schemas
 export const WSInboundMessageSchema = z.discriminatedUnion("type", [
   WSPingMessageSchema,
@@ -7759,6 +7932,7 @@ export const WSInboundMessageSchema = z.discriminatedUnion("type", [
 export const WSOutboundMessageSchema = z.discriminatedUnion("type", [
   WSPongMessageSchema,
   WSSessionOutboundSchema,
+  WSHelloRejectedMessageSchema,
 ]);
 
 export type WSInboundMessage = z.infer<typeof WSInboundMessageSchema>;

@@ -28,11 +28,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { EditingTextInputHandle } from "@/components/ui/text-input";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { useIsCompactFormFactor } from "@/constants/layout";
-import {
-  BottomSheetScrollView,
-  BottomSheetBackdrop,
-  BottomSheetBackgroundProps,
-} from "@gorhom/bottom-sheet";
+import { BottomSheetScrollView, BottomSheetBackgroundProps } from "@gorhom/bottom-sheet";
 import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
 import { useAppReducedMotion, withMotion } from "@/hooks/use-app-reduced-motion";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -949,18 +945,6 @@ interface MobileBodyProps {
 }
 
 function MobileComboboxBody(props: MobileBodyProps): ReactElement {
-  const renderBackdrop = useCallback(
-    (backdropProps: React.ComponentProps<typeof BottomSheetBackdrop>) => (
-      <BottomSheetBackdrop
-        {...backdropProps}
-        disappearsOnIndex={-1}
-        appearsOnIndex={0}
-        opacity={0.45}
-      />
-    ),
-    [],
-  );
-
   const comboboxTitleStyle = useMemo(
     () => [styles.comboboxTitle, { color: props.titleColor }],
     [props.titleColor],
@@ -992,7 +976,7 @@ function MobileComboboxBody(props: MobileBodyProps): ReactElement {
       enableDynamicSizing={false}
       onChange={props.handleSheetChange}
       onDismiss={props.handleSheetDismiss}
-      backdropComponent={renderBackdrop}
+      backdropOpacity={0.45}
       enablePanDownToClose
       backgroundComponent={ComboboxSheetBackground}
       handleIndicatorStyle={props.handleIndicatorStyle}

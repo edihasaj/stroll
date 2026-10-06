@@ -9,17 +9,14 @@ import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "r
 import type { ComponentProps, ReactElement, RefObject } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
-import { Pressable, StyleSheet as RNStyleSheet, Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 import type { PressableStateCallbackType } from "react-native";
 import { StyleSheet, useUnistyles, withUnistyles } from "react-native-unistyles";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { createNameId } from "mnemonic-id";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronDown, Folder, FolderPlus, GitBranch, GitPullRequest } from "lucide-react-native";
 import { Composer } from "@/composer";
-import { KeyboardTranslateView } from "@/components/keyboard-translate-view";
-import { ComposerViewport, ComposerViewportContent } from "@/composer/viewport";
-import { ScrollView } from "@/components/ui/scroll-view";
+import { ComposerDock } from "@/composer/dock";
 import { FileDropZone } from "@/components/file-drop/file-drop-zone";
 import {
   resolveComposerAttachmentSubmitFormat,
@@ -37,7 +34,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { TitlebarDragRegion } from "@/components/desktop/titlebar-drag-region";
 import { SidebarMenuToggle } from "@/components/headers/menu-header";
 import { ScreenHeader } from "@/components/headers/screen-header";
-import { HEADER_INNER_HEIGHT, MAX_CONTENT_WIDTH, useIsCompactFormFactor } from "@/constants/layout";
+import { useIsCompactFormFactor } from "@/constants/layout";
 import { useToast } from "@/contexts/toast-context";
 import { useAgentInputDraft } from "@/composer/draft/input-draft";
 import { useForgeSearchQuery } from "@/git/use-forge-search-query";
@@ -137,6 +134,8 @@ import {
 } from "./new-workspace-initial-context";
 import { buildNewWorkspaceProjectIconTargets } from "./new-workspace/project-icon-targets";
 import { useNewWorkspaceProjectPicker } from "./new-workspace/project-picker";
+import { ImportSessionButton } from "./new-workspace/import-session-button";
+import { useImportSession } from "@/hooks/use-import-session";
 import {
   buildTerminalsQueryKey,
   type ListTerminalsPayload,
@@ -312,6 +311,32 @@ function renderNewWorkspaceChatSuggestions(input: {
       testID="new-chat-hero-suggestions"
     />
   );
+}
+
+/** Import-session entry point, never shown in chat mode. Compact layouts get it at the top of
+ * the scroll content; wide layouts get it under the composer (matches the sidebar's own
+ * compact-vs-wide placement convention). Split out for the same complexity-budget reason as
+ * `renderNewWorkspaceScrollContent` above. */
+function renderImportSessionTopAction(input: {
+  isChatMode: boolean;
+  isCompact: boolean;
+  onImportSession: () => void;
+}): ReactElement | null {
+  if (input.isChatMode || !input.isCompact) return null;
+  return (
+    <View style={styles.compactTopActions}>
+      <ImportSessionButton compact={input.isCompact} onPress={input.onImportSession} />
+    </View>
+  );
+}
+
+function renderImportSessionBottomAction(input: {
+  isChatMode: boolean;
+  isCompact: boolean;
+  onImportSession: () => void;
+}): ReactElement | null {
+  if (input.isChatMode || input.isCompact) return null;
+  return <ImportSessionButton compact={input.isCompact} onPress={input.onImportSession} />;
 }
 
 /**
@@ -865,8 +890,13 @@ function IsolationPickerTrigger({
 
 // Wraps a single argument control in the mobile vertical stack. On desktop the
 // controls are laid out in one horizontal row, so no per-control wrapper is used.
+// Decorative padding must not block the dock background from iOS hit testing.
 function FormRow({ children }: { children: React.ReactNode }) {
-  return <View style={styles.row}>{children}</View>;
+  return (
+    <View style={styles.row} pointerEvents="box-none">
+      {children}
+    </View>
+  );
 }
 
 interface WorkspaceIsolationState {
@@ -914,13 +944,6 @@ function isolationLabel(t: TFunction, isolation: "local" | "worktree"): string {
   return isolation === "worktree"
     ? t("newWorkspace.isolation.worktree")
     : t("newWorkspace.isolation.local");
-}
-
-function getContentStyle(input: { isCompact: boolean; insetBottom: number }) {
-  if (input.isCompact) {
-    return [styles.content, styles.contentCompact, { paddingBottom: input.insetBottom }];
-  }
-  return [styles.content, styles.contentCentered, { paddingBottom: input.insetBottom }];
 }
 
 function normalizeBranchDetails(
@@ -1795,23 +1818,27 @@ function useNewWorkspaceFormStack(input: NewWorkspaceFormStackInput): ReactEleme
   );
 
   return isCompact ? (
-    <View testID="new-workspace-ref-picker-row" style={styles.formStack}>
+    <View testID="new-workspace-ref-picker-row" style={styles.formStack} pointerEvents="box-none">
       <FormRow>{projectControl}</FormRow>
       {hostControl ? <FormRow>{hostControl}</FormRow> : null}
       {isolationControl ? <FormRow>{isolationControl}</FormRow> : null}
       {baseControl ? <FormRow>{baseControl}</FormRow> : null}
       <FormRow>{launchControl}</FormRow>
       {/* Keep fixed stack height without separating the visible controls. */}
-      {isolationControl ? null : <View style={styles.baseSpacer} />}
-      {baseControl ? null : <View style={styles.baseSpacer} />}
+      {isolationControl ? null : <View style={styles.baseSpacer} pointerEvents="none" />}
+      {baseControl ? null : <View style={styles.baseSpacer} pointerEvents="none" />}
     </View>
   ) : (
-    <View testID="new-workspace-ref-picker-row" style={styles.formStackDesktop}>
+    <View
+      testID="new-workspace-ref-picker-row"
+      style={styles.formStackDesktop}
+      pointerEvents="box-none"
+    >
       {projectControl}
       {hostControl}
       {isolationControl}
       {baseControl}
-      <View style={styles.launchSpacer} />
+      <View style={styles.launchSpacer} pointerEvents="none" />
       {launchControl}
     </View>
   );
@@ -1829,7 +1856,6 @@ export function NewWorkspaceScreen({
   const queryClient = useQueryClient();
   const { theme } = useUnistyles();
   const { t } = useTranslation();
-  const insets = useSafeAreaInsets();
   const isCompact = useIsCompactFormFactor();
   const toast = useToast();
   const reducedMotion = useAppReducedMotion();
@@ -1928,6 +1954,13 @@ export function NewWorkspaceScreen({
     terminalSubmitLabel,
     launchFocusKey,
   } = useTerminalComposerState({ launchTarget, terminalProfiles, terminalPromptText });
+  const terminalTextSource = useMemo(
+    () => ({
+      getSnapshot: () => terminalComposerValue,
+      subscribe: (_listener: () => void) => () => {},
+    }),
+    [terminalComposerValue],
+  );
   const terminalTextReplacement = useMemo(
     () => ({ key: launchFocusKey, text: terminalComposerValue }),
     [launchFocusKey, terminalComposerValue],
@@ -2536,15 +2569,6 @@ export function NewWorkspaceScreen({
     ],
   );
 
-  const contentBottomInset = useMemo(
-    () => (isCompact ? insets.bottom : HEADER_INNER_HEIGHT + theme.spacing[6]),
-    [isCompact, insets.bottom, theme.spacing],
-  );
-  const contentStyle = useMemo(
-    () => getContentStyle({ isCompact, insetBottom: contentBottomInset }),
-    [isCompact, contentBottomInset],
-  );
-
   const agentControlsWithDisabled = useMemo(
     () =>
       composerState
@@ -2624,6 +2648,7 @@ export function NewWorkspaceScreen({
   });
 
   const screenHeaderLeft = useMemo(() => <SidebarMenuToggle />, []);
+  const importSession = useImportSession({ serverId: selectedServerId });
 
   // The hero's inline host name — a real picker (reusing the same handleSelectHost/
   // hostPickerOpen state the workspace-mode host badge uses) once more than one host
@@ -2660,7 +2685,6 @@ export function NewWorkspaceScreen({
   // `jsx-no-new-object-as-prop` lint rule.
   const chatComposerProps: ComponentProps<typeof Composer> = useMemo(
     () => ({
-      externalKeyboardShift: true,
       agentId: draftKey,
       serverId: selectedServerId,
       isPaneFocused: true,
@@ -2676,7 +2700,7 @@ export function NewWorkspaceScreen({
       waitForForgeAutoAttachOnSubmit: true,
       submitBehavior: "preserve-and-lock" as const,
       blurOnSubmit: true,
-      value: chatDraft.text,
+      textSource: chatDraft.textSource,
       onChangeText: chatDraft.editText,
       textReplacement: chatDraft.textReplacement,
       attachments: chatDraft.attachments,
@@ -2694,7 +2718,7 @@ export function NewWorkspaceScreen({
         workspace: launchFocusKey,
         chat: `chat:${chatSuggestionFocusKey}`,
       }),
-      commandDraftConfig: composerState?.commandDraftConfig,
+      commandDraft: composerState?.commandDraft,
       agentControls: agentControlsWithDisabled,
     }),
     [
@@ -2704,7 +2728,7 @@ export function NewWorkspaceScreen({
       isChatMode,
       t,
       isPending,
-      chatDraft.text,
+      chatDraft.textSource,
       chatDraft.editText,
       chatDraft.textReplacement,
       chatDraft.attachments,
@@ -2716,7 +2740,7 @@ export function NewWorkspaceScreen({
       handleClearDraft,
       launchFocusKey,
       chatSuggestionFocusKey,
-      composerState?.commandDraftConfig,
+      composerState?.commandDraft,
       agentControlsWithDisabled,
     ],
   );
@@ -2724,11 +2748,16 @@ export function NewWorkspaceScreen({
   return (
     <FileDropZone style={styles.container}>
       <ScreenHeader left={screenHeaderLeft} borderless />
-      <ComposerViewport style={contentStyle} bottomInset={contentBottomInset} centered={!isCompact}>
+      <View style={styles.content}>
         <TitlebarDragRegion />
-        <KeyboardTranslateView style={animatedStaticStyles.centered}>
-          <ComposerViewportContent style={animatedStaticStyles.form}>
-            <ScrollView style={animatedStaticStyles.setup} keyboardShouldPersistTaps="handled">
+        <ComposerDock centered={!isCompact}>
+          {[
+            <>
+              {renderImportSessionTopAction({
+                isChatMode,
+                isCompact,
+                onImportSession: importSession.open,
+              })}
               {renderNewWorkspaceScrollContent({
                 isChatMode,
                 chatHeroVisible,
@@ -2737,79 +2766,71 @@ export function NewWorkspaceScreen({
                 heroHostLabel,
                 heroHostPicker,
               })}
-            </ScrollView>
-            {resolveNewWorkspaceModeValue(isChatMode, {
-              workspace: isTerminalLaunch,
-              chat: false,
-            }) ? (
-              <Composer
-                key="terminal"
-                externalKeyboardShift
-                inputMode="terminal"
-                readOnly={!terminalTakesPrompt}
-                placeholder={terminalPlaceholder}
-                submitLabel={terminalSubmitLabel}
-                agentId={draftKey}
-                serverId={selectedServerId}
-                isPaneFocused={true}
-                onSubmitMessage={handleSubmitTerminalLaunch}
-                allowEmptySubmit={true}
-                submitButtonAccessibilityLabel={t("newWorkspace.launch.submit")}
-                submitButtonTestID="new-workspace-launch-submit"
-                isSubmitLoading={isPending}
-                submitBehavior="preserve-and-lock"
-                blurOnSubmit={true}
-                value={terminalComposerValue}
-                onChangeText={setTerminalPromptText}
-                textReplacement={terminalTextReplacement}
-                attachments={NO_TERMINAL_ATTACHMENTS}
-                onChangeAttachments={noopChangeAttachments}
-                cwd={selectedSourceDirectory ?? ""}
-                clearDraft={noopClearDraft}
-                autoFocus={terminalTakesPrompt}
-                autoFocusKey={launchFocusKey}
-              />
-            ) : (
-              <ChatComposerStack
-                isChatMode={isChatMode}
-                chatStripItems={chatStripItems}
-                allHosts={allHosts}
-                selectedServerId={selectedServerId}
-                onSelectHost={handleSelectHost}
-                stripHostPickerOpen={stripHostPickerOpen}
-                onStripHostPickerOpenChange={handleStripHostPickerOpenChange}
-                stripHostPickerAnchorRef={stripHostPickerAnchorRef}
-                composerProps={chatComposerProps}
-              />
-            )}
-            {renderNewWorkspaceChatSuggestions({
-              isChatMode,
-              chatHeroVisible,
-              disabled: isPending,
-              onSelect: handleSelectChatSuggestion,
-            })}
-            {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
-          </ComposerViewportContent>
-        </KeyboardTranslateView>
-      </ComposerViewport>
+            </>,
+            <>
+              {resolveNewWorkspaceModeValue(isChatMode, {
+                workspace: isTerminalLaunch,
+                chat: false,
+              }) ? (
+                <Composer
+                  key="terminal"
+                  inputMode="terminal"
+                  readOnly={!terminalTakesPrompt}
+                  placeholder={terminalPlaceholder}
+                  submitLabel={terminalSubmitLabel}
+                  agentId={draftKey}
+                  serverId={selectedServerId}
+                  isPaneFocused={true}
+                  onSubmitMessage={handleSubmitTerminalLaunch}
+                  allowEmptySubmit={true}
+                  submitButtonAccessibilityLabel={t("newWorkspace.launch.submit")}
+                  submitButtonTestID="new-workspace-launch-submit"
+                  isSubmitLoading={isPending}
+                  submitBehavior="preserve-and-lock"
+                  blurOnSubmit={true}
+                  textSource={terminalTextSource}
+                  onChangeText={setTerminalPromptText}
+                  textReplacement={terminalTextReplacement}
+                  attachments={NO_TERMINAL_ATTACHMENTS}
+                  onChangeAttachments={noopChangeAttachments}
+                  cwd={selectedSourceDirectory ?? ""}
+                  clearDraft={noopClearDraft}
+                  autoFocus={terminalTakesPrompt}
+                  autoFocusKey={launchFocusKey}
+                />
+              ) : (
+                <ChatComposerStack
+                  isChatMode={isChatMode}
+                  chatStripItems={chatStripItems}
+                  allHosts={allHosts}
+                  selectedServerId={selectedServerId}
+                  onSelectHost={handleSelectHost}
+                  stripHostPickerOpen={stripHostPickerOpen}
+                  onStripHostPickerOpenChange={handleStripHostPickerOpenChange}
+                  stripHostPickerAnchorRef={stripHostPickerAnchorRef}
+                  composerProps={chatComposerProps}
+                />
+              )}
+              {renderImportSessionBottomAction({
+                isChatMode,
+                isCompact,
+                onImportSession: importSession.open,
+              })}
+              {renderNewWorkspaceChatSuggestions({
+                isChatMode,
+                chatHeroVisible,
+                disabled: isPending,
+                onSelect: handleSelectChatSuggestion,
+              })}
+              {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
+            </>,
+          ]}
+        </ComposerDock>
+      </View>
+      {importSession.sheet}
     </FileDropZone>
   );
 }
-
-const animatedStaticStyles = RNStyleSheet.create({
-  centered: {
-    flexShrink: 1,
-    width: "100%",
-    maxWidth: MAX_CONTENT_WIDTH,
-  },
-  form: {
-    flexShrink: 1,
-  },
-  setup: {
-    flexGrow: 0,
-    flexShrink: 1,
-  },
-});
 
 const styles = StyleSheet.create((theme) => ({
   container: {
@@ -2820,13 +2841,12 @@ const styles = StyleSheet.create((theme) => ({
   content: {
     position: "relative",
     flex: 1,
-    alignItems: "center",
   },
-  contentCentered: {
-    justifyContent: "center",
-  },
-  contentCompact: {
-    justifyContent: "flex-end",
+  // Takes the free space above the setup fields, so its button sits at the top of the screen.
+  // The inset puts the ghost button's icon on the setup rows' icon rail.
+  compactTopActions: {
+    flex: 1,
+    paddingHorizontal: theme.spacing[3],
   },
   // The composer stack: context strip, then the composer card overlapping its bottom edge
   // (docs/design.md §16; mockup `.dock`/`.strip`/`.comp`).
@@ -2858,7 +2878,8 @@ const styles = StyleSheet.create((theme) => ({
   formStackDesktop: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: theme.spacing[8],
+    // Matches the gap between the composer and the Import session pill below it.
+    marginBottom: theme.spacing[4],
     // The badge adds its own left padding; offset it so the project icon's left
     // edge lands exactly on the "New workspace" title's left edge. The trailing
     // inset mirrors it so the launch chip stops on the composer's inner content

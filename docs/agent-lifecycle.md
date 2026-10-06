@@ -34,8 +34,8 @@ workflows all live in the CLI process, and the completion notification that woul
 agent never arrives. A runtime that dies mid-turn is reported by whatever is draining its stream, but
 between turns nothing is watching, so the agent sits at `idle` looking healthy while its background
 work is gone. Report that exit as a turn failure so the agent lands in `error` with a timeline entry.
-Only the Claude provider does this today; the others still report a death only when a turn happens to
-be in flight.
+Claude and OMP report exits between turns. OMP relaunches from its session file on the next prompt;
+the unfinished turn is lost.
 
 ### Cancellation
 
@@ -169,6 +169,13 @@ Running provider-native subagents contribute `running` to the workspace owned by
 A finished workspace can be marked unread after it has been reviewed. The daemon restores
 `finished` attention on its newest eligible workspace-root agent without sending a new completion
 notification. Opening the workspace clears that attention through the normal focus flow.
+
+Attention is set by the agent finishing or failing and cleared by the client's
+`workspace.clear_attention`, which fires when the user reads the chat. Loading an agent's runtime is
+neither, so resuming carries the stored attention and the stored last-activity time through
+untouched. Forging either makes a background resume look like the user read a workspace and like the
+agent worked in it just now, which rewrites the sidebar timestamp permanently — persisted
+`updatedAt` is what workspace `statusEnteredAt` is re-derived from on the next daemon start.
 
 ## The subagents track
 

@@ -11,7 +11,6 @@ import {
 } from "@/components/ui/menu";
 import { StatusRing } from "@/components/status-ring";
 import { STATUS_RING_HALO_INSET } from "@/components/status-ring/geometry";
-import { MAX_CONTENT_WIDTH } from "@/constants/layout";
 import { isWeb } from "@/constants/platform";
 import { getStatusDotColor } from "@/utils/status-dot-color";
 import { STATUS_INDICATOR_FILLED_DOT_SIZE } from "@/utils/status-indicator-geometry";
@@ -328,7 +327,7 @@ const styles = StyleSheet.create((theme) => {
     },
     track: {
       width: "100%",
-      maxWidth: MAX_CONTENT_WIDTH,
+      maxWidth: theme.contentMaxWidth,
       flexDirection: "row",
       // A full-width pill (the task progress card) forces a wrap onto the next line, so it
       // reads as its own row above the rest of the ambient pills. Auto-width pills never trigger

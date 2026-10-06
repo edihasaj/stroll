@@ -33,12 +33,13 @@ import {
 } from "@/components/sidebar-resize-handle-layout";
 import { HostPicker } from "@/components/hosts/host-picker";
 import { SidebarDisplayPreferencesMenu } from "@/components/sidebar/display-preferences/menu";
+import { SidebarSeparator } from "@/components/sidebar/sidebar-separator";
 import { SidebarNavRows } from "@/components/sidebar/sidebar-nav-rows";
 import { SidebarPanel } from "@/components/sidebar/sidebar-panel";
 import { SidebarRail } from "@/components/sidebar/sidebar-rail";
-import { SidebarSeparator } from "@/components/sidebar/sidebar-separator";
 import { SidebarHelpMenu } from "@/components/sidebar/sidebar-help-menu";
 import { SidebarResizeHandle } from "@/components/sidebar-resize-handle";
+import { buttonControlHeight } from "@/components/ui/control-geometry";
 import { Shortcut } from "@/components/ui/shortcut";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { HEADER_INNER_HEIGHT, useIsCompactFormFactor } from "@/constants/layout";
@@ -55,6 +56,9 @@ import { RetainedPanelActivity } from "@/components/retained-panel";
 import type { SidebarWorkspaceGroup } from "@/components/sidebar/sidebar-labels";
 import type { SidebarProjectIconTarget } from "@/utils/sidebar-project-row-model";
 import { type SidebarGroupMode, useSidebarViewStore } from "@/stores/sidebar-view-store";
+import { PluginSidebarItem } from "@/plugins/sidebar-items";
+import { builtinSidebarNavLabelKey } from "@/sidebar-nav/model";
+import { useSidebarNavItems } from "@/sidebar-nav/use-sidebar-nav-items";
 import { usePanelStore } from "@/stores/panel-store";
 import { deriveIdentityColorName, identityColor } from "@/styles/identity-colors";
 import { useOwnsWindowChromeCorner, WindowChromeSafeArea } from "@/utils/desktop-window";
@@ -62,6 +66,7 @@ import { useCloseAgentListGesture } from "@/mobile-panels/gestures";
 import { MobilePanelOverlay } from "@/mobile-panels/presentation";
 import { buildSettingsAddHostRoute, buildSettingsRoute } from "@/utils/host-routes";
 import { openHostOverview } from "@/navigation/settings-navigation";
+import { UsageSidebarItem, UsageSidebarRoot, useHasUsageSummary } from "@/usage";
 import { SidebarAgentListSkeleton } from "./sidebar-agent-list-skeleton";
 import { useActiveHostSummary } from "./sidebar/use-active-host-summary";
 import { SidebarWorkspaceList } from "./sidebar-workspace-list";
@@ -101,6 +106,7 @@ interface SidebarLabels {
   importSession: string;
   settings: string;
   searchHosts: string;
+  usage: string;
   closeSidebar: string;
 }
 
@@ -208,6 +214,7 @@ export const LeftSidebar = memo(function LeftSidebar({ active }: { active: boole
       importSession: t("importSession.title"),
       settings: t("sidebar.actions.settings"),
       searchHosts: t("sidebar.host.searchPlaceholder"),
+      usage: t(builtinSidebarNavLabelKey("usage")),
       closeSidebar: t("sidebar.actions.closeSidebar"),
     }),
     [t],
@@ -284,7 +291,7 @@ function FooterIconButton({
   testID,
   label,
   icon: Icon,
-  iconSize,
+  iconSizeAdjustment = 0,
   shortcutKeys,
   theme,
 }: {
@@ -292,17 +299,21 @@ function FooterIconButton({
   testID: string;
   label: string;
   icon: typeof FolderPlus;
-  iconSize?: number;
+  /** Only for a glyph that reads larger than the others at the same size. */
+  iconSizeAdjustment?: number;
   shortcutKeys?: ReturnType<typeof useShortcutKeys>;
   theme: SidebarTheme;
   buttonRef?: RefObject<View | null>;
 }) {
+  const isCompact = useIsCompactFormFactor();
+  const iconSize = isCompact ? theme.iconSize.lg : theme.iconSize.md;
+
   return (
     <Tooltip delayDuration={300}>
       <TooltipTrigger asChild>
         <Pressable
           ref={buttonRef}
-          style={styles.footerIconButton}
+          style={styles.footerIconButton(isCompact)}
           testID={testID}
           nativeID={testID}
           collapsable={false}
@@ -313,13 +324,13 @@ function FooterIconButton({
         >
           {({ hovered }) => (
             <Icon
-              size={iconSize ?? theme.iconSize.md}
+              size={iconSize + iconSizeAdjustment}
               color={hovered ? theme.colors.foreground : theme.colors.foregroundMuted}
             />
           )}
         </Pressable>
       </TooltipTrigger>
-      <TooltipContent side="top" align="center" offset={8}>
+      <TooltipContent side="top" align="center" offset={8} testID={`${testID}-tooltip`}>
         <IconTooltipContent label={label} shortcutKeys={shortcutKeys} />
       </TooltipContent>
     </Tooltip>
@@ -442,6 +453,7 @@ function SidebarFooter({
   handleAddHost,
   handleOpenHostSettings,
   rail = false,
+  onBeforeNavigate,
 }: {
   theme: SidebarTheme;
   handleImportSession: () => void;
@@ -452,42 +464,88 @@ function SidebarFooter({
     importSession: string;
     settings: string;
     searchHosts: string;
+    usage: string;
   };
   handleAddHost: () => void;
   handleOpenHostSettings: (serverId: string) => void;
   rail?: boolean;
+  onBeforeNavigate?: () => void;
 }) {
   const settingsKeys = useShortcutKeys("toggle-settings");
 
   // The footer's Import/Help/Settings buttons are already icon-only with a
   // tooltip in every mode, so only the layout direction and the identity
-  // trigger (avatar + host name) need to change for rail.
+  // trigger (avatar + host name) need to change for rail. Footer plugin items
+  // and the Usage summary (#5685) render above the icon line, in the user's
+  // `sidebarFooterItems` order.
   return (
-    <View style={rail ? styles.sidebarFooterRail : styles.sidebarFooter}>
-      <SidebarFooterIdentity
-        onAddHost={handleAddHost}
-        onOpenHostSettings={handleOpenHostSettings}
-        rail={rail}
-      />
-      <View style={rail ? styles.footerIconRowRail : styles.footerIconRow}>
-        <FooterIconButton
-          onPress={handleImportSession}
-          testID="sidebar-import-session"
-          label={labels.importSession}
-          icon={Import}
-          theme={theme}
-        />
-        <SidebarHelpMenu />
-        <FooterIconButton
-          onPress={handleSettings}
-          testID="sidebar-settings"
-          label={labels.settings}
-          icon={Settings}
-          shortcutKeys={settingsKeys}
-          theme={theme}
-        />
+    <UsageSidebarRoot>
+      <View testID="sidebar-footer">
+        <SidebarFooterRows onBeforeNavigate={onBeforeNavigate} />
+        <View
+          style={rail ? styles.sidebarFooterRail : styles.sidebarFooter}
+          testID="sidebar-footer-bottom-line"
+        >
+          <SidebarFooterIdentity
+            onAddHost={handleAddHost}
+            onOpenHostSettings={handleOpenHostSettings}
+            rail={rail}
+          />
+          <View style={rail ? styles.footerIconRowRail : styles.footerIconRow}>
+            <FooterIconButton
+              onPress={handleImportSession}
+              testID="sidebar-import-session"
+              label={labels.importSession}
+              icon={Import}
+              theme={theme}
+            />
+            <SidebarHelpMenu />
+            <FooterIconButton
+              onPress={handleSettings}
+              testID="sidebar-settings"
+              label={labels.settings}
+              icon={Settings}
+              shortcutKeys={settingsKeys}
+              theme={theme}
+            />
+          </View>
+        </View>
       </View>
-    </View>
+    </UsageSidebarRoot>
+  );
+}
+
+/**
+ * The footer rows in the user's `sidebarFooterItems` order: the Usage item and plugin rows. The
+ * Usage item is left out while it has no summary to show.
+ */
+function SidebarFooterRows({ onBeforeNavigate }: { onBeforeNavigate?: () => void }) {
+  const { items } = useSidebarNavItems("footer");
+  const hasUsageSummary = useHasUsageSummary();
+  const rowsRef = useRef<View | null>(null);
+  const visibleItems = items.filter(
+    (item) => item.visible && (item.kind === "plugin" || hasUsageSummary),
+  );
+  if (visibleItems.length === 0) return null;
+  return (
+    <>
+      <View ref={rowsRef} collapsable={false} style={styles.footerRows}>
+        {visibleItems.map((item) =>
+          item.kind === "plugin" ? (
+            <PluginSidebarItem
+              key={item.key}
+              group={item.group}
+              section="footer"
+              fallbackAnchorRef={rowsRef}
+              onBeforeNavigate={onBeforeNavigate}
+            />
+          ) : (
+            <UsageSidebarItem key={item.key} />
+          ),
+        )}
+      </View>
+      <SidebarSeparator testID="sidebar-footer-separator" />
+    </>
   );
 }
 
@@ -545,7 +603,11 @@ function MobileSidebar({
         <WindowChromeSafeArea placement="below" />
         <SidebarNavRows style={styles.sidebarHeaderGroup} onBeforeNavigate={closeSidebar} />
         <SidebarSeparator />
-        <WindowChromeSafeArea placement="inline" style={styles.mobileCloseButtonRow}>
+        <WindowChromeSafeArea
+          placement="inline"
+          pointerEvents="box-none"
+          style={styles.mobileCloseButtonRow}
+        >
           <Pressable
             style={styles.mobileCloseButton}
             onPress={closeSidebar}
@@ -598,6 +660,7 @@ function MobileSidebar({
           labels={labels}
           handleAddHost={handleAddHost}
           handleOpenHostSettings={handleOpenHostSettings}
+          onBeforeNavigate={closeSidebar}
         />
       </View>
     </MobilePanelOverlay>
@@ -886,7 +949,6 @@ const styles = StyleSheet.create((theme) => ({
     right: 0,
     zIndex: 2,
     alignItems: "flex-end",
-    pointerEvents: "box-none",
   },
   mobileCloseButton: {
     // The 16px X paints farther inside its 32px hit target than the 14px Settings2 glyph.
@@ -962,6 +1024,7 @@ const styles = StyleSheet.create((theme) => ({
     borderTopWidth: 1,
     borderTopColor: theme.colors.borderDivider,
   },
+  // Buttons sit edge to edge; their own inset spaces the glyphs.
   footerIconRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -1012,14 +1075,20 @@ const styles = StyleSheet.create((theme) => ({
     fontWeight: theme.fontWeight.normal,
     color: theme.colors.foreground,
   },
-  footerIconButton: {
-    width: 28,
-    height: 28,
+  // Usage and plugin rows sit above the footer's icon line, spaced like the header nav rows.
+  footerRows: {
+    paddingHorizontal: theme.spacing[2],
+    paddingVertical: theme.spacing[1.5],
+    gap: 2,
+  },
+  footerIconButton: (isCompact: boolean) => ({
+    width: isCompact ? buttonControlHeight.md : buttonControlHeight.xs,
+    height: isCompact ? buttonControlHeight.md : buttonControlHeight.xs,
     alignItems: "center",
     justifyContent: "center",
     paddingVertical: theme.spacing[1],
     paddingHorizontal: theme.spacing[1],
-  },
+  }),
   tooltipRow: {
     flexDirection: "row",
     alignItems: "center",

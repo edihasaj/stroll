@@ -40,7 +40,7 @@ let latestResult: ComposerHeightResult | null = null;
 function Harness({ value }: { value: string }) {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   latestResult = useComposerHeight({
-    value,
+    getText: () => value,
     textareaRef,
     minHeight: MIN_HEIGHT,
     maxHeight: MAX_HEIGHT,

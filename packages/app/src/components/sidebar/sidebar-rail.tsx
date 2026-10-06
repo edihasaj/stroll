@@ -17,7 +17,7 @@ import { SidebarMoreMenu } from "@/components/sidebar/sidebar-more-menu";
 import { useActiveHostSummary } from "@/components/sidebar/use-active-host-summary";
 import { SIDEBAR_RAIL_WIDTH } from "@/components/desktop-sidebar-layout";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { PluginSidebarItemRow } from "@/plugins/sidebar-items";
+import { LegacyPluginSidebarRow } from "@/plugins/sidebar-items/legacy";
 import { builtinSidebarNavLabelKey, builtinSidebarNavShortcutAction } from "@/sidebar-nav/model";
 import { useSidebarNavItems } from "@/sidebar-nav/use-sidebar-nav-items";
 import { useShortcutKeys } from "@/hooks/use-shortcut-keys";
@@ -32,10 +32,13 @@ const foregroundMutedColorMapping = (theme: Theme) => ({ color: theme.colors.for
 
 /**
  * The desktop sidebar's 52px icon rail (Codex parity). Fixed, always-real routes — Chats,
- * Projects, Schedules — plus plugin-contributed items, a `•••` overflow for History/Import/Help,
- * and Settings pinned to the bottom. Visibility for the configurable builtins (Schedules in the
- * rail, History inside the overflow) comes from the same `sidebarNavItems` preference the old
- * top-of-sidebar nav rows read — see `sidebar-rail-model.ts`.
+ * Projects, Schedules — plus legacy `addSidebarItem` plugin rows (the only plugin sidebar item
+ * shape with a single icon), a `•••` overflow for History/Import/Help, and Settings pinned to
+ * the bottom. A current-shape `addSidebarHeaderItem`/`addSidebarFooterItem` plugin item renders
+ * an arbitrary full-width component and has no rail icon; `sidebar-rail-model.ts` filters those
+ * out. Visibility for the configurable builtins (Schedules in the rail, History inside the
+ * overflow) comes from the same `sidebarNavItems` preference the old top-of-sidebar nav rows
+ * read — see `sidebar-rail-model.ts`.
  */
 export function SidebarRail({
   style,
@@ -48,7 +51,7 @@ export function SidebarRail({
 }) {
   const { t } = useTranslation();
   const pathname = usePathname();
-  const { items } = useSidebarNavItems();
+  const { items } = useSidebarNavItems("header");
   const derived = useMemo(() => deriveSidebarRailItems(items), [items]);
   const { serverId: activeServerId } = useActiveHostSummary();
   const settingsShortcut = useShortcutKeys("toggle-settings");
@@ -109,7 +112,7 @@ export function SidebarRail({
       ) : null}
 
       {derived.pluginItems.map((group) => (
-        <PluginSidebarItemRow key={group.key} group={group} rail />
+        <LegacyPluginSidebarRow key={group.key} group={group} rail />
       ))}
 
       <SidebarMoreMenu

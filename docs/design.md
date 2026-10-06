@@ -237,7 +237,7 @@ Terminology:
 
 Loading is inline by default. `<LoadingSpinner size={14} color={foregroundMuted} />` sits next to the thing it relates to (`packages/app/src/screens/settings/providers-section.tsx:227-231`). Page-level loading is a centered `<LoadingSpinner size="large">` (`packages/app/src/screens/sessions-screen.tsx:69-72`). Card-level loading is a single short line, not a spinner. In-row dropdown items use `<DropdownMenuItem status="pending" pendingLabel="Removing...">`; the menu item handles its own pending state.
 
-Empty states are short noun phrases. Centered, muted, one or two lines. Sessions screen pairs the empty noun with a single ghost button to navigate back (`packages/app/src/screens/sessions-screen.tsx:74-81`); that pairing is the maximum elaboration. Illustrations and CTAs disguised as empty states are wrong.
+Screen-level empty states use a centered, muted noun phrase and at most one ghost button (`packages/app/src/screens/sessions-screen.tsx`). Sidebar list empty states use a quiet bordered card with a left-aligned `sm` title, a muted `sm` description, and `xs` `<Button>` actions. Use `secondary` for the primary action and `outline` for a secondary action (`packages/app/src/components/sidebar/empty-states.tsx`). Keep both forms short and free of illustrations.
 
 Inline errors are a single sentence in `palette.red[300]` `xs`, sitting under the field or inside the card it relates to (`packages/app/src/screens/settings/providers-section.tsx:115-119`).
 
@@ -261,7 +261,7 @@ Changing state must not move the layout. A row that grows when its badge arrives
 
 The row anatomy is a content column with an optional trailing slot. Inside a card the row is `settingsStyles.row`. Inside a sidebar list the row carries its own padding and `borderRadius.md` per item (`packages/app/src/components/sidebar-workspace-list.tsx:2694-2705`).
 
-Rows that drill into a detail lead with a chevron in the trailing slot (`ChevronRight`, `iconSize.sm`, `foregroundMuted`). The whole row is the `<Pressable>`. Pair-device row (`packages/app/src/screens/settings/host-page.tsx:644-668`), provider row (`packages/app/src/screens/settings/providers-section.tsx:92-132`), project row in the projects list. Chevron means navigation.
+Rows that drill into a detail lead with a chevron in the trailing slot (`ChevronRight`, `iconSize.sm`, `foregroundMuted`). The whole row is the `<Pressable>`. Pair-device row (`packages/app/src/screens/settings/host-page.tsx:644-668`), provider row (`packages/app/src/screens/settings/providers-section.tsx:92-132`), project row in the projects list. A fixed right chevron means navigation. An expandable row uses a trailing right chevron that rotates down when expanded (`SettingsCollapsibleRow`); pressing the row reveals its child rows in place.
 
 The chat timeline's tool-call activity row (`ExpandableBadge` with `activitySummary`, `packages/app/src/components/message.tsx`) is a row that expands in place rather than navigating, and it is quieter than the rest of this section: the leading glyph and trailing chevron are both fixed — neither swaps for the other on hover, unlike the default tool-call badge — and the sentence stays `foregroundExtraMuted` at 13.5px at rest (Codex parity; one step quieter than the app's usual `foregroundMuted` metadata tier). Hover and expanded state paint with `interactionHighlight` on the row background instead of a border or a solid fill. Use this shape for a row that summarizes a group and expands inline; the drill-down chevron above is for rows that navigate away.
 

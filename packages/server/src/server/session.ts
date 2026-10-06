@@ -1,6 +1,11 @@
+import { searchTimeline } from "./agent/chat-search/index.js";
 import type { BrowserToolsBroker } from "./browser-tools/broker.js";
 import { BrowserAutomationHostCapabilitySchema } from "@getpaseo/protocol/browser-automation/capabilities";
-import type { SessionEventSubscription } from "@getpaseo/protocol/messages";
+import type {
+  SessionEventSubscription,
+  UsageReportEntry,
+  ProviderUsage,
+} from "@getpaseo/protocol/messages";
 import { relative } from "node:path";
 import { isAbsolute } from "node:path";
 import { CreationService } from "./creation/index.js";
@@ -21,6 +26,7 @@ import {
   type FirstAgentContext,
   type SessionInboundMessage,
   type SessionOutboundMessage,
+  type ScriptStatusUpdateMessage,
   type GitSetupOptions,
   type StartWorkspaceScriptRequest,
   type WorkspaceScriptListRequest,
@@ -42,12 +48,13 @@ import type { TerminalActivity } from "@getpaseo/protocol/terminal-activity";
 import type { BinaryFrame } from "@getpaseo/protocol/binary-frames/index";
 import { CursorError } from "./pagination/cursor.js";
 import { SortablePager, type SortSpec } from "./pagination/sortable-pager.js";
-import { describeAgentHistoryMatches, rankAgentHistoryCandidates } from "./agent-history-search.js";
+import { matchesAgentHistoryQuery } from "./agent-history-search.js";
 import type { SpeechToTextProvider, TextToSpeechProvider } from "./speech/speech-provider.js";
 import type { TurnDetectionProvider } from "./speech/turn-detection-provider.js";
 import {
   buildConfigOverrides,
   isStoredAgentProviderAvailable,
+  resolveStoredAgentUpdatedAt,
   toAgentPersistenceHandle,
 } from "./persistence-hooks.js";
 import { ensureAgentLoaded, ensureUnarchivedAgentLoaded } from "./agent/agent-loading.js";
@@ -120,11 +127,7 @@ import {
   setAgentModeCommand,
   updateAgentCommand,
 } from "./agent/lifecycle-command.js";
-import {
-  buildStoredAgentPayload,
-  resolveStoredAgentPayloadUpdatedAt,
-  toAgentPayload,
-} from "./agent/agent-projections.js";
+import { buildStoredAgentPayload, toAgentPayload } from "./agent/agent-projections.js";
 import {
   appendTimelineItemIfAgentKnown,
   emitLiveTimelineItemIfAgentKnown,
@@ -185,6 +188,7 @@ import {
 } from "./session/checkout/git-metadata-generator.js";
 import { ScheduleSession } from "./session/schedule/schedule-session.js";
 import { ProviderCatalogSession } from "./session/provider/provider-catalog-session.js";
+import { UsageSession } from "./session/usage/usage-session.js";
 import { WorkspaceFilesSession } from "./session/files/workspace-files-session.js";
 import { AgentConfigSession } from "./session/agent-config/agent-config-session.js";
 import { ProjectConfigSession } from "./session/project-config/project-config-session.js";
@@ -236,7 +240,6 @@ import {
   type GitHubService,
 } from "../services/github-service.js";
 import type { ForgeService } from "../services/forge-service.js";
-import type { ProviderUsageService } from "../services/quota-fetcher/service.js";
 import {
   resolveWorkspaceRootAgent,
   summarizeFetchWorkspacesEntries,
@@ -460,6 +463,7 @@ export interface SessionOptions {
   getTransportBufferedAmount?: (source?: object) => number | null;
   onLifecycleIntent?: (intent: SessionLifecycleIntent) => void;
   onWorkspaceRecovered?: (workspace: PersistedWorkspaceRecord) => Promise<void>;
+  publishScriptStatusUpdate?: (message: ScriptStatusUpdateMessage) => void;
   logger: pino.Logger;
   downloadTokenStore: DownloadTokenStore;
   pushNotifications: PushNotifications;
@@ -487,7 +491,7 @@ export interface SessionOptions {
   pluginRuntime?: {
     before: import("./plugins/lifecycle/index.js").PluginLifecycle["before"];
     emit: import("./plugins/lifecycle/index.js").PluginLifecycle["emit"];
-    listPlugins(): import("@getpaseo/protocol/messages").PluginListItem[];
+    listPlugins(): Promise<import("@getpaseo/protocol/messages").PluginListItem[]>;
     getLogs(pluginId: string): import("@getpaseo/protocol/messages").PluginLogEntry[];
     installDirectory(input: {
       path: string;
@@ -502,6 +506,13 @@ export interface SessionOptions {
     statusSources(
       pluginId?: string,
     ): Promise<import("@getpaseo/protocol/messages").PluginSourceStatusItem[]>;
+    previewUpdates(input: {
+      pluginId?: string;
+      target?: import("@getpaseo/protocol/messages").PluginUpdateSelection;
+    }): Promise<import("@getpaseo/protocol/messages").PluginUpdatePreview[]>;
+    applyUpdates(
+      proposals: import("@getpaseo/protocol/messages").PluginUpdateProposal[],
+    ): Promise<import("@getpaseo/protocol/messages").PluginUpdateResult[]>;
     updateSources(
       pluginId?: string,
     ): Promise<import("@getpaseo/protocol/messages").PluginSourceUpdateItem[]>;
@@ -513,6 +524,11 @@ export interface SessionOptions {
     subscribeSettings?(listener: (pluginId: string, settingsId: string) => void): () => void;
     catalog(): Array<{ id: string; clientBundle: string }>;
     invokePluginRpc(pluginId: string, method: string, input: unknown): Promise<unknown>;
+    listUsageReports(options?: {
+      forceRefresh?: boolean;
+      reportIds?: string[];
+    }): Promise<UsageReportEntry[]>;
+    listLegacyUsage(): Promise<{ fetchedAt: string; providers: ProviderUsage[] }>;
   };
   orchestrationSkills?: import("./orchestration-skills/index.js").OrchestrationSkills;
   mcpBaseUrl?: string | null;
@@ -521,7 +537,6 @@ export interface SessionOptions {
   tts: Resolvable<TextToSpeechProvider | null>;
   terminalManager: TerminalManager | null;
   providerSnapshotManager: ProviderSnapshotManager;
-  providerUsageService: ProviderUsageService;
   providerAccounts?: ProviderAccountService;
   hubExecutionAgents?: HubExecutionAgents;
   hubRelationships?: HubRelationshipManagement;
@@ -791,6 +806,7 @@ export class Session {
   private readonly scheduleSession: ScheduleSession;
   private readonly providerCatalogSession: ProviderCatalogSession;
   private readonly providerAccountSession: ProviderAccountSession;
+  private readonly usageSession: UsageSession;
   private readonly workspaceFilesSession: WorkspaceFilesSession;
   private readonly agentConfigSession: AgentConfigSession;
   private readonly projectConfigSession: ProjectConfigSession;
@@ -815,6 +831,7 @@ export class Session {
       getTransportBufferedAmount,
       onLifecycleIntent,
       onWorkspaceRecovered,
+      publishScriptStatusUpdate,
       logger,
       downloadTokenStore,
       pushNotifications,
@@ -841,7 +858,6 @@ export class Session {
       tts,
       terminalManager,
       providerSnapshotManager,
-      providerUsageService,
       providerAccounts,
       serviceProxy,
       scriptRuntimeStore,
@@ -924,6 +940,7 @@ export class Session {
       workspaceRegistry: this.workspaceRegistry,
       projectRegistry: this.projectRegistry,
       workspaceGitService: this.workspaceGitService,
+      isDirectory: (path) => this.filesystem.isDirectory(path),
       logger: this.sessionLogger,
     });
     this.workspaceRecovery = createWorkspaceRecoveryService({
@@ -1005,7 +1022,11 @@ export class Session {
         listDraftFeatures: (config) => this.agentManager.listDraftFeatures(config),
       },
       providerSnapshotManager,
-      providerUsageService,
+      logger: this.sessionLogger,
+    });
+    this.usageSession = new UsageSession({
+      emit: (msg) => this.emit(msg),
+      runtime: pluginRuntime,
       logger: this.sessionLogger,
     });
     this.providerAccountSession = new ProviderAccountSession({
@@ -1160,9 +1181,13 @@ export class Session {
       serviceProxyPublicBaseUrl: this.serviceProxyPublicBaseUrl,
       resolveScriptHealth: this.resolveScriptHealth,
       logger: this.sessionLogger,
-      emit: (message) => this.handleWorkspaceScriptsEmission(message),
+      emit: (message) => this.emit(message),
+      publishStatusUpdate: (message) => {
+        if (publishScriptStatusUpdate) publishScriptStatusUpdate(message);
+        else this.emit(message);
+        this.queueWorkspaceServiceUpdate(message.payload.workspaceId);
+      },
       spawnWorkspaceScript,
-      wantsStatusUpdates: () => this.wantsEvent("script_status_update"),
       assertAutomationAllowed: (workspaceId) =>
         assertWorkspaceAutomationAllowedForWorkspace(this.workspaceRegistry, workspaceId),
       globalServicePorts: loadPersistedConfig(this.paseoHome).worktrees?.servicePorts,
@@ -2396,11 +2421,13 @@ export class Session {
 
   private dispatchPluginMessage(msg: SessionInboundMessage): Promise<void> | undefined {
     if (msg.type === "plugin.list.request") {
-      this.emit({
-        type: "plugin.list.response",
-        payload: { requestId: msg.requestId, plugins: this.pluginRuntime?.listPlugins() ?? [] },
+      return (this.pluginRuntime?.listPlugins() ?? Promise.resolve([])).then((plugins) => {
+        this.emit({
+          type: "plugin.list.response",
+          payload: { requestId: msg.requestId, plugins },
+        });
+        return undefined;
       });
-      return undefined;
     }
     if (msg.type === "plugin.logs.get.request") {
       if (!this.pluginRuntime) throw new Error("Plugin service is unavailable");
@@ -2499,6 +2526,28 @@ export class Session {
       return this.pluginRuntime.statusSources(msg.pluginId).then((plugins) => {
         this.emit({
           type: "plugin.source.status.response",
+          payload: { requestId: msg.requestId, plugins },
+        });
+        return undefined;
+      });
+    }
+    if (msg.type === "plugin.source.update.preview.request") {
+      if (!this.pluginRuntime) throw new Error("Plugin service is unavailable");
+      return this.pluginRuntime
+        .previewUpdates({ pluginId: msg.pluginId, target: msg.target })
+        .then((plugins) => {
+          this.emit({
+            type: "plugin.source.update.preview.response",
+            payload: { requestId: msg.requestId, plugins },
+          });
+          return undefined;
+        });
+    }
+    if (msg.type === "plugin.source.update.apply.request") {
+      if (!this.pluginRuntime) throw new Error("Plugin service is unavailable");
+      return this.pluginRuntime.applyUpdates(msg.proposals).then((plugins) => {
+        this.emit({
+          type: "plugin.source.update.apply.response",
           payload: { requestId: msg.requestId, plugins },
         });
         return undefined;
@@ -2622,6 +2671,8 @@ export class Session {
         return this.handleFetchAgentTimelineRequest(msg, source);
       case "agent.timeline.append.request":
         return this.handleAgentTimelineAppendRequest(msg);
+      case "agent.timeline.search.request":
+        return this.handleAgentTimelineSearchRequest(msg, source);
       case "agent.timeline.list_prompts.request":
         return this.handleAgentTimelineListPromptsRequest(msg, source);
       case "agent.provider_subagents.list.request":
@@ -3009,7 +3060,9 @@ export class Session {
       case "provider_diagnostic_request":
         return this.providerCatalogSession.handleProviderDiagnosticRequest(msg);
       case "provider.usage.list.request":
-        return this.providerCatalogSession.handleProviderUsageListRequest(msg);
+        return this.usageSession.handleLegacyList(msg);
+      case "usage.list_reports.request":
+        return this.usageSession.handleListReports(msg);
       case "provider.account.list.request":
         return this.providerAccountSession.handleList(msg);
       case "provider.account.create.request":
@@ -3362,8 +3415,8 @@ export class Session {
         return candidate;
       }
       const updatedDelta =
-        Date.parse(resolveStoredAgentPayloadUpdatedAt(candidate)) -
-        Date.parse(resolveStoredAgentPayloadUpdatedAt(latest));
+        Date.parse(resolveStoredAgentUpdatedAt(candidate)) -
+        Date.parse(resolveStoredAgentUpdatedAt(latest));
       if (updatedDelta !== 0) {
         return updatedDelta > 0 ? candidate : latest;
       }
@@ -5238,10 +5291,10 @@ export class Session {
 
   private async resolveAgentIdentifier(
     identifier: string,
-  ): Promise<{ ok: true; agentId: string } | { ok: false; error: string }> {
+  ): Promise<{ ok: true; agentId: string } | { ok: false; notFound: boolean; error: string }> {
     const trimmed = identifier.trim();
     if (!trimmed) {
-      return { ok: false, error: "Agent identifier cannot be empty" };
+      return { ok: false, notFound: false, error: "Agent identifier cannot be empty" };
     }
 
     const stored = await this.agentStorage.list();
@@ -5265,6 +5318,7 @@ export class Session {
     if (prefixMatches.length > 1) {
       return {
         ok: false,
+        notFound: false,
         error: `Agent identifier "${trimmed}" is ambiguous (${prefixMatches
           .slice(0, 5)
           .map((id) => id.slice(0, 8))
@@ -5279,6 +5333,7 @@ export class Session {
     if (titleMatches.length > 1) {
       return {
         ok: false,
+        notFound: false,
         error: `Agent title "${trimmed}" is ambiguous (${titleMatches
           .slice(0, 5)
           .map((r) => r.id.slice(0, 8))
@@ -5286,7 +5341,7 @@ export class Session {
       };
     }
 
-    return { ok: false, error: `Agent not found: ${trimmed}` };
+    return { ok: false, notFound: true, error: `Agent not found: ${trimmed}` };
   }
 
   private async getAgentPayloadById(agentId: string): Promise<AgentSnapshotPayload | null> {
@@ -5368,8 +5423,9 @@ export class Session {
     limit: number;
     getPlacement: (workspaceId: string | undefined) => Promise<ProjectPlacementPayload | null>;
     filter: AgentUpdatesFilter | undefined;
+    search?: string;
   }): Promise<FetchAgentsResponseEntry[]> {
-    const { candidates, limit, getPlacement, filter } = params;
+    const { candidates, limit, getPlacement, filter, search } = params;
     const matchedEntries: FetchAgentsResponseEntry[] = [];
     const batchSize = 25;
     for (
@@ -5397,6 +5453,7 @@ export class Session {
         ) {
           continue;
         }
+        if (search && !matchesAgentHistoryQuery(search, entry)) continue;
         matchedEntries.push(entry);
         if (matchedEntries.length > limit) {
           break;
@@ -5455,17 +5512,6 @@ export class Session {
     };
 
     const search = agentDirectorySearchQuery(request);
-    if (search) {
-      return this.listRankedAgentHistoryEntries({
-        search,
-        agents,
-        sort,
-        filter,
-        getPlacement,
-        page: request.page,
-      });
-    }
-
     let candidates = [...agents];
     candidates.sort((left, right) => this.agentsPager.compare(left, right, sort));
     const cursorToken = request.page?.cursor;
@@ -5483,6 +5529,7 @@ export class Session {
       limit,
       getPlacement,
       filter,
+      search,
     });
 
     const pagedEntries = matchedEntries.slice(0, limit);
@@ -5499,64 +5546,6 @@ export class Session {
         prevCursor: request.page?.cursor ?? null,
         hasMore,
       },
-    };
-  }
-
-  /**
-   * The searched history page. Ranking has to see every candidate before it can
-   * name the best one, so this path resolves placements for the whole set
-   * instead of stopping at the page limit — that is what makes a query answer
-   * from all persisted sessions rather than from the first page of them.
-   */
-  private async listRankedAgentHistoryEntries(params: {
-    search: string;
-    agents: AgentSnapshotPayload[];
-    sort: FetchAgentsRequestSort[];
-    filter: AgentUpdatesFilter | undefined;
-    getPlacement: (workspaceId: string | undefined) => Promise<ProjectPlacementPayload | null>;
-    page: AgentDirectoryRequestMessage["page"];
-  }): Promise<{
-    entries: FetchAgentsResponseEntry[];
-    pageInfo: FetchAgentsResponsePageInfo;
-    searchTruncated: boolean;
-  }> {
-    const { search, agents, sort, filter, getPlacement, page } = params;
-    if (page?.cursor) {
-      // A ranked result set has no pages to walk, so a cursor here is caller
-      // misuse. Returning the ranked head instead would hide it.
-      throw new SessionRequestError(
-        "invalid_cursor",
-        "A history search returns one ranked page; it cannot be paged with a cursor.",
-      );
-    }
-
-    const allEntries = await this.collectFetchAgentsEntries({
-      candidates: agents,
-      limit: Number.MAX_SAFE_INTEGER,
-      getPlacement,
-      filter,
-    });
-
-    const ranked = rankAgentHistoryCandidates(search, allEntries, (left, right) =>
-      this.agentsPager.compare(left.agent, right.agent, sort),
-    );
-
-    const limit = page?.limit ?? 200;
-    // Ranges are derived only for the rows that will be rendered; ranking
-    // itself never needs them.
-    const entries = ranked.slice(0, limit).map((result) =>
-      Object.assign({}, result.candidate, {
-        searchScore: result.searchScore,
-        searchMatches: describeAgentHistoryMatches(search, result.candidate),
-      }),
-    );
-
-    return {
-      entries,
-      // No next page exists, so `hasMore` is false and truncation is reported
-      // on its own field. See the note on rankAgentHistoryCandidates.
-      pageInfo: { nextCursor: null, prevCursor: null, hasMore: false },
-      searchTruncated: ranked.length > limit,
     };
   }
 
@@ -7318,13 +7307,6 @@ export class Session {
     void this.emitWorkspaceServiceUpdate(workspaceId);
   }
 
-  private handleWorkspaceScriptsEmission(message: SessionOutboundMessage): void {
-    this.emit(message);
-    if (message.type === "script_status_update") {
-      this.queueWorkspaceServiceUpdate(message.payload.workspaceId);
-    }
-  }
-
   private createWorkspaceServiceInventory(
     runtime: WorkspaceServiceRuntime | undefined,
   ): WorkspaceServiceInventory {
@@ -7474,7 +7456,6 @@ export class Session {
         emit: (message) => this.emit(message),
         sessionLogger: this.sessionLogger,
         terminalManager: this.terminalManager,
-        archiveWorkspaceRecord: (workspaceId) => this.archiveWorkspaceRecord(workspaceId),
         serviceProxy: this.serviceProxy,
         scriptRuntimeStore: this.scriptRuntimeStore,
         getDaemonTcpPort: this.getDaemonTcpPort,
@@ -7544,7 +7525,6 @@ export class Session {
         emit: (message) => this.emit(message),
         sessionLogger: this.sessionLogger,
         terminalManager: this.terminalManager,
-        archiveWorkspaceRecord: (workspaceId) => this.archiveWorkspaceRecord(workspaceId),
         serviceProxy: this.serviceProxy,
         scriptRuntimeStore: this.scriptRuntimeStore,
         getDaemonTcpPort: this.getDaemonTcpPort,
@@ -7820,11 +7800,17 @@ export class Session {
   }
 
   private async handleFetchAgent(agentIdOrIdentifier: string, requestId: string): Promise<void> {
+    // An unknown agent is a null agent, not an error. Errors are for empty or ambiguous identifiers.
     const resolved = await this.resolveAgentIdentifier(agentIdOrIdentifier);
     if (!resolved.ok) {
       this.emit({
         type: "fetch_agent_response",
-        payload: { requestId, agent: null, project: null, error: resolved.error },
+        payload: {
+          requestId,
+          agent: null,
+          project: null,
+          error: resolved.notFound ? null : resolved.error,
+        },
       });
       return;
     }
@@ -7833,12 +7819,7 @@ export class Session {
     if (!agent) {
       this.emit({
         type: "fetch_agent_response",
-        payload: {
-          requestId,
-          agent: null,
-          project: null,
-          error: `Agent not found: ${resolved.agentId}`,
-        },
+        payload: { requestId, agent: null, project: null, error: null },
       });
       return;
     }
@@ -7991,6 +7972,59 @@ export class Session {
       type: "agent.timeline.append.response",
       payload: { requestId: msg.requestId, seq, epoch },
     });
+  }
+
+  private async handleAgentTimelineSearchRequest(
+    msg: Extract<SessionInboundMessage, { type: "agent.timeline.search.request" }>,
+    source?: object,
+  ): Promise<void> {
+    try {
+      await ensureAgentLoaded(msg.agentId, {
+        agentManager: this.agentManager,
+        agentStorage: this.agentStorage,
+        logger: this.sessionLogger,
+      });
+      const rows = await this.agentManager.getTimelineRows(msg.agentId);
+      const { epoch } = this.agentManager.fetchTimeline(msg.agentId, {
+        direction: "tail",
+        limit: 1,
+      });
+      const result = await searchTimeline({ rows, query: msg.query, cursor: msg.cursor });
+      if (
+        this.agentManager.fetchTimeline(msg.agentId, { direction: "tail", limit: 1 }).epoch !==
+        epoch
+      ) {
+        throw new Error("History changed; search again");
+      }
+      this.emitForSource(
+        {
+          type: "agent.timeline.search.response",
+          payload: {
+            requestId: msg.requestId,
+            agentId: msg.agentId,
+            epoch,
+            ...result,
+            error: null,
+          },
+        },
+        source,
+      );
+    } catch (error) {
+      this.emitForSource(
+        {
+          type: "agent.timeline.search.response",
+          payload: {
+            requestId: msg.requestId,
+            agentId: msg.agentId,
+            epoch: "",
+            locations: [],
+            nextCursor: null,
+            error: error instanceof Error ? error.message : String(error),
+          },
+        },
+        source,
+      );
+    }
   }
 
   private async handleAgentTimelineListPromptsRequest(

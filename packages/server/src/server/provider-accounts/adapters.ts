@@ -32,17 +32,33 @@ function accountEnvironment(
   return envOverlay;
 }
 
+/** The env var an account's runtime home overrides, for callers that need just that
+ * mapping without building a full launch env overlay (e.g. usage-source discovery). */
+export function runtimeHomeEnvKey(
+  provider: ProviderAccountProvider,
+): "CODEX_HOME" | "CLAUDE_CONFIG_DIR" {
+  return provider === "codex" ? "CODEX_HOME" : "CLAUDE_CONFIG_DIR";
+}
+
 const codexAdapter: ProviderAccountAdapter = {
   provider: "codex",
   launchSpec: (account) => ({
-    envOverlay: accountEnvironment("CODEX_HOME", account.runtimeHome, CODEX_AUTH_ENV_KEYS),
+    envOverlay: accountEnvironment(
+      runtimeHomeEnvKey("codex"),
+      account.runtimeHome,
+      CODEX_AUTH_ENV_KEYS,
+    ),
   }),
 };
 
 const claudeAdapter: ProviderAccountAdapter = {
   provider: "claude",
   launchSpec: (account) => ({
-    envOverlay: accountEnvironment("CLAUDE_CONFIG_DIR", account.runtimeHome, CLAUDE_AUTH_ENV_KEYS),
+    envOverlay: accountEnvironment(
+      runtimeHomeEnvKey("claude"),
+      account.runtimeHome,
+      CLAUDE_AUTH_ENV_KEYS,
+    ),
   }),
 };
 

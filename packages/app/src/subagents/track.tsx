@@ -3,7 +3,7 @@ import { Pressable, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { Archive, ChevronDown, ChevronRight, Play, Square, Unlink } from "lucide-react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
-import { getProviderIcon } from "@/components/provider-icons";
+import { useProviderIcon } from "@/components/provider-icons";
 import { ComposerTrackActions, ComposerTrackPill, ComposerTrackRow } from "@/composer/tracks";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -16,6 +16,7 @@ import {
   type WorkspaceTabPresentation,
 } from "@/screens/workspace/workspace-tab-presentation";
 import type { Theme } from "@/styles/theme";
+import { getPanelManifest } from "@/panels/panel-manifest";
 import type { SubagentRow, SubagentTreeNode } from "./select";
 import type { ArchiveFinishedStatus } from "./use-archive-finished";
 import {
@@ -94,13 +95,15 @@ function collectSubagentRows(nodes: SubagentTreeNode[]): SubagentRow[] {
 /** Leading and action glyphs share one size so rows keep a single icon column. */
 const ROW_ICON_SIZE = 14;
 
-function buildRowPresentation(row: SubagentRow, serverId: string): WorkspaceTabPresentation {
+function useRowPresentation(row: SubagentRow, serverId: string): WorkspaceTabPresentation {
+  const icon = useProviderIcon(row.provider, serverId);
   const data = buildSubagentRowPresentationData(row);
   return {
     ...data,
     tooltip: data.label,
     modified: false,
-    icon: getProviderIcon(row.provider, serverId),
+    showCloseButton: getPanelManifest(data.kind).showCloseButton,
+    icon,
   };
 }
 
@@ -387,7 +390,7 @@ function SubagentsTrackRow({
 }: SubagentsTrackRowProps): ReactElement {
   const { t } = useTranslation();
   const isCompact = useIsCompactFormFactor();
-  const presentation = useMemo(() => buildRowPresentation(row, serverId), [row, serverId]);
+  const presentation = useRowPresentation(row, serverId);
   // A collapsed parent hides its children's rows, so it reports what is behind them: how many
   // are still running, or — nothing running — how many there are. Computed from the full
   // subtree rather than `node.children.length` so a collapsed grandparent still counts what a

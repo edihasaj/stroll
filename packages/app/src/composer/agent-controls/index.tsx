@@ -59,6 +59,7 @@ import type {
 import type { AgentProviderDefinition } from "@getpaseo/protocol/provider-manifest";
 import {
   getFeatureHighlightColor,
+  isFeatureActive,
   getFeatureTooltip,
   getAgentControlHintKey,
   resolveAgentModelSelection,
@@ -221,8 +222,7 @@ function getModeProviderDefinitions(modeControl: AgentModeControlValue | null) {
 }
 
 function getFeatureIconColor(
-  featureId: string,
-  enabled: boolean,
+  feature: AgentFeature,
   palette: {
     blue: { 400: string };
     green: { 400: string };
@@ -230,11 +230,11 @@ function getFeatureIconColor(
   },
   foregroundMuted: string,
 ): string {
-  if (!enabled) {
+  if (!isFeatureActive(feature)) {
     return foregroundMuted;
   }
 
-  switch (getFeatureHighlightColor(featureId)) {
+  switch (getFeatureHighlightColor(feature.id)) {
     case "blue":
       return palette.blue[400];
     case "green":
@@ -405,6 +405,7 @@ type AgentControlsSlice = {
   runtimeModelId: string | null;
   model: string | null | undefined;
   features: AgentFeature[] | undefined;
+  runtimeThinkingOptionId: string | null;
   thinkingOptionId: string | null | undefined;
   lastUsage: unknown;
 } | null;
@@ -425,6 +426,7 @@ function selectAgentControlsSlice(
     runtimeModelId: currentAgent.runtimeInfo?.model ?? null,
     model: currentAgent.model,
     features: currentAgent.features,
+    runtimeThinkingOptionId: currentAgent.runtimeInfo?.thinkingOptionId ?? null,
     thinkingOptionId: currentAgent.thinkingOptionId,
     lastUsage: currentAgent.lastUsage,
   };
@@ -1434,8 +1436,7 @@ function DesktopFeatureItem({
           <AgentControlTrigger
             icon={FeatureIcon}
             iconColor={getFeatureIconColor(
-              feature.id,
-              feature.value,
+              feature,
               theme.colors.palette,
               theme.colors.foregroundMuted,
             )}
@@ -1458,6 +1459,10 @@ function DesktopFeatureItem({
   if (feature.type === "select") {
     const FeatureIcon = getAgentFeatureIcon(feature.icon);
     const selectedOption = feature.options.find((o) => o.id === feature.value);
+    const iconOnly = feature.desktopTrigger === "icon";
+    const tooltip = iconOnly
+      ? `${feature.label}: ${selectedOption?.label ?? feature.label}`
+      : getFeatureTooltip(feature);
     return (
       <>
         <Tooltip delayDuration={0} enabledOnDesktop enabledOnMobile={false}>
@@ -1465,18 +1470,24 @@ function DesktopFeatureItem({
             <AgentControlTrigger
               ref={featureAnchorRef}
               icon={FeatureIcon}
+              iconColor={getFeatureIconColor(
+                feature,
+                theme.colors.palette,
+                theme.colors.foregroundMuted,
+              )}
               surface="toolbar"
               label={feature.label}
               value={selectedOption?.label ?? feature.label}
+              showToolbarLabel={!iconOnly}
               open={openSelector === featureSelector}
               disabled={disabled}
               onPress={handleSelectPress}
-              accessibilityLabel={getFeatureTooltip(feature)}
+              accessibilityLabel={tooltip}
               testID={`agent-feature-${feature.id}`}
             />
           </TooltipTrigger>
           <TooltipContent side="top" align="center" offset={8}>
-            <Text style={styles.tooltipText}>{getFeatureTooltip(feature)}</Text>
+            <Text style={styles.tooltipText}>{tooltip}</Text>
           </TooltipContent>
         </Tooltip>
         <Combobox
@@ -1547,8 +1558,7 @@ function SheetFeatureItem({
           ref={featureAnchorRef}
           icon={FeatureIcon}
           iconColor={getFeatureIconColor(
-            feature.id,
-            feature.value,
+            feature,
             theme.colors.palette,
             theme.colors.foregroundMuted,
           )}
@@ -1584,6 +1594,11 @@ function SheetFeatureItem({
         <AgentControlTrigger
           ref={featureAnchorRef}
           icon={FeatureIcon}
+          iconColor={getFeatureIconColor(
+            feature,
+            theme.colors.palette,
+            theme.colors.foregroundMuted,
+          )}
           surface="sheet"
           label={feature.label}
           value={selectedOption?.label ?? feature.label}
@@ -1635,6 +1650,27 @@ function ThinkingComboboxOption({
   );
 }
 
+function readSelectedEntryModels(
+  entry: ReturnType<typeof resolveSnapshotSelectedEntry> | undefined,
+) {
+  return {
+    models: filterSelectableModels(entry?.models ?? null),
+    selectedProviderIsLoading: entry?.status === "loading",
+  };
+}
+
+// The live snapshot wins when present; before it loads, fall back to the agent's own provider.
+function resolveAgentModelSelectorProviders(
+  snapshotEntries: Parameters<typeof buildSelectableProviderSelectorProviders>[0] | undefined,
+  providerDefinitions: Parameters<typeof buildProviderSelectorProviders>[0]["providerDefinitions"],
+  modelsByProvider: Parameters<typeof buildProviderSelectorProviders>[0]["modelsByProvider"],
+) {
+  if (snapshotEntries) {
+    return buildSelectableProviderSelectorProviders(snapshotEntries);
+  }
+  return buildProviderSelectorProviders({ providerDefinitions, modelsByProvider });
+}
+
 export const AgentControls = memo(function AgentControls({
   agentId,
   serverId,
@@ -1671,8 +1707,7 @@ export const AgentControls = memo(function AgentControls({
     [snapshotEntries, agent?.provider],
   );
 
-  const models = filterSelectableModels(snapshotSelectedEntry?.models ?? null);
-  const selectedProviderIsLoading = snapshotSelectedEntry?.status === "loading";
+  const { models, selectedProviderIsLoading } = readSelectedEntryModels(snapshotSelectedEntry);
 
   const agentProviderDefinitions = useMemo(
     () => buildAgentProviderDefinitions(agent?.provider, snapshotEntries),
@@ -1683,20 +1718,21 @@ export const AgentControls = memo(function AgentControls({
     () => buildAgentProviderModels(agent?.provider, models),
     [agent?.provider, models],
   );
-  const agentModelSelectorProviders = useMemo(() => {
-    if (snapshotEntries) {
-      return buildSelectableProviderSelectorProviders(snapshotEntries);
-    }
-    return buildProviderSelectorProviders({
-      providerDefinitions: agentProviderDefinitions,
-      modelsByProvider: agentProviderModels,
-    });
-  }, [agentProviderDefinitions, agentProviderModels, snapshotEntries]);
+  const agentModelSelectorProviders = useMemo(
+    () =>
+      resolveAgentModelSelectorProviders(
+        snapshotEntries,
+        agentProviderDefinitions,
+        agentProviderModels,
+      ),
+    [agentProviderDefinitions, agentProviderModels, snapshotEntries],
+  );
 
   const modelSelection = resolveAgentModelSelection({
     models,
     runtimeModelId: agent?.runtimeModelId,
     configuredModelId: agent?.model,
+    runtimeThinkingOptionId: agent?.runtimeThinkingOptionId,
     explicitThinkingOptionId: agent?.thinkingOptionId,
   });
 
@@ -1925,7 +1961,7 @@ export const AgentControls = memo(function AgentControls({
         onEditAgentProfiles={handleEditAgentProfiles}
         onCreateAgentProfile={profileActions.create}
         onEditAgentProfile={profileActions.edit}
-        thinkingOptions={thinkingOptions.length > 1 ? thinkingOptions : undefined}
+        thinkingOptions={thinkingOptions.length > 0 ? thinkingOptions : undefined}
         selectedThinkingOptionId={modelSelection.selectedThinkingId ?? undefined}
         onSelectThinkingOption={handleSelectThinkingOption}
         features={agent.features}
