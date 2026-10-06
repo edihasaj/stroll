@@ -412,6 +412,37 @@ describe("selectSubagentsForParent", () => {
     expect(rows[0]).not.toHaveProperty("cwd");
   });
 
+  it("does not flag a finished child that is merely unread as needing attention", () => {
+    setAgents([
+      makeAgent({ id: "parent" }),
+      makeAgent({
+        id: "finished",
+        parentAgentId: "parent",
+        status: "idle",
+        requiresAttention: true,
+        attentionReason: "finished",
+      }),
+      makeAgent({
+        id: "blocked",
+        parentAgentId: "parent",
+        status: "running",
+        requiresAttention: true,
+        attentionReason: "permission",
+      }),
+    ]);
+
+    const rows = selectSubagentsForParent(
+      useSessionStore.getState(),
+      { serverId: SERVER_ID, parentAgentId: "parent" },
+      EMPTY_PENDING_ARCHIVE_IDS,
+    );
+
+    expect(rows.map((row) => [row.id, row.requiresAttention])).toEqual([
+      ["finished", false],
+      ["blocked", true],
+    ]);
+  });
+
   it("carries the agent's last completed turn onto the row instead of updatedAt", () => {
     const lastTurn = {
       startedAt: new Date("2026-03-08T10:00:00.000Z"),

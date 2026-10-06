@@ -65,6 +65,15 @@ interface SelectSubagentsParams {
 const EMPTY_SUBAGENT_ROWS: SubagentRow[] = [];
 const EMPTY_PROVIDER_SUBAGENT_ROWS: ProviderSubagentRow[] = [];
 
+/**
+ * Whether the child is waiting on the user — a permission or an error. A finished child the user
+ * has not opened yet also carries `requiresAttention` ("finished"); that is unread, not blocked,
+ * so it belongs with the Done rows and folds away like any other finished child.
+ */
+function needsUserAction(agent: Agent): boolean {
+  return agent.requiresAttention === true && agent.attentionReason !== "finished";
+}
+
 function toSubagentRow(agent: Agent): PaseoSubagentRow {
   return {
     kind: "paseo",
@@ -75,7 +84,7 @@ function toSubagentRow(agent: Agent): PaseoSubagentRow {
     subtitle: null,
     status: agent.status,
     turn: agent.turn,
-    requiresAttention: agent.requiresAttention,
+    requiresAttention: needsUserAction(agent),
     createdAt: agent.createdAt,
     lastTurn: agent.lastTurn ?? null,
   };

@@ -814,11 +814,10 @@ const styles = StyleSheet.create((theme) => ({
     fontSize: theme.fontSize.sm,
     color: theme.colors.foregroundMuted,
   },
-  // Fixed-ish width digits: shrinks last so a running row's clock doesn't jitter the layout as
-  // the label and subtitle give way first.
+  // Fixed-ish width digits: never shrinks, so the label and subtitle give way and a running row's
+  // clock doesn't jitter the layout or truncate to "1…".
   rowElapsed: {
-    flexShrink: 3,
-    minWidth: 0,
+    flexShrink: 0,
     fontSize: theme.fontSize.sm,
     color: theme.colors.foregroundMuted,
     fontVariant: ["tabular-nums"],
