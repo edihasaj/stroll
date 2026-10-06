@@ -1,5 +1,24 @@
 import { PluginRegistryIdentitySchema } from "./plugin-registry.js";
 import { AgentProfileSchema, AgentSkillSelectionSchema } from "./agent-profile.js";
+import {
+  AgentBriefEditSchema,
+  AgentBriefSchema,
+  AgentRoutePreflightResultSchema,
+  AgentRouteEventSchema,
+  AgentRouteSchema,
+} from "./agent-route.js";
+export {
+  AgentBriefEditSchema,
+  AgentBriefSchema,
+  AgentRouteEventSchema,
+  AgentRoutePreflightResultSchema,
+  AgentRouteSchema,
+  type AgentBrief,
+  type AgentBriefEdit,
+  type AgentRoute,
+  type AgentRouteEvent,
+  type AgentRoutePreflightResult,
+} from "./agent-route.js";
 export {
   AgentProfileSchema,
   AgentSkillSelectionSchema,
@@ -212,6 +231,9 @@ export const MutableDaemonConfigSchema = z
     appendSystemPrompt: z.string().default(""),
     terminalProfiles: z.array(TerminalProfileSchema).optional(),
     agentProfiles: z.array(AgentProfileSchema).optional(),
+    agentRoutes: z.array(AgentRouteSchema).optional(),
+    /** A route id new chats use when the client does not pick a model. */
+    defaultAgentRoute: z.string().nullable().optional(),
     skills: z.object({ selection: AgentSkillSelectionSchema.optional() }).strict().optional(),
     pluginsEnabled: z.boolean().optional(),
     plugins: z.record(PluginIdSchema, PluginSourceSchema).optional(),
@@ -233,6 +255,8 @@ export const MutableDaemonConfigPatchSchema = z
     appendSystemPrompt: z.string().optional(),
     terminalProfiles: z.array(TerminalProfileSchema).optional(),
     agentProfiles: z.array(AgentProfileSchema).optional(),
+    agentRoutes: z.array(AgentRouteSchema).optional(),
+    defaultAgentRoute: z.string().nullable().optional(),
     pluginsEnabled: z.boolean().optional(),
     plugins: z.record(PluginIdSchema, PluginSourceSchema).optional(),
   })
@@ -1805,6 +1829,12 @@ export const CreateAgentRequestMessageSchema = z.object({
   worktree: CreateAgentWorktreeTargetSchema.optional(),
   autoArchive: z.boolean().optional(),
   labels: z.record(z.string(), z.string()).default({}),
+  /**
+   * Run on an agent route (docs/agent-routes.md) instead of `config.provider`/`model`: the daemon
+   * picks the first usable entry and overrides provider, model, mode, thinking, and account from
+   * its profile. Fails when no entry is usable.
+   */
+  route: z.string().optional(),
   requestId: z.string(),
 });
 
@@ -2045,6 +2075,44 @@ export const AgentForkContextRequestMessageSchema = z.object({
   agentId: z.string(),
   boundaryCursor: AgentTimelineCursorSchema.optional(),
   boundaryMessageId: z.string().optional(),
+  requestId: z.string(),
+});
+
+export const AgentBriefGetRequestMessageSchema = z.object({
+  type: z.literal("agent.brief.get.request"),
+  agentId: z.string(),
+  /** Regenerate the brief now instead of returning the stored one. */
+  refresh: z.boolean().optional(),
+  requestId: z.string(),
+});
+
+export const AgentBriefUpdateRequestMessageSchema = z.object({
+  type: z.literal("agent.brief.update.request"),
+  agentId: z.string(),
+  brief: AgentBriefEditSchema,
+  requestId: z.string(),
+});
+
+export const AgentRoutePreflightRequestMessageSchema = z.object({
+  type: z.literal("agent.route.preflight.request"),
+  routeId: z.string(),
+  requestId: z.string(),
+});
+
+/**
+ * Continue a routed thread on the next usable entry: accepts the offer of an `awaiting_choice`
+ * agent, or resumes a `paused` one (trying the route from its first entry).
+ */
+export const AgentRouteContinueRequestMessageSchema = z.object({
+  type: z.literal("agent.route.continue.request"),
+  agentId: z.string(),
+  requestId: z.string(),
+});
+
+/** Undo a failover: hand the thread back to the agent this one continues, once it is usable. */
+export const AgentRouteSwitchBackRequestMessageSchema = z.object({
+  type: z.literal("agent.route.switch_back.request"),
+  agentId: z.string(),
   requestId: z.string(),
 });
 
@@ -3437,6 +3505,11 @@ export const SessionInboundMessageSchema = z.discriminatedUnion("type", [
   AgentQueueSendNowRequestMessageSchema,
   SetAgentTimelineSubscriptionRequestMessageSchema,
   AgentForkContextRequestMessageSchema,
+  AgentBriefGetRequestMessageSchema,
+  AgentBriefUpdateRequestMessageSchema,
+  AgentRoutePreflightRequestMessageSchema,
+  AgentRouteContinueRequestMessageSchema,
+  AgentRouteSwitchBackRequestMessageSchema,
   SetAgentModeRequestMessageSchema,
   SetAgentModelRequestMessageSchema,
   SetAgentThinkingRequestMessageSchema,
@@ -3827,6 +3900,9 @@ export const ServerInfoStatusPayloadSchema = z
         daemonSelfUpdate: z.boolean().optional(),
         // COMPAT(agentForkContext): added in v0.1.102, remove gate after 2026-12-28.
         agentForkContext: z.boolean().optional(),
+        // COMPAT(agentRoutes): added in Stroll 0.11, remove gate after 2027-04-06. Routes, the brief,
+        // and the route RPCs (agent.brief.*, agent.route.*).
+        agentRoutes: z.boolean().optional(),
         // COMPAT(agentForkContextCursor): added in v0.1.108, remove gate after 2027-01-14.
         agentForkContextCursor: z.boolean().optional(),
         // COMPAT(providerSubagents): added in v0.1.107, remove gate after 2027-01-12.
@@ -5141,6 +5217,57 @@ export const AgentForkContextResponseMessageSchema = z.object({
     boundaryCursor: AgentTimelineCursorSchema.nullable().optional(),
     error: z.string().nullable(),
   }),
+});
+
+export const AgentBriefGetResponseMessageSchema = z.object({
+  type: z.literal("agent.brief.get.response"),
+  payload: z.object({
+    requestId: z.string(),
+    agentId: z.string(),
+    brief: AgentBriefSchema.nullable(),
+    /** The packet the next profile would receive if the thread failed over now. */
+    handoffPreview: z.string().nullable(),
+    events: z.array(AgentRouteEventSchema),
+    error: z.string().nullable(),
+  }),
+});
+
+export const AgentBriefUpdateResponseMessageSchema = z.object({
+  type: z.literal("agent.brief.update.response"),
+  payload: z.object({
+    requestId: z.string(),
+    agentId: z.string(),
+    brief: AgentBriefSchema.nullable(),
+    error: z.string().nullable(),
+  }),
+});
+
+export const AgentRoutePreflightResponseMessageSchema = z.object({
+  type: z.literal("agent.route.preflight.response"),
+  payload: z.object({
+    requestId: z.string(),
+    routeId: z.string(),
+    results: z.array(AgentRoutePreflightResultSchema),
+    error: z.string().nullable(),
+  }),
+});
+
+const AgentRouteMoveResponsePayloadSchema = z.object({
+  requestId: z.string(),
+  agentId: z.string(),
+  /** The agent the thread now runs on, or null when nothing changed. */
+  targetAgentId: z.string().nullable(),
+  error: z.string().nullable(),
+});
+
+export const AgentRouteContinueResponseMessageSchema = z.object({
+  type: z.literal("agent.route.continue.response"),
+  payload: AgentRouteMoveResponsePayloadSchema,
+});
+
+export const AgentRouteSwitchBackResponseMessageSchema = z.object({
+  type: z.literal("agent.route.switch_back.response"),
+  payload: AgentRouteMoveResponsePayloadSchema,
 });
 
 export const CancelAgentResponseMessageSchema = z.object({
@@ -7249,6 +7376,11 @@ export const SessionOutboundMessageSchema = z.discriminatedUnion("type", [
   SetAgentTimelineSubscriptionResponseMessageSchema,
   AgentAttentionRequiredMessageSchema,
   AgentForkContextResponseMessageSchema,
+  AgentBriefGetResponseMessageSchema,
+  AgentBriefUpdateResponseMessageSchema,
+  AgentRoutePreflightResponseMessageSchema,
+  AgentRouteContinueResponseMessageSchema,
+  AgentRouteSwitchBackResponseMessageSchema,
   CancelAgentResponseMessageSchema,
   ClearAgentAttentionResponseMessageSchema,
   WorkspaceCreateResponseSchema,
@@ -7482,6 +7614,17 @@ export type AgentTimelineListPromptsResponseMessage = z.infer<
   typeof AgentTimelineListPromptsResponseMessageSchema
 >;
 export type AgentForkContextResponseMessage = z.infer<typeof AgentForkContextResponseMessageSchema>;
+export type AgentBriefGetResponseMessage = z.infer<typeof AgentBriefGetResponseMessageSchema>;
+export type AgentBriefUpdateResponseMessage = z.infer<typeof AgentBriefUpdateResponseMessageSchema>;
+export type AgentRoutePreflightResponseMessage = z.infer<
+  typeof AgentRoutePreflightResponseMessageSchema
+>;
+export type AgentRouteContinueResponseMessage = z.infer<
+  typeof AgentRouteContinueResponseMessageSchema
+>;
+export type AgentRouteSwitchBackResponseMessage = z.infer<
+  typeof AgentRouteSwitchBackResponseMessageSchema
+>;
 export type CancelAgentResponseMessage = z.infer<typeof CancelAgentResponseMessageSchema>;
 export type SendAgentMessageResponseMessage = z.infer<typeof SendAgentMessageResponseMessageSchema>;
 export type SetVoiceModeResponseMessage = z.infer<typeof SetVoiceModeResponseMessageSchema>;
@@ -7590,6 +7733,17 @@ export type FetchWorkspacesRequestMessage = z.infer<typeof FetchWorkspacesReques
 export type ProjectListRequestMessage = z.infer<typeof ProjectListRequestMessageSchema>;
 export type FetchAgentRequestMessage = z.infer<typeof FetchAgentRequestMessageSchema>;
 export type AgentForkContextRequestMessage = z.infer<typeof AgentForkContextRequestMessageSchema>;
+export type AgentBriefGetRequestMessage = z.infer<typeof AgentBriefGetRequestMessageSchema>;
+export type AgentBriefUpdateRequestMessage = z.infer<typeof AgentBriefUpdateRequestMessageSchema>;
+export type AgentRoutePreflightRequestMessage = z.infer<
+  typeof AgentRoutePreflightRequestMessageSchema
+>;
+export type AgentRouteContinueRequestMessage = z.infer<
+  typeof AgentRouteContinueRequestMessageSchema
+>;
+export type AgentRouteSwitchBackRequestMessage = z.infer<
+  typeof AgentRouteSwitchBackRequestMessageSchema
+>;
 export type SendAgentMessageRequest = z.infer<typeof SendAgentMessageRequestSchema>;
 export type WaitForFinishRequest = z.infer<typeof WaitForFinishRequestSchema>;
 export type DictationStreamStartMessage = z.infer<typeof DictationStreamStartMessageSchema>;

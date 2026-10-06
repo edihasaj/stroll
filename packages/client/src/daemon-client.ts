@@ -44,6 +44,11 @@ import type {
   FileWriteResult,
   FetchAgentTimelineResponseMessage,
   AgentForkContextResponseMessage,
+  AgentBriefGetResponseMessage,
+  AgentBriefUpdateResponseMessage,
+  AgentRoutePreflightResponseMessage,
+  AgentRouteContinueResponseMessage,
+  AgentBriefEdit,
   GitSetupOptions,
   CheckoutStatusResponse,
   CheckoutCommit,
@@ -465,6 +470,8 @@ export interface CreateAgentRequestOptions extends AgentConfigOverrides {
   worktreeName?: string;
   requestId?: string;
   labels?: Record<string, string>;
+  /** Run on this agent route; the daemon picks provider, model, and account (docs/agent-routes.md). */
+  route?: string;
 }
 
 export interface CreateWorkspaceRequestOptions {
@@ -650,6 +657,10 @@ type ScheduleUpdatePayload = Extract<
 >["payload"];
 export type FetchAgentTimelinePayload = FetchAgentTimelineResponseMessage["payload"];
 export type AgentForkContextPayload = AgentForkContextResponseMessage["payload"];
+export type AgentBriefPayload = AgentBriefGetResponseMessage["payload"];
+export type AgentBriefUpdatePayload = AgentBriefUpdateResponseMessage["payload"];
+export type AgentRoutePreflightPayload = AgentRoutePreflightResponseMessage["payload"];
+export type AgentRouteMovePayload = AgentRouteContinueResponseMessage["payload"];
 
 export type FetchAgentTimelineDirection = FetchAgentTimelinePayload["direction"];
 export type FetchAgentTimelineProjection = FetchAgentTimelinePayload["projection"];
@@ -3021,6 +3032,7 @@ export class DaemonClient {
       ...(options.labels && Object.keys(options.labels).length > 0
         ? { labels: options.labels }
         : {}),
+      ...(options.route ? { route: options.route } : {}),
     });
 
     const status = await this.sendRequest({
@@ -3628,6 +3640,117 @@ export class DaemonClient {
       throw new Error(payload.error);
     }
 
+    return payload;
+  }
+
+  // ============================================================================
+  // Agent routes and the brief (docs/agent-routes.md)
+  // ============================================================================
+
+  async getAgentBrief(
+    agentId: string,
+    options: { refresh?: boolean; requestId?: string } = {},
+  ): Promise<AgentBriefPayload> {
+    const requestId = this.createRequestId(options.requestId);
+    const message = SessionInboundMessageSchema.parse({
+      type: "agent.brief.get.request",
+      agentId,
+      requestId,
+      ...(options.refresh ? { refresh: true } : {}),
+    });
+    const payload = await this.sendRequest({
+      requestId,
+      message,
+      // A refresh waits for a generation on the local model.
+      timeout: options.refresh ? 120000 : 15000,
+      options: { skipQueue: true },
+      select: (msg) =>
+        msg.type === "agent.brief.get.response" && msg.payload.requestId === requestId
+          ? msg.payload
+          : null,
+    });
+    if (payload.error) throw new Error(payload.error);
+    return payload;
+  }
+
+  async updateAgentBrief(agentId: string, brief: AgentBriefEdit): Promise<AgentBriefUpdatePayload> {
+    const requestId = this.createRequestId();
+    const message = SessionInboundMessageSchema.parse({
+      type: "agent.brief.update.request",
+      agentId,
+      brief,
+      requestId,
+    });
+    const payload = await this.sendRequest({
+      requestId,
+      message,
+      timeout: 15000,
+      options: { skipQueue: true },
+      select: (msg) =>
+        msg.type === "agent.brief.update.response" && msg.payload.requestId === requestId
+          ? msg.payload
+          : null,
+    });
+    if (payload.error) throw new Error(payload.error);
+    return payload;
+  }
+
+  async preflightAgentRoute(routeId: string): Promise<AgentRoutePreflightPayload> {
+    const requestId = this.createRequestId();
+    const message = SessionInboundMessageSchema.parse({
+      type: "agent.route.preflight.request",
+      routeId,
+      requestId,
+    });
+    const payload = await this.sendRequest({
+      requestId,
+      message,
+      timeout: 30000,
+      options: { skipQueue: true },
+      select: (msg) =>
+        msg.type === "agent.route.preflight.response" && msg.payload.requestId === requestId
+          ? msg.payload
+          : null,
+    });
+    if (payload.error) throw new Error(payload.error);
+    return payload;
+  }
+
+  /** Accept an `awaiting_choice` offer, or resume a `paused` thread. */
+  async continueAgentRoute(agentId: string): Promise<AgentRouteMovePayload> {
+    return this.moveAgentRoute("agent.route.continue", agentId);
+  }
+
+  /** Undo a failover: hand the thread back to the agent this one continues. */
+  async switchBackAgentRoute(agentId: string): Promise<AgentRouteMovePayload> {
+    return this.moveAgentRoute("agent.route.switch_back", agentId);
+  }
+
+  private async moveAgentRoute(
+    operation: "agent.route.continue" | "agent.route.switch_back",
+    agentId: string,
+  ): Promise<AgentRouteMovePayload> {
+    const requestId = this.createRequestId();
+    const message = SessionInboundMessageSchema.parse({
+      type: `${operation}.request`,
+      agentId,
+      requestId,
+    });
+    const responseType = `${operation}.response`;
+    const payload = await this.sendRequest({
+      requestId,
+      message,
+      // Preflight plus creating the continuation agent.
+      timeout: 60000,
+      options: { skipQueue: true },
+      select: (msg) =>
+        msg.type === responseType &&
+        "payload" in msg &&
+        (msg.payload as { requestId?: string }).requestId === requestId
+          ? (msg.payload as AgentRouteMovePayload)
+          : null,
+    });
+    if (payload.error) throw new Error(payload.error);
     return payload;
   }
 

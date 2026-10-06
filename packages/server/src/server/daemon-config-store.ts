@@ -30,6 +30,8 @@ interface SupportedMutableConfigPatch {
   appendSystemPrompt?: string;
   terminalProfiles?: MutableDaemonConfig["terminalProfiles"];
   agentProfiles?: MutableDaemonConfig["agentProfiles"];
+  agentRoutes?: MutableDaemonConfig["agentRoutes"];
+  defaultAgentRoute?: MutableDaemonConfig["defaultAgentRoute"];
   skills?: MutableDaemonConfig["skills"];
   pluginsEnabled?: boolean;
   plugins?: MutableDaemonConfig["plugins"];
@@ -185,6 +187,8 @@ const RELOADABLE_PATHS = [
   "daemon.appendSystemPrompt",
   "daemon.terminalProfiles",
   "daemon.agentProfiles",
+  "daemon.agentRoutes",
+  "daemon.defaultAgentRoute",
   "app.baseUrl",
   "agents.providers",
   "agents.catalogRefreshTimeoutMs",
@@ -208,6 +212,8 @@ const PERSISTED_TO_MUTABLE_PATH = new Map<string, string>([
   ["daemon.appendSystemPrompt", "appendSystemPrompt"],
   ["daemon.terminalProfiles", "terminalProfiles"],
   ["daemon.agentProfiles", "agentProfiles"],
+  ["daemon.agentRoutes", "agentRoutes"],
+  ["daemon.defaultAgentRoute", "defaultAgentRoute"],
   ["app.baseUrl", "app.baseUrl"],
   ["agents.providers", "providers"],
   ["agents.catalogRefreshTimeoutMs", "catalogRefreshTimeoutMs"],
@@ -262,6 +268,17 @@ function pickMetadataGenerationPatch(
   return Object.keys(picked).length > 0 ? picked : undefined;
 }
 
+function pickAgentRoutePatch(
+  patch: MutableDaemonConfigPatch,
+): Pick<SupportedMutableConfigPatch, "agentRoutes" | "defaultAgentRoute"> {
+  return {
+    ...(patch.agentRoutes !== undefined ? { agentRoutes: patch.agentRoutes } : {}),
+    ...(patch.defaultAgentRoute !== undefined
+      ? { defaultAgentRoute: patch.defaultAgentRoute }
+      : {}),
+  };
+}
+
 function pickSupportedPatchFields(patch: MutableDaemonConfigPatch): SupportedMutableConfigPatch {
   const metadataGeneration = pickMetadataGenerationPatch(patch.metadataGeneration);
   return {
@@ -286,6 +303,7 @@ function pickSupportedPatchFields(patch: MutableDaemonConfigPatch): SupportedMut
       : {}),
     ...(patch.terminalProfiles !== undefined ? { terminalProfiles: patch.terminalProfiles } : {}),
     ...(patch.agentProfiles !== undefined ? { agentProfiles: patch.agentProfiles } : {}),
+    ...pickAgentRoutePatch(patch),
     ...(patch.pluginsEnabled !== undefined ? { pluginsEnabled: patch.pluginsEnabled } : {}),
     ...(patch.plugins !== undefined ? { plugins: patch.plugins } : {}),
   };
@@ -679,5 +697,7 @@ function mergeMutableDaemonPatch(
   if (patch.appendSystemPrompt !== undefined) next.appendSystemPrompt = patch.appendSystemPrompt;
   if (patch.terminalProfiles !== undefined) next.terminalProfiles = patch.terminalProfiles;
   if (patch.agentProfiles !== undefined) next.agentProfiles = patch.agentProfiles;
+  if (patch.agentRoutes !== undefined) next.agentRoutes = patch.agentRoutes;
+  if (patch.defaultAgentRoute !== undefined) next.defaultAgentRoute = patch.defaultAgentRoute;
   return Object.keys(next).length > 0 ? next : undefined;
 }
