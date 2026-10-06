@@ -1,4 +1,4 @@
-import { describe, expect, test, beforeEach, afterEach } from "vitest";
+import { describe, expect, test, beforeEach, afterEach, vi } from "vitest";
 import os from "node:os";
 import path from "node:path";
 import { mkdtempSync, readdirSync, rmSync } from "node:fs";
@@ -146,6 +146,20 @@ describe("AgentStorage", () => {
 
   afterEach(() => {
     rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  test("does not read the prompt queue directory as agent records", async () => {
+    await fs.mkdir(path.join(storagePath, "queues"), { recursive: true });
+    await fs.writeFile(
+      path.join(storagePath, "queues", "agent-with-queue.json"),
+      JSON.stringify({ version: 1, messages: [] }),
+    );
+    const scanLogger = createTestLogger();
+    const errorSpy = vi.spyOn(scanLogger, "error");
+    const scanned = new AgentStorage(storagePath, scanLogger);
+
+    expect(await scanned.list()).toEqual([]);
+    expect(errorSpy).not.toHaveBeenCalled();
   });
 
   test("applySnapshot persists configs and snapshot metadata", async () => {

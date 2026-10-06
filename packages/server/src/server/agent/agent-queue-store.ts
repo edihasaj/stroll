@@ -16,6 +16,9 @@ const QUEUED_PROMPT_SCHEMA = z.object({
 
 const QUEUE_FILE_SCHEMA = z.object({ prompts: z.array(QUEUED_PROMPT_SCHEMA).default([]) });
 
+/** Queue files live inside the agent store root; the agent scan must skip this directory. */
+export const AGENT_QUEUE_DIRNAME = "queues";
+
 export type AgentQueuedPrompt = z.infer<typeof QUEUED_PROMPT_SCHEMA>;
 
 function clone(prompt: AgentQueuedPrompt): AgentQueuedPrompt {
@@ -196,6 +199,6 @@ export class AgentQueueStore {
   }
 
   private filePath(agentId: string): string {
-    return path.join(this.agentRoot, "queues", `${agentId}.json`);
+    return path.join(this.agentRoot, AGENT_QUEUE_DIRNAME, `${agentId}.json`);
   }
 }

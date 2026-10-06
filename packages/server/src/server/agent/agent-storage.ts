@@ -9,7 +9,7 @@ import { toStoredAgentRecord } from "./agent-projections.js";
 import type { ManagedAgent } from "./agent-manager.js";
 import type { AgentSessionConfig } from "./agent-sdk-types.js";
 import { AgentOwnerSchema, daemonExecutionKey, type DaemonAgentOwner } from "./agent-owner.js";
-import { AgentQueueStore } from "./agent-queue-store.js";
+import { AGENT_QUEUE_DIRNAME, AgentQueueStore } from "./agent-queue-store.js";
 
 const SERIALIZABLE_CONFIG_SCHEMA = z
   .object({
@@ -335,7 +335,7 @@ export class AgentStorage {
       .map((entry) => path.join(this.baseDir, entry.name));
 
     const projectDirs = entries
-      .filter((entry) => entry.isDirectory())
+      .filter((entry) => entry.isDirectory() && entry.name !== AGENT_QUEUE_DIRNAME)
       .map((entry) => path.join(this.baseDir, entry.name));
 
     const projectFileLists = await Promise.all(
