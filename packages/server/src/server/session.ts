@@ -763,7 +763,6 @@ export class Session {
   private unsubscribePluginChanges: (() => void) | null = null;
   private unsubscribeWorkspaceMutations: (() => void) | null = null;
   private registryMutationQueue: Promise<void> = Promise.resolve();
-  private readonly queueDrainInFlight = new Set<string>();
   private projectUpdateQueue: Promise<void> = Promise.resolve();
   private isCleanedUp = false;
   private readonly timelineSubscriptions = new Map<
@@ -1974,9 +1973,6 @@ export class Session {
             "agent.session.forward_update",
           );
           void this.agentUpdates.forwardLiveAgent(event.agent);
-          if (event.agent.lifecycle === "idle" && event.agent.activeForegroundTurnId === null) {
-            void this.drainAgentQueue(event.agent.id);
-          }
           return;
         }
 
@@ -8271,6 +8267,8 @@ export class Session {
               agentStorage: this.agentStorage,
               agentId: msg.agentId,
               prompt: buildAgentPrompt(queued.text, undefined, queued.attachments),
+              // An accepted steer records its transcript row only under a client message id.
+              messageId: queued.id,
               // Defaults to "interrupt" so an old client that never sends this field keeps
               // its exact prior behavior. "steer" tries to admit into the active turn first;
               // an unavailable steer lands back in the queue instead of canceling that turn.
@@ -8318,31 +8316,6 @@ export class Session {
           error: error instanceof Error ? error.message : String(error),
         },
       });
-    }
-  }
-
-  private async drainAgentQueue(agentId: string): Promise<void> {
-    if (this.queueDrainInFlight.has(agentId)) return;
-    this.queueDrainInFlight.add(agentId);
-    try {
-      const queued = await this.agentStorage.queueStore.take(agentId);
-      if (!queued) return;
-      try {
-        await sendPromptToAgent({
-          agentManager: this.agentManager,
-          agentStorage: this.agentStorage,
-          agentId,
-          prompt: buildAgentPrompt(queued.text, undefined, queued.attachments),
-          activeTurnBehavior: "interrupt",
-          clearPendingPermissions: true,
-          logger: this.sessionLogger,
-        });
-      } catch (error) {
-        await this.agentStorage.queueStore.restoreFront(queued);
-        this.sessionLogger.warn({ err: error, agentId }, "Failed to drain queued agent prompt");
-      }
-    } finally {
-      this.queueDrainInFlight.delete(agentId);
     }
   }
 

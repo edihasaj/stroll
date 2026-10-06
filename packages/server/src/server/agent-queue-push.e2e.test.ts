@@ -128,3 +128,84 @@ test("an unavailable steer never interrupts the turn and is delivered once it en
 
   await client.close();
 });
+
+async function waitForQueuedPromptDelivery(
+  client: DaemonClient,
+  agentId: string,
+  text: string,
+): Promise<number> {
+  const deadline = Date.now() + 15_000;
+  while (Date.now() < deadline) {
+    const timeline = await client.fetchAgentTimeline(agentId, { limit: 100 });
+    const delivered = timeline.entries.filter(
+      (entry) => entry.item.type === "user_message" && entry.item.text === text,
+    );
+    if (delivered.length > 0) return delivered.length;
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  throw new Error(`Timed out waiting for queued prompt "${text}" to reach the agent`);
+}
+
+test("a queued prompt reaches the agent while no client is connected", async () => {
+  daemon = await createTestPaseoDaemon({
+    isDev: true,
+    agentClients: { mock: new MockLoadTestAgentClient() },
+  });
+  const url = `ws://127.0.0.1:${daemon.port}/ws`;
+
+  const sender = new DaemonClient({ url, appVersion: "0.8.0" });
+  await sender.connect();
+  await sender.fetchAgents({ subscribe: {} });
+  const agent = await sender.createAgent({
+    provider: "mock",
+    cwd: "/tmp",
+    title: "Queue drains unattended",
+    model: "e2e-fast-stream",
+  });
+  await sender.sendMessage(agent.id, "Start a turn, then queue behind it.");
+  await sender.waitForAgentUpsert(agent.id, (a) => a.status === "running", 15_000);
+  await sender.createAgentQueuePrompt({ agentId: agent.id, text: "Delivered unattended" });
+  // A phone that queues a message and then locks must still get it delivered.
+  await sender.close();
+
+  const queueStore = daemon.daemon.agentStorage.queueStore;
+  const deadline = Date.now() + 15_000;
+  while ((await queueStore.list(agent.id)).length > 0) {
+    if (Date.now() > deadline) throw new Error("Queued prompt never drained without a client");
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+
+  const observer = new DaemonClient({ url, appVersion: "0.8.0" });
+  await observer.connect();
+  expect(await waitForQueuedPromptDelivery(observer, agent.id, "Delivered unattended")).toBe(1);
+  await observer.close();
+});
+
+test("a prompt queued while the agent is already idle is delivered right away", async () => {
+  daemon = await createTestPaseoDaemon({
+    isDev: true,
+    agentClients: { mock: new MockLoadTestAgentClient() },
+  });
+
+  const client = new DaemonClient({
+    url: `ws://127.0.0.1:${daemon.port}/ws`,
+    appVersion: "0.8.0",
+  });
+  await client.connect();
+  await client.fetchAgents({ subscribe: {} });
+  const agent = await client.createAgent({
+    provider: "mock",
+    cwd: "/tmp",
+    title: "Queue lands after the turn ended",
+    model: "e2e-fast-stream",
+  });
+  await client.sendMessage(agent.id, "Finish before the queue lands.");
+  await client.waitForFinish(agent.id, 15_000);
+
+  // The idle transition already happened, so only the queue write itself can trigger delivery.
+  await client.createAgentQueuePrompt({ agentId: agent.id, text: "Queued after the turn" });
+
+  expect(await waitForQueuedPromptDelivery(client, agent.id, "Queued after the turn")).toBe(1);
+  expect((await client.listAgentQueue(agent.id)).prompts).toEqual([]);
+  await client.close();
+});

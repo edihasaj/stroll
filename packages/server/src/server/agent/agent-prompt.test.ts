@@ -294,7 +294,7 @@ test("sendPromptToAgent queues a steer the provider could not admit without touc
     });
 
     // A real AgentStorage backs a real AgentQueueStore, so this proves the prompt lands
-    // in the same store `Session.drainAgentQueue` reads from on idle — not a mock stand-in.
+    // in the same store `startAgentQueueDrain` reads from on idle — not a mock stand-in.
     const agentStorage = new AgentStorage(workdir, createTestLogger());
 
     const result = await sendPromptToAgent({
