@@ -1,6 +1,6 @@
 # Proposal: routes, Codex-style subagents, and context handoff
 
-Status: proposal, 2026-10-06. Nothing here is built yet except where marked **exists**.
+Status: accepted, 2026-10-06. Implementation spec: [agent-routes.md](../agent-routes.md).
 
 The goal is one opinionated harness: local Qwen on the Sparks does the implementation work,
 stronger models plan and review, and when any model is unavailable the work moves to the next
@@ -110,14 +110,14 @@ The ledger already holds everything; what fails over is a small, current summary
 
 Each step ships on its own and is useful without the next.
 
-## Decisions needed
+## Decisions (2026-10-06)
 
-- **Cloud fallback and privacy.** The original requirement was that nothing reaches OpenAI.
-  Falling back to Codex subscriptions sends the handoff packet to OpenAI. Proposed default: the
-  `worker` route is local-only, and planner/reviewer routes may use subscriptions. Confirm or
-  change.
-- **Automatic or confirmed failover.** Proposed: automatic, with a line in the thread
-  ("Continued on Codex (account B): Qwen endpoint unreachable") and an undo that returns to the
-  previous profile once it is healthy again.
-- **Paid API fallbacks.** DeepSeek, Kimi, and GLM run through OMP with an API key. Which ones, in
-  which order, and with what spending cap per day.
+- **Privacy: local-only by default.** A route uses only entries marked local unless the route is
+  explicitly marked cloud. Cloud fallback is an opt-in per route.
+- **Failover: automatic, with undo.** "Ask before switching" is a per-route option.
+- **No spending cap.** Paid API entries are used while they answer. When no entry is left, the
+  thread pauses with its brief and handoff packet kept, and resumes on request. Which paid APIs to
+  add, and in what order, is decided later.
+
+Steps 2–4 and the Context button are being built against [agent-routes.md](../agent-routes.md),
+which is the source of truth for the behaviour.

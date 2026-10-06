@@ -136,8 +136,9 @@ Every move appends an `AgentRouteEvent` to the thread's history.
 The brief is the thread's running summary: goal, current state, decisions, open items, and files
 touched. After every completed turn of a routed agent, the daemon regenerates it with structured
 generation (`generateStructuredAgentResponseWithFallback`) from the previous brief and the activity
-since the last update. On a local route only the agent's own (local) provider generates it; other
-routes use the configured metadata providers. Generations for one thread never overlap; a turn that
+since the last update. The agent's own provider generates it, which already sees this content, so
+the brief adds no exposure; only a route explicitly marked cloud uses the configured metadata
+providers instead. Generations for one thread never overlap; a turn that
 completes during a generation queues one more.
 
 A user edit (`agent.brief.update.request`) replaces the stored fields and sets `editedByUser`; the
