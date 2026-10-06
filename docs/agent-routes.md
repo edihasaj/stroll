@@ -97,6 +97,10 @@ thinking, feature values, account), and stamps the agent's labels:
 | `stroll.route.thread` | Id of the thread's first agent. The brief and route history are keyed by it. |
 | `stroll.route.state`  | `active`, `awaiting_choice`, `continued`, or `paused`.                       |
 
+A mode or thinking level the profile leaves unset comes from the request's `settings`. Without
+one, a subagent on a different provider than its caller fails to create, because the caller's mode
+cannot carry across providers.
+
 When no entry is usable, creation fails with the per-entry preflight reasons in the error.
 
 ## Spawning subagents by role

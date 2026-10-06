@@ -316,6 +316,9 @@ function buildRouteAwareCreateAgentFields(
     };
   }
   const { profile } = providerResolution.routeResolution;
+  // The profile decides; a mode or thinking level it leaves unset falls back to the caller's
+  // `settings`, so a profile without a mode can still be spawned from another provider, where the
+  // caller's own mode cannot be inherited.
   return {
     provider: profile.provider,
     config: {
@@ -323,9 +326,9 @@ function buildRouteAwareCreateAgentFields(
       model: profile.model,
       accountProfileId: profile.accountProfileId,
     },
-    thinking: profile.thinkingOptionId,
+    thinking: profile.thinkingOptionId ?? settings?.thinkingOptionId,
     features: profile.featureValues,
-    mode: profile.modeId,
+    mode: profile.modeId ?? settings?.modeId,
   };
 }
 

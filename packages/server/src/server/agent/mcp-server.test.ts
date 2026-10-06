@@ -3754,6 +3754,61 @@ describe("create_agent MCP tool", () => {
     });
   });
 
+  it("uses the caller's mode on a route whose profile sets none, and the profile's mode otherwise", async () => {
+    const { agentManager, agentStorage, spies } = createTestDeps();
+    spies.agentManager.createAgent.mockResolvedValue({
+      id: "routed-agent",
+      provider: "claude",
+      cwd: existingCwd,
+      workspaceId: "workspace-created",
+      lifecycle: "idle",
+      currentModeId: null,
+      availableModes: [],
+      config: { title: "Routed agent" },
+    } as ManagedAgent);
+    const createServer = async (modeId: string | undefined) =>
+      createAgentMcpServer({
+        agentManager,
+        agentStorage,
+        providerSnapshotManager: createOpenCodeManager().manager,
+        ensureWorkspaceForCreate: vi.fn(async () => "workspace-created"),
+        agentRouteCreation: routeCreationResolverStub({
+          entryIndex: 0,
+          profile: {
+            id: "claude-profile",
+            name: "Claude",
+            provider: "claude",
+            model: "claude-sonnet-5",
+            ...(modeId ? { modeId } : {}),
+          },
+        }),
+        logger,
+      });
+    const args = {
+      title: "Routed agent",
+      route: "worker",
+      initialPrompt: "Do work",
+      background: true,
+      settings: { modeId: "plan" },
+    };
+
+    await registeredTool(await createServer(undefined), "create_agent").handler(args);
+    await registeredTool(await createServer("default"), "create_agent").handler(args);
+
+    expect(spies.agentManager.createAgent).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ provider: "claude", modeId: "plan" }),
+      undefined,
+      { workspaceId: "workspace-created" },
+    );
+    expect(spies.agentManager.createAgent).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ provider: "claude", modeId: "default" }),
+      undefined,
+      { workspaceId: "workspace-created" },
+    );
+  });
+
   it("falls back to the daemon's defaultAgentRoute when neither route nor provider is given", async () => {
     const { agentManager, agentStorage, spies } = createTestDeps();
     spies.agentManager.createAgent.mockResolvedValue({
