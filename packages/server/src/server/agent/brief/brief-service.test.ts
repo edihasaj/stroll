@@ -104,7 +104,7 @@ function createFakeAgentManager(options: {
   agents: Record<string, ManagedAgent>;
   timelines?: Record<string, AgentTimelineFetchResult>;
 }): {
-  agentManager: Pick<AgentManager, "subscribe" | "getAgent" | "fetchTimeline">;
+  agentManager: Pick<AgentManager, "subscribe" | "getAgent" | "getTimelineRows">;
   trigger: (event: AgentManagerEvent) => unknown;
   subscribeCalls: { count: number };
 } {
@@ -124,8 +124,8 @@ function createFakeAgentManager(options: {
       getAgent(id) {
         return options.agents[id] ?? null;
       },
-      fetchTimeline(id) {
-        return options.timelines?.[id] ?? buildFetchResult([]);
+      async getTimelineRows(id) {
+        return (options.timelines?.[id] ?? buildFetchResult([])).rows;
       },
     },
   };
@@ -184,7 +184,7 @@ describe("AgentBriefService", () => {
   });
 
   function createService(deps: {
-    agentManager: Pick<AgentManager, "subscribe" | "getAgent" | "fetchTimeline">;
+    agentManager: Pick<AgentManager, "subscribe" | "getAgent" | "getTimelineRows">;
     generator: AgentBriefGenerator;
     logger?: pino.Logger;
   }) {
@@ -310,6 +310,52 @@ describe("AgentBriefService", () => {
 
     expect(packet).toContain('<handoff from="Qwen (Spark)" reason="unreachable">');
     expect(packet).toContain("## Original request\nOriginal ask");
+    expect(packet).toContain("## Latest user message\nLatest from the continuation");
+  });
+
+  it("buildPacket loads an agent that is not in memory and reads its stored timeline", async () => {
+    // After a daemon restart the thread's first agent is on disk but not loaded, and
+    // AgentManager.getTimelineRows throws for an agent that is not loaded.
+    const firstAgent = buildManagedAgent({
+      id: "thread-1",
+      labels: { "stroll.route": "worker", "stroll.route.thread": "thread-1" },
+    });
+    const continuationAgent = buildManagedAgent({
+      id: "agent-2",
+      labels: { "stroll.route": "worker", "stroll.route.thread": "thread-1" },
+    });
+    const loaded = new Map<string, ManagedAgent>([["agent-2", continuationAgent]]);
+    const timelines: Record<string, AgentTimelineFetchResult> = {
+      "thread-1": buildFetchResult([userMessage("Original ask, from disk")]),
+      "agent-2": buildFetchResult([userMessage("Latest from the continuation")]),
+    };
+    const service = createAgentBriefService({
+      agentManager: {
+        subscribe: () => () => {},
+        getAgent: (id) => loaded.get(id) ?? null,
+        async getTimelineRows(id) {
+          if (!loaded.has(id)) throw new Error(`Unknown agent: ${id}`);
+          return timelines[id]!.rows;
+        },
+      },
+      loadAgent: async (id) => {
+        if (id !== "thread-1") return null;
+        loaded.set(id, firstAgent);
+        return firstAgent;
+      },
+      readDaemonConfig: () => emptyDaemonConfig,
+      paseoHome,
+      generator: createEchoGenerator().generator,
+      logger: createTestLogger(),
+    });
+
+    const packet = await service.buildPacket({
+      agentId: "agent-2",
+      reason: "unreachable",
+      fromLabel: "Qwen (Spark)",
+    });
+
+    expect(packet).toContain("## Original request\nOriginal ask, from disk");
     expect(packet).toContain("## Latest user message\nLatest from the continuation");
   });
 

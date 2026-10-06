@@ -158,7 +158,7 @@ describe("createAgentBriefGenerator", () => {
       labels: { "stroll.route": "worker" },
     });
     const generator = createAgentBriefGenerator({
-      agentManager: { fetchTimeline: () => buildFetchResult([userMessage("hello")]) },
+      readTimeline: async () => buildFetchResult([userMessage("hello")]).rows,
       generation,
     });
 
@@ -199,7 +199,7 @@ describe("createAgentBriefGenerator", () => {
       },
     };
     const generator = createAgentBriefGenerator({
-      agentManager: { fetchTimeline: () => buildFetchResult([]) },
+      readTimeline: async () => buildFetchResult([]).rows,
       generation,
     });
 
@@ -232,7 +232,7 @@ describe("createAgentBriefGenerator", () => {
       },
     };
     const generator = createAgentBriefGenerator({
-      agentManager: { fetchTimeline: () => buildFetchResult(items) },
+      readTimeline: async () => buildFetchResult(items).rows,
       generation,
     });
 

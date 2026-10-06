@@ -7,6 +7,7 @@ import {
 import type { AgentBrief } from "@getpaseo/protocol/agent-route";
 import type { MutableDaemonConfig } from "@getpaseo/protocol/messages";
 import type { AgentManager, ManagedAgent } from "../agent-manager.js";
+import type { AgentTimelineRow } from "../agent-timeline-store-types.js";
 import type { AgentProvider } from "../agent-sdk-types.js";
 import {
   generateStructuredAgentResponseWithFallback,
@@ -53,19 +54,17 @@ export interface BriefStructuredGeneration {
 }
 
 export function createAgentBriefGenerator(deps: {
-  agentManager: Pick<AgentManager, "fetchTimeline">;
+  /** Committed rows from durable storage (`AgentManager.getTimelineRows`). */
+  readTimeline: (agentId: string) => Promise<readonly AgentTimelineRow[]>;
   generation: BriefStructuredGeneration;
 }): AgentBriefGenerator {
   return {
     async regenerate(input) {
-      const timeline = deps.agentManager.fetchTimeline(input.agent.id, {
-        direction: "tail",
-        limit: 0,
-      });
+      const rows = await deps.readTimeline(input.agent.id);
       const previousBrief = input.previousBrief;
       const relevantRows = previousBrief
-        ? timeline.rows.filter((row) => row.timestamp > previousBrief.updatedAt)
-        : timeline.rows;
+        ? rows.filter((row) => row.timestamp > previousBrief.updatedAt)
+        : rows;
       const activity = capActivityText(
         curateAgentActivity(relevantRows.map((row) => row.item)),
         MAX_ACTIVITY_CHARS,

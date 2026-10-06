@@ -14,11 +14,13 @@ import { collectHandoffInput, formatHandoffPacket } from "./handoff-packet.js";
 import type { AgentBriefDaemonConfig, AgentBriefGenerator } from "./brief-generator.js";
 
 export interface AgentBriefServiceDeps {
-  agentManager: Pick<AgentManager, "subscribe" | "getAgent" | "fetchTimeline">;
+  agentManager: Pick<AgentManager, "subscribe" | "getAgent" | "getTimelineRows">;
   readDaemonConfig: () => AgentBriefDaemonConfig;
   /** `$PASEO_HOME`; briefs are stored under `<paseoHome>/agent-briefs/`. */
   paseoHome: string;
   generator: AgentBriefGenerator;
+  /** Loads an agent that is not in memory. Returns null when it no longer exists. */
+  loadAgent?: (agentId: string) => Promise<ManagedAgent | null>;
   logger: pino.Logger;
 }
 
@@ -61,7 +63,7 @@ export class AgentBriefService implements AgentBriefHandlers, RouteHandoffSource
   }
 
   async get(agentId: string, options?: { refresh?: boolean }): Promise<AgentBriefView> {
-    const agent = this.requireAgent(agentId);
+    const agent = await this.requireAgent(agentId);
     const threadId = resolveThreadId(agent);
     if (options?.refresh) {
       await this.scheduleRegeneration(threadId, agent);
@@ -73,7 +75,7 @@ export class AgentBriefService implements AgentBriefHandlers, RouteHandoffSource
   }
 
   async update(agentId: string, edit: AgentBriefEdit): Promise<AgentBrief> {
-    const agent = this.requireAgent(agentId);
+    const agent = await this.requireAgent(agentId);
     const threadId = resolveThreadId(agent);
     const brief: AgentBrief = {
       threadId,
@@ -90,12 +92,12 @@ export class AgentBriefService implements AgentBriefHandlers, RouteHandoffSource
     reason: AgentRouteFailureReason;
     fromLabel: string;
   }): Promise<string> {
-    const agent = this.requireAgent(input.agentId);
+    const agent = await this.requireAgent(input.agentId);
     const threadId = resolveThreadId(agent);
     const collected = await collectHandoffInput(
       {
         briefStore: this.store,
-        agentManager: this.deps.agentManager,
+        readTimeline: (id) => this.readTimeline(id),
         runGit: runGitCommand,
       },
       { agentId: input.agentId, threadId, agentCwd: agent.cwd },
@@ -182,8 +184,23 @@ export class AgentBriefService implements AgentBriefHandlers, RouteHandoffSource
     return brief;
   }
 
-  private requireAgent(agentId: string): ManagedAgent {
-    const agent = this.deps.agentManager.getAgent(agentId);
+  /**
+   * Committed timeline rows, loading the agent first when it is not in memory (the thread's first
+   * agent often is not, after a daemon restart). An agent that no longer exists reads as empty.
+   */
+  private async readTimeline(agentId: string) {
+    try {
+      await this.requireAgent(agentId);
+      return await this.deps.agentManager.getTimelineRows(agentId);
+    } catch (error) {
+      this.deps.logger.warn({ err: error, agentId }, "Brief: could not read agent timeline");
+      return [];
+    }
+  }
+
+  private async requireAgent(agentId: string): Promise<ManagedAgent> {
+    const agent =
+      this.deps.agentManager.getAgent(agentId) ?? (await this.deps.loadAgent?.(agentId)) ?? null;
     if (!agent) {
       throw new Error(`Agent not found: ${agentId}`);
     }

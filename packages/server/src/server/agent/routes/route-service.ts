@@ -7,7 +7,7 @@ import {
   type AgentRoutePreflightResult,
 } from "@getpaseo/protocol/agent-route";
 import type { AgentProfile } from "@getpaseo/protocol/agent-profile";
-import type { AgentManager } from "../agent-manager.js";
+import type { AgentManager, ManagedAgent } from "../agent-manager.js";
 import type { CreateAgentCommandInput, CreateAgentCommandResult } from "../create-agent/create.js";
 import type { AgentRouteDaemonConfig, AgentRoutePreflight } from "./preflight.js";
 import type { AgentRouteHandlers, RouteHandoffSource } from "./handlers.js";
@@ -21,8 +21,10 @@ import {
   acceptAwaitingChoice,
   findNextUsableEntry,
   handleAgentManagerEvent,
+  handleRouteFailure,
   moveThread,
 } from "./route-failover.js";
+import { RouteStallWatch } from "./stall-watch.js";
 
 /** The first usable entry for a fresh (non-continuation) routed agent. */
 export interface RouteCreationResolution {
@@ -52,6 +54,16 @@ export interface AgentRouteServiceDeps {
   preflight: AgentRoutePreflight;
   readDaemonConfig: () => AgentRouteDaemonConfig;
   handoff: RouteHandoffSource;
+  /**
+   * Loads an agent that is not in memory, e.g. the one a continuation came from after a daemon
+   * restart. Returns null when the agent no longer exists. Defaults to in-memory agents only.
+   */
+  loadAgent?: (agentId: string) => Promise<ManagedAgent | null>;
+  /**
+   * Cancels an agent's running turn. When given, a routed turn stalled on an unreachable
+   * `probeUrl` is canceled and failed over (`stall-watch.ts`).
+   */
+  cancelAgentRun?: (agentId: string) => Promise<unknown>;
   logger: Logger;
 }
 
@@ -70,8 +82,21 @@ export class AgentRouteService implements AgentRouteHandlers, RouteCreationResol
   private unsubscribe: (() => void) | null = null;
   /** Agent ids with a failover/continue/switch-back move in progress. Re-entrancy guard. */
   private readonly busyAgentIds = new Set<string>();
+  private readonly stallWatch: RouteStallWatch | null;
 
-  constructor(private readonly deps: AgentRouteServiceDeps) {}
+  constructor(private readonly deps: AgentRouteServiceDeps) {
+    const cancelAgentRun = deps.cancelAgentRun;
+    this.stallWatch = cancelAgentRun
+      ? new RouteStallWatch({
+          agentManager: { getAgent: (id) => deps.agentManager.getAgent(id), cancelAgentRun },
+          readDaemonConfig: deps.readDaemonConfig,
+          preflight: deps.preflight,
+          onUnreachable: (agentId) =>
+            handleRouteFailure(deps, this.busyAgentIds, agentId, "unreachable"),
+          logger: deps.logger,
+        })
+      : null;
+  }
 
   /** Subscribes to `AgentManager` events. Idempotent. */
   start(): void {
@@ -80,15 +105,18 @@ export class AgentRouteService implements AgentRouteHandlers, RouteCreationResol
     }
     this.unsubscribe = this.deps.agentManager.subscribe(
       (event) => {
+        this.stallWatch?.observe(event);
         void handleAgentManagerEvent(this.deps, this.busyAgentIds, event);
       },
       { replayState: false },
     );
+    this.stallWatch?.start();
   }
 
   stop(): void {
     this.unsubscribe?.();
     this.unsubscribe = null;
+    this.stallWatch?.stop();
   }
 
   async resolveForCreate(routeId: string): Promise<RouteCreationResolution> {
@@ -113,7 +141,7 @@ export class AgentRouteService implements AgentRouteHandlers, RouteCreationResol
   }
 
   async continueThread(agentId: string): Promise<string> {
-    const agent = this.deps.agentManager.getAgent(agentId);
+    const agent = await this.resolveAgent(agentId);
     if (!agent) {
       throw new Error(`Agent not found: ${agentId}`);
     }
@@ -154,7 +182,7 @@ export class AgentRouteService implements AgentRouteHandlers, RouteCreationResol
   }
 
   async switchBack(agentId: string): Promise<string> {
-    const continuationAgent = this.deps.agentManager.getAgent(agentId);
+    const continuationAgent = await this.resolveAgent(agentId);
     if (!continuationAgent) {
       throw new Error(`Agent not found: ${agentId}`);
     }
@@ -168,7 +196,7 @@ export class AgentRouteService implements AgentRouteHandlers, RouteCreationResol
     const continuedAgentId = continuationLabels.continuesAgentId;
 
     return this.withExclusiveAccess([agentId, continuedAgentId], async () => {
-      const continuedAgent = this.deps.agentManager.getAgent(continuedAgentId);
+      const continuedAgent = await this.resolveAgent(continuedAgentId);
       if (!continuedAgent) {
         throw new Error(`Agent ${continuedAgentId} no longer exists`);
       }
@@ -224,6 +252,12 @@ export class AgentRouteService implements AgentRouteHandlers, RouteCreationResol
   }
 
   /** Throws if any of `agentIds` already has a move in progress; otherwise runs `fn` with them locked. */
+  private async resolveAgent(agentId: string): Promise<ManagedAgent | null> {
+    const live = this.deps.agentManager.getAgent(agentId);
+    if (live) return live;
+    return (await this.deps.loadAgent?.(agentId)) ?? null;
+  }
+
   private async withExclusiveAccess<T>(
     agentIds: readonly string[],
     fn: () => Promise<T>,

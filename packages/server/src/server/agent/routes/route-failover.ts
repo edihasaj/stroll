@@ -94,7 +94,7 @@ export async function moveThread(
     [ROUTE_REASON_LABEL]: reason,
   });
 
-  const message = `Continuing on ${next.profile.name} after ${fromLabel} hit a ${reason} failure.`;
+  const message = `${fromLabel} ${describeFailure(reason)}. Continuing on ${next.profile.name}.`;
   await Promise.all([
     deps.appendNotification(fromAgent.id, message),
     deps.appendNotification(newAgentId, message),
@@ -161,7 +161,7 @@ async function markAwaitingChoice(
   const fromLabel = resolveProfileLabel(agent, config);
   await deps.appendNotification(
     agent.id,
-    `${fromLabel} hit a ${reason} failure. Continue on ${next.profile.name}?`,
+    `${fromLabel} ${describeFailure(reason)}. Continue on ${next.profile.name}?`,
     "warning",
   );
   await deps.handoff.appendEvent(threadId, {
@@ -191,8 +191,8 @@ async function markPaused(
   const fromLabel = resolveProfileLabel(agent, config);
   await deps.appendNotification(
     agent.id,
-    `${fromLabel} hit a ${reason} failure and no other entry on ${route.name} is usable right now. ` +
-      "Your context is kept — resume when ready.",
+    `${fromLabel} ${describeFailure(reason)}, and nothing else on ${route.name} is usable right ` +
+      "now. The context is kept; resume when a model is available.",
     "warning",
   );
   await deps.handoff.appendEvent(threadId, {
@@ -220,7 +220,25 @@ export async function handleAgentManagerEvent(
   if (event.type !== "agent_stream" || event.event.type !== "turn_failed") {
     return;
   }
-  const agentId = event.agentId;
+  const reason = classifyRouteFailure(event.event);
+  if (!reason) {
+    // An ordinary failure stays visible as one; failover never hides a real error.
+    return;
+  }
+  await handleRouteFailure(deps, busyAgentIds, event.agentId, reason);
+}
+
+/**
+ * Moves a routed, active agent's thread on after a failure of the given kind: auto failover, an
+ * `ask` offer, or pausing the thread when nothing is usable. Shared by the `turn_failed` handler
+ * and the stall watch (`stall-watch.ts`).
+ */
+export async function handleRouteFailure(
+  deps: AgentRouteServiceDeps,
+  busyAgentIds: Set<string>,
+  agentId: string,
+  reason: AgentRouteFailureReason,
+): Promise<void> {
   if (busyAgentIds.has(agentId)) {
     // A move for this agent is already in flight; a replayed or duplicate delivery of the same
     // failure must not start a second one.
@@ -234,11 +252,6 @@ export async function handleAgentManagerEvent(
   if (!routeLabels || routeLabels.state !== "active") {
     // Not routed, or already moved past "active" — including a failure event replayed from
     // history for an agent that has since continued, paused, or switched back.
-    return;
-  }
-  const reason = classifyRouteFailure(event.event);
-  if (!reason) {
-    // An ordinary failure stays visible as one; failover never hides a real error.
     return;
   }
 
@@ -262,5 +275,19 @@ export async function handleAgentManagerEvent(
     deps.logger.error({ err: error, agentId }, "Agent route failover failed");
   } finally {
     busyAgentIds.delete(agentId);
+  }
+}
+
+/** Completes "<profile> …" in the route notifications, e.g. "Qwen (Spark) was not reachable". */
+function describeFailure(reason: AgentRouteFailureReason): string {
+  switch (reason) {
+    case "auth":
+      return "was signed out";
+    case "quota":
+      return "ran out of usage or credits";
+    case "unreachable":
+      return "was not reachable";
+    case "manual":
+      return "was switched away from";
   }
 }

@@ -37,6 +37,14 @@ const UNREACHABLE_PATTERNS: readonly RegExp[] = [
   /\bservice unavailable\b/i,
   /\bgateway timeout\b/i,
   /\bhttp\/?\s*50[234]\b/i,
+  // Bun's fetch (OMP, Pi) reports a refused or unroutable endpoint as "Unable to connect. Is the
+  // computer able to access the url?" with no errno in the text.
+  /\bunable to connect\b/i,
+  /\bis the computer able to access the url\b/i,
+  /\b(?:could not|failed to) connect\b/i,
+  /\bconnection refused\b/i,
+  /\b(?:EHOSTUNREACH|ENETUNREACH|EAI_AGAIN)\b/,
+  /\bno route to host\b/i,
 ];
 
 /**

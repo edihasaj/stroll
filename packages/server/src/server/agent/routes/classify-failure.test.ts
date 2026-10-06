@@ -57,6 +57,26 @@ describe("classifyRouteFailure", () => {
     );
   });
 
+  it("classifies OMP's Bun fetch connection failure as unreachable", () => {
+    expect(
+      classifyRouteFailure(
+        turnFailed({
+          error:
+            "Unable to connect. Is the computer able to access the url? (stopReason=error, model=spark-a/qwen3.8-flash-next)",
+        }),
+      ),
+    ).toBe("unreachable");
+  });
+
+  it("classifies a refused or unroutable connection as unreachable", () => {
+    expect(classifyRouteFailure(turnFailed({ error: "connect EHOSTUNREACH 10.0.0.2:8000" }))).toBe(
+      "unreachable",
+    );
+    expect(classifyRouteFailure(turnFailed({ error: "Connection refused by peer" }))).toBe(
+      "unreachable",
+    );
+  });
+
   it("classifies a socket hang up as unreachable", () => {
     expect(classifyRouteFailure(turnFailed({ error: "socket hang up" }))).toBe("unreachable");
   });

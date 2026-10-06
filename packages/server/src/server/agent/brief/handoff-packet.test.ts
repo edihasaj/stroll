@@ -128,9 +128,10 @@ describe("formatHandoffPacket", () => {
 
   it("renders the workspace section when git is present", () => {
     const packet = formatHandoffPacket(baseInput);
-    // The leading status-code space from `git status --short` is trimmed along with the rest.
+    // The leading status-code space from `git status --short` is kept: " M" (unstaged) and "M "
+    // (staged) mean different things.
     expect(packet).toContain(
-      "## Workspace\ngit status --short:\nM file.ts\ngit diff --stat:\nfile.ts | 1 +",
+      "## Workspace\ngit status --short:\n M file.ts\ngit diff --stat:\nfile.ts | 1 +",
     );
   });
 
@@ -233,9 +234,8 @@ describe("collectHandoffInput", () => {
     const result = await collectHandoffInput(
       {
         briefStore: { read: async () => ({ brief: null, events: [] }) },
-        agentManager: {
-          fetchTimeline: (agentId) => (agentId === "thread-1" ? threadTimeline : agentTimeline),
-        },
+        readTimeline: async (agentId) =>
+          (agentId === "thread-1" ? threadTimeline : agentTimeline).rows,
         runGit,
       },
       { agentId: "agent-2", threadId: "thread-1", agentCwd: "/tmp/project" },
@@ -252,7 +252,7 @@ describe("collectHandoffInput", () => {
     const result = await collectHandoffInput(
       {
         briefStore: { read: async () => ({ brief, events: [] }) },
-        agentManager: { fetchTimeline: () => buildFetchResult([]) },
+        readTimeline: async () => buildFetchResult([]).rows,
         runGit,
       },
       { agentId: "agent-1", threadId: "agent-1", agentCwd: "/tmp/project" },
@@ -275,7 +275,7 @@ describe("collectHandoffInput", () => {
     const result = await collectHandoffInput(
       {
         briefStore: { read: async () => ({ brief: null, events: [] }) },
-        agentManager: { fetchTimeline: () => buildFetchResult(items) },
+        readTimeline: async () => buildFetchResult(items).rows,
         runGit,
       },
       { agentId: "agent-1", threadId: "agent-1", agentCwd: "/tmp/project" },
@@ -307,7 +307,7 @@ describe("collectHandoffInput", () => {
     const result = await collectHandoffInput(
       {
         briefStore: { read: async () => ({ brief: null, events: [] }) },
-        agentManager: { fetchTimeline: () => buildFetchResult(items) },
+        readTimeline: async () => buildFetchResult(items).rows,
         runGit,
       },
       { agentId: "agent-1", threadId: "agent-1", agentCwd: "/tmp/project" },
@@ -329,7 +329,7 @@ describe("collectHandoffInput", () => {
     const result = await collectHandoffInput(
       {
         briefStore: { read: async () => ({ brief: null, events: [] }) },
-        agentManager: { fetchTimeline: () => buildFetchResult(items) },
+        readTimeline: async () => buildFetchResult(items).rows,
         runGit,
       },
       { agentId: "agent-1", threadId: "agent-1", agentCwd: "/tmp/project" },
@@ -348,7 +348,7 @@ describe("collectHandoffInput", () => {
     const result = await collectHandoffInput(
       {
         briefStore: { read: async () => ({ brief: null, events: [] }) },
-        agentManager: { fetchTimeline: () => buildFetchResult([]) },
+        readTimeline: async () => buildFetchResult([]).rows,
         runGit,
       },
       { agentId: "agent-1", threadId: "agent-1", agentCwd: "/tmp/project" },
@@ -368,7 +368,7 @@ describe("collectHandoffInput", () => {
     const result = await collectHandoffInput(
       {
         briefStore: { read: async () => ({ brief: null, events: [] }) },
-        agentManager: { fetchTimeline: () => buildFetchResult([]) },
+        readTimeline: async () => buildFetchResult([]).rows,
         runGit,
       },
       { agentId: "agent-1", threadId: "agent-1", agentCwd: "/tmp/project" },

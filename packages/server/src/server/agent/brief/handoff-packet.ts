@@ -1,7 +1,8 @@
 import type { AgentBrief, AgentRouteFailureReason } from "@getpaseo/protocol/agent-route";
-import type { AgentManager } from "../agent-manager.js";
 import type { ToolCallDetail, ToolCallTimelineItem } from "../agent-sdk-types.js";
-import type { ProjectedTimelineRow } from "../timeline-projection.js";
+import type { AgentTimelineRow } from "../agent-timeline-store-types.js";
+
+type TimelineRows = readonly Pick<AgentTimelineRow, "item">[];
 import type { RunGitCommand } from "../../../utils/run-git-command.js";
 import type { AgentBriefStore } from "./brief-store.js";
 
@@ -105,10 +106,17 @@ function formatToolCallsSection(toolCalls: readonly HandoffToolCall[]): string {
 function formatGitSection(git: HandoffGitSummary): string {
   return [
     "git status --short:",
-    git.statusShort.trim().length > 0 ? git.statusShort.trim() : "(clean)",
+    formatGitOutput(git.statusShort, "(clean)"),
     "git diff --stat:",
-    git.diffStat.trim().length > 0 ? git.diffStat.trim() : "(no diff)",
+    formatGitOutput(git.diffStat, "(no diff)"),
   ].join("\n");
+}
+
+// Leading spaces carry meaning in `git status --short` (" M" is unstaged, "M " is staged), so only
+// blank lines and trailing whitespace are removed.
+function formatGitOutput(output: string, empty: string): string {
+  const cleaned = output.replace(/^(?:[ \t]*\n)+/, "").trimEnd();
+  return cleaned.length > 0 ? cleaned : empty;
 }
 
 function escapeAttribute(value: string): string {
@@ -120,7 +128,7 @@ function trimToChars(text: string, max: number): string {
   return trimmed.length > max ? `${trimmed.slice(0, max)}…` : trimmed;
 }
 
-function findFirstUserMessageText(rows: readonly ProjectedTimelineRow[]): string {
+function findFirstUserMessageText(rows: TimelineRows): string {
   for (const row of rows) {
     if (row.item.type === "user_message") {
       return row.item.text.trim();
@@ -129,7 +137,7 @@ function findFirstUserMessageText(rows: readonly ProjectedTimelineRow[]): string
   return "";
 }
 
-function findLastUserMessageText(rows: readonly ProjectedTimelineRow[]): string {
+function findLastUserMessageText(rows: TimelineRows): string {
   for (let index = rows.length - 1; index >= 0; index -= 1) {
     const item = rows[index].item;
     if (item.type === "user_message") {
@@ -216,10 +224,7 @@ function describeToolCall(item: ToolCallTimelineItem): HandoffToolCall {
   };
 }
 
-function extractLastToolCalls(
-  rows: readonly ProjectedTimelineRow[],
-  max: number,
-): HandoffToolCall[] {
+function extractLastToolCalls(rows: TimelineRows, max: number): HandoffToolCall[] {
   const calls: HandoffToolCall[] = [];
   for (let index = rows.length - 1; index >= 0 && calls.length < max; index -= 1) {
     const item = rows[index].item;
@@ -261,7 +266,8 @@ async function collectGitSummary(
 export async function collectHandoffInput(
   deps: {
     briefStore: Pick<AgentBriefStore, "read">;
-    agentManager: Pick<AgentManager, "fetchTimeline">;
+    /** Committed rows from durable storage, so a packet built after a daemon restart is complete. */
+    readTimeline: (agentId: string) => Promise<TimelineRows>;
     runGit: RunGitCommand;
   },
   args: { agentId: string; threadId: string; agentCwd: string },
@@ -270,20 +276,16 @@ export async function collectHandoffInput(
     deps.briefStore.read(args.threadId),
     collectGitSummary(deps.runGit, args.agentCwd),
   ]);
-  const threadTimeline = deps.agentManager.fetchTimeline(args.threadId, {
-    direction: "tail",
-    limit: 0,
-  });
-  const agentTimeline = deps.agentManager.fetchTimeline(args.agentId, {
-    direction: "tail",
-    limit: 0,
-  });
+  const [threadRows, agentRows] = await Promise.all([
+    deps.readTimeline(args.threadId),
+    deps.readTimeline(args.agentId),
+  ]);
 
   return {
     brief: record.brief,
-    originalRequest: findFirstUserMessageText(threadTimeline.rows),
-    latestUserMessage: findLastUserMessageText(agentTimeline.rows),
-    toolCalls: extractLastToolCalls(agentTimeline.rows, MAX_TOOL_CALLS),
+    originalRequest: findFirstUserMessageText(threadRows),
+    latestUserMessage: findLastUserMessageText(agentRows),
+    toolCalls: extractLastToolCalls(agentRows, MAX_TOOL_CALLS),
     git,
   };
 }

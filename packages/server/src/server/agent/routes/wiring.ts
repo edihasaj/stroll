@@ -7,6 +7,7 @@ import type { CreateAgentCommandInput, CreateAgentCommandResult } from "../creat
 import type { DaemonConfigStore } from "../../daemon-config-store.js";
 import type { ProviderAccountService } from "../../provider-accounts/service.js";
 import { sendPromptToAgent } from "../agent-prompt.js";
+import { ensureAgentLoaded } from "../agent-loading.js";
 import { appendTimelineItemIfAgentKnown } from "../timeline-append.js";
 import { createAgentBriefService } from "../brief/brief-service.js";
 import {
@@ -46,12 +47,25 @@ export interface AgentRoutingWiring {
  */
 export function createAgentRoutingWiring(deps: AgentRoutingWiringDeps): AgentRoutingWiring {
   const readDaemonConfig = () => deps.daemonConfigStore.get();
+  const loadAgent = async (agentId: string) => {
+    try {
+      return await ensureAgentLoaded(agentId, {
+        agentManager: deps.agentManager,
+        agentStorage: deps.agentStorage,
+        logger: deps.logger,
+      });
+    } catch (error) {
+      deps.logger.warn({ err: error, agentId }, "Route: could not load agent");
+      return null;
+    }
+  };
   const briefService = createAgentBriefService({
+    loadAgent,
     agentManager: deps.agentManager,
     readDaemonConfig,
     paseoHome: deps.paseoHome,
     generator: createAgentBriefGenerator({
-      agentManager: deps.agentManager,
+      readTimeline: (agentId) => deps.agentManager.getTimelineRows(agentId),
       generation: createProductionBriefStructuredGeneration({
         agentManager: deps.agentManager,
         providerSnapshotManager: deps.providerSnapshotManager,
@@ -88,6 +102,8 @@ export function createAgentRoutingWiring(deps: AgentRoutingWiringDeps): AgentRou
     preflight,
     readDaemonConfig,
     handoff: briefService,
+    loadAgent,
+    cancelAgentRun: (agentId) => deps.agentManager.cancelAgentRun(agentId),
     logger: deps.logger.child({ module: "agent-route-service" }),
   });
   return {

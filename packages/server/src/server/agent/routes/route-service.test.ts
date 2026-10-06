@@ -538,6 +538,31 @@ describe("AgentRouteService.switchBack", () => {
     });
   });
 
+  it("loads the original agent when it is not in memory, e.g. after a daemon restart", async () => {
+    const { continuation, original } = continuationAndOriginal();
+    const harness = createHarness({
+      agents: [continuation],
+      preflightResults: { 0: okResult("qwen", "Qwen (Spark)") },
+      config: { ...CONFIG, agentRoutes: [ROUTE_AUTO] },
+    });
+    const loaded: string[] = [];
+    const service = createAgentRouteService({
+      ...harness.deps,
+      loadAgent: async (agentId) => {
+        loaded.push(agentId);
+        if (agentId !== original.id) return null;
+        harness.fakeAgentManager.addAgent(original);
+        return original;
+      },
+    });
+
+    await expect(service.switchBack("agent-2")).resolves.toBe("agent-1");
+    expect(loaded).toEqual(["agent-1"]);
+    expect(harness.sendPromptCalls).toEqual([
+      { agentId: "agent-1", prompt: expect.stringContaining("packet") },
+    ]);
+  });
+
   it("throws when the continuation agent is not idle", async () => {
     const { continuation, original } = continuationAndOriginal("running");
     const harness = createHarness({
