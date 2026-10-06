@@ -34,6 +34,7 @@ import {
 import { HostPicker } from "@/components/hosts/host-picker";
 import { SidebarDisplayPreferencesMenu } from "@/components/sidebar/display-preferences/menu";
 import { SidebarSeparator } from "@/components/sidebar/sidebar-separator";
+import { SidebarFooterRows } from "@/components/sidebar/sidebar-footer-rows";
 import { SidebarNavRows } from "@/components/sidebar/sidebar-nav-rows";
 import { SidebarPanel } from "@/components/sidebar/sidebar-panel";
 import { SidebarRail } from "@/components/sidebar/sidebar-rail";
@@ -56,9 +57,7 @@ import { RetainedPanelActivity } from "@/components/retained-panel";
 import type { SidebarWorkspaceGroup } from "@/components/sidebar/sidebar-labels";
 import type { SidebarProjectIconTarget } from "@/utils/sidebar-project-row-model";
 import { type SidebarGroupMode, useSidebarViewStore } from "@/stores/sidebar-view-store";
-import { PluginSidebarItem } from "@/plugins/sidebar-items";
 import { builtinSidebarNavLabelKey } from "@/sidebar-nav/model";
-import { useSidebarNavItems } from "@/sidebar-nav/use-sidebar-nav-items";
 import { usePanelStore } from "@/stores/panel-store";
 import { deriveIdentityColorName, identityColor } from "@/styles/identity-colors";
 import { useOwnsWindowChromeCorner, WindowChromeSafeArea } from "@/utils/desktop-window";
@@ -66,7 +65,7 @@ import { useCloseAgentListGesture } from "@/mobile-panels/gestures";
 import { MobilePanelOverlay } from "@/mobile-panels/presentation";
 import { buildSettingsAddHostRoute, buildSettingsRoute } from "@/utils/host-routes";
 import { openHostOverview } from "@/navigation/settings-navigation";
-import { UsageSidebarItem, UsageSidebarRoot, useHasUsageSummary } from "@/usage";
+import { UsageSidebarRoot } from "@/usage";
 import { SidebarAgentListSkeleton } from "./sidebar-agent-list-skeleton";
 import { useActiveHostSummary } from "./sidebar/use-active-host-summary";
 import { SidebarWorkspaceList } from "./sidebar-workspace-list";
@@ -512,40 +511,6 @@ function SidebarFooter({
         </View>
       </View>
     </UsageSidebarRoot>
-  );
-}
-
-/**
- * The footer rows in the user's `sidebarFooterItems` order: the Usage item and plugin rows. The
- * Usage item is left out while it has no summary to show.
- */
-function SidebarFooterRows({ onBeforeNavigate }: { onBeforeNavigate?: () => void }) {
-  const { items } = useSidebarNavItems("footer");
-  const hasUsageSummary = useHasUsageSummary();
-  const rowsRef = useRef<View | null>(null);
-  const visibleItems = items.filter(
-    (item) => item.visible && (item.kind === "plugin" || hasUsageSummary),
-  );
-  if (visibleItems.length === 0) return null;
-  return (
-    <>
-      <View ref={rowsRef} collapsable={false} style={styles.footerRows}>
-        {visibleItems.map((item) =>
-          item.kind === "plugin" ? (
-            <PluginSidebarItem
-              key={item.key}
-              group={item.group}
-              section="footer"
-              fallbackAnchorRef={rowsRef}
-              onBeforeNavigate={onBeforeNavigate}
-            />
-          ) : (
-            <UsageSidebarItem key={item.key} />
-          ),
-        )}
-      </View>
-      <SidebarSeparator testID="sidebar-footer-separator" />
-    </>
   );
 }
 
@@ -1076,11 +1041,6 @@ const styles = StyleSheet.create((theme) => ({
     color: theme.colors.foreground,
   },
   // Usage and plugin rows sit above the footer's icon line, spaced like the header nav rows.
-  footerRows: {
-    paddingHorizontal: theme.spacing[2],
-    paddingVertical: theme.spacing[1.5],
-    gap: 2,
-  },
   footerIconButton: (isCompact: boolean) => ({
     width: isCompact ? buttonControlHeight.md : buttonControlHeight.xs,
     height: isCompact ? buttonControlHeight.md : buttonControlHeight.xs,

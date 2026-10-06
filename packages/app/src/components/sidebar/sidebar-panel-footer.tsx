@@ -3,6 +3,7 @@ import { Pressable, Text, View, type PressableStateCallbackType } from "react-na
 import { StyleSheet } from "react-native-unistyles";
 import { HostPicker } from "@/components/hosts/host-picker";
 import { useActiveHostSummary } from "@/components/sidebar/use-active-host-summary";
+import { SidebarFooterRows } from "@/components/sidebar/sidebar-footer-rows";
 import { deriveIdentityColorName, identityColor } from "@/styles/identity-colors";
 
 function sidebarPanelHostOptionTestID(serverId: string): string {
@@ -10,8 +11,8 @@ function sidebarPanelHostOptionTestID(serverId: string): string {
 }
 
 /**
- * The panel footer: an identity-color avatar carrying the active host's initial plus its name,
- * nothing else. Import session, Help, and Settings used to share this row — they moved to the
+ * The panel footer: the Usage and plugin footer rows, then an identity-color avatar carrying the
+ * active host's initial plus its name. Import session, Help, and Settings used to share this row — they moved to the
  * rail's `•••` menu and the rail's own Settings icon respectively, so the footer is only ever
  * the host identity trigger (the same `<HostPicker>` the rail's Chats icon and the old brand row
  * both opened — one menu, converged triggers, per docs/design.md §12).
@@ -38,48 +39,51 @@ export function SidebarPanelFooter({
   );
 
   return (
-    <View style={styles.footer}>
-      <HostPicker
-        hosts={hosts}
-        value=""
-        onSelect={handleSelect}
-        open={isOpen}
-        onOpenChange={setIsOpen}
-        anchorRef={triggerRef}
-        includeAddHost
-        onAddHost={onAddHost}
-        showActiveConnection
-        onOpenHostSettings={onOpenHostSettings}
-        searchable
-        desktopPlacement="top-start"
-        desktopMinWidth={240}
-        addHostTestID="sidebar-panel-host-add"
-        hostOptionTestID={sidebarPanelHostOptionTestID}
-      >
-        <Pressable
-          ref={triggerRef}
-          style={triggerStyle}
-          onPress={handleOpen}
-          testID="sidebar-panel-footer-identity"
-          nativeID="sidebar-panel-footer-identity"
-          accessible
-          accessibilityRole="button"
-          accessibilityLabel={label}
+    <>
+      <SidebarFooterRows />
+      <View style={styles.footer}>
+        <HostPicker
+          hosts={hosts}
+          value=""
+          onSelect={handleSelect}
+          open={isOpen}
+          onOpenChange={setIsOpen}
+          anchorRef={triggerRef}
+          includeAddHost
+          onAddHost={onAddHost}
+          showActiveConnection
+          onOpenHostSettings={onOpenHostSettings}
+          searchable
+          desktopPlacement="top-start"
+          desktopMinWidth={240}
+          addHostTestID="sidebar-panel-host-add"
+          hostOptionTestID={sidebarPanelHostOptionTestID}
         >
-          <View
-            style={[
-              styles.avatar,
-              { backgroundColor: identityColor(deriveIdentityColorName(serverId ?? label)) },
-            ]}
+          <Pressable
+            ref={triggerRef}
+            style={triggerStyle}
+            onPress={handleOpen}
+            testID="sidebar-panel-footer-identity"
+            nativeID="sidebar-panel-footer-identity"
+            accessible
+            accessibilityRole="button"
+            accessibilityLabel={label}
           >
-            <Text style={styles.initial}>{label.charAt(0).toUpperCase()}</Text>
-          </View>
-          <Text style={styles.label} numberOfLines={1}>
-            {label}
-          </Text>
-        </Pressable>
-      </HostPicker>
-    </View>
+            <View
+              style={[
+                styles.avatar,
+                { backgroundColor: identityColor(deriveIdentityColorName(serverId ?? label)) },
+              ]}
+            >
+              <Text style={styles.initial}>{label.charAt(0).toUpperCase()}</Text>
+            </View>
+            <Text style={styles.label} numberOfLines={1}>
+              {label}
+            </Text>
+          </Pressable>
+        </HostPicker>
+      </View>
+    </>
   );
 }
 
