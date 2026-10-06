@@ -2961,6 +2961,8 @@ describe("HostRuntimeStore", () => {
       attachments: [{ type: "text", title: "main.ts", text: "Workspace file: src/main.ts" }],
     });
     expect(session?.messageSubmissions.get("agent")).toBeDefined();
+    // A turn another surface started first is steered, never canceled, by the drain.
+    expect(fakeClient.sentAgentMessages[0]?.[2]).toMatchObject({ activeTurnBehavior: "steer" });
 
     send.resolve();
     useSessionStore.getState().clearSession(host.serverId);

@@ -5,11 +5,60 @@ import type { MessageInputKeyboardActionKind } from "@/keyboard/actions";
 
 export type SendBehavior = ActiveTurnBehavior | "queue";
 
+/** What the alternate send gesture (Tab, Mod+Enter, the secondary button) does while a turn runs. */
+export type AlternateSendAction = "queue" | "steer";
+
+/** Queueing behind a permission prompt would strand the message, so it steers into the parked turn. */
 export function resolveActiveSendBehavior(
   sendBehavior: SendBehavior,
   hasPendingPermission: boolean,
 ): SendBehavior {
-  return sendBehavior === "queue" && hasPendingPermission ? "interrupt" : sendBehavior;
+  return sendBehavior === "queue" && hasPendingPermission ? "steer" : sendBehavior;
+}
+
+/**
+ * The alternate gesture is never an interrupt. Codex parity: Enter steers and Tab queues, and a
+ * user who made Enter queue gets steering on Tab. Only the stop button, Escape, and an explicit
+ * "interrupt" default cancel a running turn.
+ */
+export function resolveAlternateSendAction(defaultSendBehavior: SendBehavior): AlternateSendAction {
+  return defaultSendBehavior === "queue" ? "steer" : "queue";
+}
+
+/** What a message sent now (not queued) asks of a running turn. Only an explicit choice interrupts. */
+export function resolveOutgoingTurnBehavior(sendBehavior: SendBehavior): ActiveTurnBehavior {
+  return sendBehavior === "interrupt" ? "interrupt" : "steer";
+}
+
+export type ComposerSendKeyIntent = "default" | "alternate" | null;
+
+export interface ComposerSendKeyInput {
+  key: string;
+  shiftKey: boolean;
+  metaKey: boolean;
+  ctrlKey: boolean;
+  altKey: boolean;
+  isAgentRunning: boolean;
+  canQueue: boolean;
+  hasSendableContent: boolean;
+}
+
+/**
+ * Maps a composer key press to a send intent. Tab only claims the key while a turn runs and there
+ * is something to send; otherwise it keeps its focus-navigation meaning.
+ */
+export function resolveComposerSendKey(input: ComposerSendKeyInput): ComposerSendKeyIntent {
+  const hasModifier = input.shiftKey || input.metaKey || input.ctrlKey || input.altKey;
+  const canRunAlternate = input.isAgentRunning && input.canQueue;
+  if (input.key === "Enter") {
+    if (input.shiftKey) return null;
+    const isModEnter = input.metaKey || input.ctrlKey;
+    return isModEnter && canRunAlternate ? "alternate" : "default";
+  }
+  if (input.key === "Tab") {
+    return !hasModifier && canRunAlternate && input.hasSendableContent ? "alternate" : null;
+  }
+  return null;
 }
 
 interface ComposerSurfaceState {
@@ -126,7 +175,7 @@ export function runDefaultSendAction(ctx: SendActionContext): void {
 }
 
 export function runAlternateSendAction(ctx: SendActionContext): void {
-  if (ctx.defaultSendBehavior === "queue") {
+  if (resolveAlternateSendAction(ctx.defaultSendBehavior) === "steer") {
     ctx.handleSendMessage();
     return;
   }

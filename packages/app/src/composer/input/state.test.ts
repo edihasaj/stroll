@@ -3,7 +3,10 @@ import {
   applyDictationTranscript,
   computeCanStartDictation,
   resolveActiveSendBehavior,
+  resolveAlternateSendAction,
+  resolveComposerSendKey,
   resolveComposerSurfacePresentation,
+  resolveOutgoingTurnBehavior,
   runAlternateSendAction,
   runDefaultSendAction,
   runMessageInputKeyboardAction,
@@ -189,10 +192,23 @@ describe("dictation transcript behavior", () => {
 });
 
 describe("composer send behavior", () => {
-  it("sends immediately when queue mode cannot advance past a permission", () => {
-    expect(resolveActiveSendBehavior("queue", true)).toBe("interrupt");
+  it("steers into the parked turn when queue mode cannot advance past a permission", () => {
+    expect(resolveActiveSendBehavior("queue", true)).toBe("steer");
     expect(resolveActiveSendBehavior("queue", false)).toBe("queue");
     expect(resolveActiveSendBehavior("steer", true)).toBe("steer");
+    expect(resolveActiveSendBehavior("interrupt", true)).toBe("interrupt");
+  });
+
+  it("never makes the alternate gesture an interrupt", () => {
+    expect(resolveAlternateSendAction("steer")).toBe("queue");
+    expect(resolveAlternateSendAction("interrupt")).toBe("queue");
+    expect(resolveAlternateSendAction("queue")).toBe("steer");
+  });
+
+  it("interrupts a running turn only when interrupt is the chosen default", () => {
+    expect(resolveOutgoingTurnBehavior("steer")).toBe("steer");
+    expect(resolveOutgoingTurnBehavior("queue")).toBe("steer");
+    expect(resolveOutgoingTurnBehavior("interrupt")).toBe("interrupt");
   });
 
   function actions() {
@@ -205,7 +221,7 @@ describe("composer send behavior", () => {
     };
   }
 
-  it("uses Enter to interrupt and Mod+Enter to queue when interrupt is selected", () => {
+  it("uses Enter to interrupt and Tab to queue when interrupt is selected", () => {
     const defaultAction = actions();
     runDefaultSendAction({
       defaultSendBehavior: "interrupt",
@@ -228,7 +244,7 @@ describe("composer send behavior", () => {
     expect(alternateAction.calls).toEqual(["queue"]);
   });
 
-  it("uses Enter to steer and Mod+Enter to queue when steer is selected", () => {
+  it("uses Enter to steer and Tab to queue when steer is selected", () => {
     const defaultAction = actions();
     runDefaultSendAction({
       defaultSendBehavior: "steer",
@@ -251,7 +267,7 @@ describe("composer send behavior", () => {
     expect(alternateAction.calls).toEqual(["queue"]);
   });
 
-  it("uses Enter to queue and Mod+Enter to submit when queue is selected", () => {
+  it("uses Enter to queue and Tab to steer when queue is selected", () => {
     const defaultAction = actions();
     runDefaultSendAction({
       defaultSendBehavior: "queue",
@@ -272,6 +288,52 @@ describe("composer send behavior", () => {
 
     expect(defaultAction.calls).toEqual(["queue"]);
     expect(alternateAction.calls).toEqual(["send"]);
+  });
+});
+
+describe("composer send keys", () => {
+  const running = {
+    shiftKey: false,
+    metaKey: false,
+    ctrlKey: false,
+    altKey: false,
+    isAgentRunning: true,
+    canQueue: true,
+    hasSendableContent: true,
+  };
+
+  it("sends with Enter and runs the alternate action with Tab while a turn runs", () => {
+    expect(resolveComposerSendKey({ ...running, key: "Enter" })).toBe("default");
+    expect(resolveComposerSendKey({ ...running, key: "Tab" })).toBe("alternate");
+  });
+
+  it("keeps Mod+Enter as an alias for the alternate action", () => {
+    expect(resolveComposerSendKey({ ...running, key: "Enter", metaKey: true })).toBe("alternate");
+    expect(resolveComposerSendKey({ ...running, key: "Enter", ctrlKey: true })).toBe("alternate");
+  });
+
+  it("leaves Shift+Enter to insert a newline", () => {
+    expect(resolveComposerSendKey({ ...running, key: "Enter", shiftKey: true })).toBeNull();
+  });
+
+  it("leaves Tab to focus navigation when there is nothing to queue", () => {
+    expect(resolveComposerSendKey({ ...running, key: "Tab", hasSendableContent: false })).toBe(
+      null,
+    );
+    expect(resolveComposerSendKey({ ...running, key: "Tab", isAgentRunning: false })).toBe(null);
+    expect(resolveComposerSendKey({ ...running, key: "Tab", canQueue: false })).toBe(null);
+  });
+
+  it("leaves modified Tab to the global shortcuts", () => {
+    expect(resolveComposerSendKey({ ...running, key: "Tab", shiftKey: true })).toBeNull();
+    expect(resolveComposerSendKey({ ...running, key: "Tab", ctrlKey: true })).toBeNull();
+    expect(resolveComposerSendKey({ ...running, key: "Tab", altKey: true })).toBeNull();
+  });
+
+  it("sends with Enter and ignores Mod+Enter's alternate while idle", () => {
+    const idle = { ...running, isAgentRunning: false };
+    expect(resolveComposerSendKey({ ...idle, key: "Enter" })).toBe("default");
+    expect(resolveComposerSendKey({ ...idle, key: "Enter", metaKey: true })).toBe("default");
   });
 });
 

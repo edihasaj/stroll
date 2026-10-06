@@ -112,7 +112,7 @@ import {
 } from "@/attachments/service";
 import { resolveAgentControlsMode } from "@/composer/agent-controls/mode";
 import { resolveComposerInputMode, type ComposerInputMode } from "@/composer/input-mode";
-import { resolveActiveSendBehavior } from "./input/state";
+import { resolveActiveSendBehavior, resolveOutgoingTurnBehavior } from "./input/state";
 import { useKeyboardActionHandler } from "@/hooks/use-keyboard-action-handler";
 import type { KeyboardActionDefinition } from "@/keyboard/keyboard-action-dispatcher";
 import type { MessageInputKeyboardActionKind } from "@/keyboard/actions";
@@ -123,7 +123,7 @@ import { useAppSettings } from "@/hooks/use-settings";
 import { RenderProfile } from "@/utils/render-profiler";
 import { AfterPaintPublication } from "@/composer/after-paint-publication";
 import { isWeb, isNative } from "@/constants/platform";
-import type { ForgeSearchItem } from "@getpaseo/protocol/messages";
+import type { ActiveTurnBehavior, ForgeSearchItem } from "@getpaseo/protocol/messages";
 import type {
   AttachmentMetadata,
   ComposerAttachment,
@@ -1591,7 +1591,11 @@ function ComposerContentImpl({
   }, [focusInput, onFocusInput]);
 
   const submitMessage = useCallback(
-    async (text: string, submitAttachments: ComposerAttachment[]) => {
+    async (
+      text: string,
+      submitAttachments: ComposerAttachment[],
+      activeTurnBehavior: ActiveTurnBehavior,
+    ) => {
       onMessageSent?.();
       if (onSubmitMessageRef.current) {
         await onSubmitMessageRef.current({ text, attachments: submitAttachments, cwd });
@@ -1604,10 +1608,10 @@ function ComposerContentImpl({
         agentIdRef.current,
         text,
         submitAttachments,
-        appSettings.sendBehavior === "steer" ? "steer" : "interrupt",
+        activeTurnBehavior,
       );
     },
-    [appSettings.sendBehavior, cwd, onMessageSent, t],
+    [cwd, onMessageSent, t],
   );
 
   useEffect(() => {
@@ -1762,7 +1766,11 @@ function ComposerContentImpl({
           if (submitBehavior !== "preserve-and-lock") {
             beginSubmit(submitAttachments);
           }
-          await submitMessage(submitText, submitAttachments);
+          await submitMessage(
+            submitText,
+            submitAttachments,
+            resolveOutgoingTurnBehavior(appSettings.sendBehavior),
+          );
         },
         clearDraft,
         setUserInput: replaceUserInput,
@@ -1783,6 +1791,7 @@ function ComposerContentImpl({
     },
     [
       allowEmptySubmit,
+      appSettings.sendBehavior,
       beginSubmit,
       clearDraft,
       completeSubmit,
@@ -2052,13 +2061,10 @@ function ComposerContentImpl({
     async (id: string) => {
       if (supportsAgentQueue) {
         if (!client) return;
+        // The row's button reads "Steer", so it never cancels the running turn, whatever the
+        // default send setting is. The stop button is the one way to interrupt.
         const result = await client
-          .sendAgentQueuePromptNow(
-            agentId,
-            id,
-            undefined,
-            appSettings.sendBehavior === "steer" ? "steer" : "interrupt",
-          )
+          .sendAgentQueuePromptNow(agentId, id, undefined, "steer")
           .catch((error: unknown) => ({
             error: error instanceof Error ? error.message : t("composer.errors.failedToSend"),
           }));
@@ -2070,21 +2076,21 @@ function ComposerContentImpl({
         return;
       }
       if (!sendAgentMessageRef.current && !onSubmitMessageRef.current) return;
-      // Reuse the regular send path, which already honors sendBehavior (steer vs. interrupt)
-      // and shows the queued-fallback toast when a steer can't be admitted.
+      // Reuse the regular send path, which shows the queued-fallback toast when a steer can't
+      // be admitted.
       const result = await sendQueuedComposerMessageNow({
         agentId,
         messageId: id,
         queue: queueWriter,
         submitMessage: ({ text, attachments: queuedAttachments }) =>
-          submitMessage(text, queuedAttachments),
+          submitMessage(text, queuedAttachments, "steer"),
         failedToSendMessage: t("composer.errors.failedToSend"),
       });
       if (result.status === "failed") {
         setSendError(result.errorMessage);
       }
     },
-    [agentId, appSettings.sendBehavior, client, queueWriter, submitMessage, supportsAgentQueue, t],
+    [agentId, client, queueWriter, submitMessage, supportsAgentQueue, t],
   );
 
   const handleRemoveQueuedMessage = useCallback(

@@ -133,6 +133,7 @@ export const ar: TranslationResources = {
       sendMessage: "أرسل رسالة",
       queue: "طابور",
       send: "يرسل",
+      steer: "توجيه",
     },
     cancel: {
       cancelingAgent: "وكيل الإلغاء",
@@ -2133,11 +2134,10 @@ export const ar: TranslationResources = {
       defaultSend: {
         label: "إرسال افتراضي",
         descriptions: {
-          interrupt:
-            "عند تشغيل الوكيل، يوقف Enter التشغيل. Command/Ctrl+Enter يضيف إلى قائمة الانتظار.",
+          interrupt: "عند تشغيل الوكيل، يوقف Enter التشغيل ويرسل. يضيف Tab إلى قائمة الانتظار.",
           steer:
-            "عند تشغيل الوكيل، يوجّه Enter الجولة النشطة. يضيف Command/Ctrl+Enter إلى قائمة الانتظار.",
-          queue: "عند تشغيل الوكيل، يضيف Enter إلى قائمة الانتظار. Command/Ctrl+Enter يرسل.",
+            "عند تشغيل الوكيل، يوجّه Enter الجولة النشطة دون إيقاف أدواتها. يضيف Tab إلى قائمة الانتظار.",
+          queue: "عند تشغيل الوكيل، يضيف Enter إلى قائمة الانتظار. يوجّه Tab الجولة النشطة.",
         },
         options: {
           interrupt: "مقاطعة",

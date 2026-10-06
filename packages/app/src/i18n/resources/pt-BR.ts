@@ -134,6 +134,7 @@ export const ptBR: TranslationResources = {
       sendMessage: "Enviar mensagem",
       queue: "Fila",
       send: "Enviar",
+      steer: "Direcionar",
     },
     cancel: {
       cancelingAgent: "Cancelando agente",
@@ -2167,11 +2168,10 @@ export const ptBR: TranslationResources = {
       defaultSend: {
         label: "Envio padrão",
         descriptions: {
-          interrupt:
-            "Quando o agente está em execução, Enter interrompe. Command/Ctrl+Enter enfileira.",
+          interrupt: "Quando o agente está em execução, Enter interrompe e envia. Tab enfileira.",
           steer:
-            "Quando o agente está em execução, Enter orienta o turno ativo. Command/Ctrl+Enter enfileira.",
-          queue: "Quando o agente está em execução, Enter enfileira. Command/Ctrl+Enter envia.",
+            "Quando o agente está em execução, Enter orienta o turno ativo sem parar suas ferramentas. Tab enfileira.",
+          queue: "Quando o agente está em execução, Enter enfileira. Tab orienta o turno ativo.",
         },
         options: {
           interrupt: "Interromper",

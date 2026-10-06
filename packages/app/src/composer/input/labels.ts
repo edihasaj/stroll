@@ -1,5 +1,6 @@
 import type { TFunction } from "i18next";
 import type { SendBehavior } from "@/hooks/use-settings/storage";
+import type { AlternateSendAction } from "./state";
 
 export function resolveSubmitAccessibilityLabel(input: {
   submitButtonAccessibilityLabel: string | undefined;
@@ -53,10 +54,20 @@ export function resolveVoiceTooltipText(input: {
 export function resolveSendTooltipLabel(input: {
   submitButtonAccessibilityLabel: string | undefined;
   defaultActionQueues: boolean;
+  defaultSendBehavior: SendBehavior;
+  isAgentRunning: boolean;
   t: TFunction;
 }): string {
   if (input.submitButtonAccessibilityLabel) return input.submitButtonAccessibilityLabel;
-  return input.defaultActionQueues
-    ? input.t("composer.input.queue")
-    : input.t("composer.input.send");
+  if (input.defaultActionQueues) return input.t("composer.input.queue");
+  if (!input.isAgentRunning) return input.t("composer.input.send");
+  return input.t(
+    input.defaultSendBehavior === "interrupt"
+      ? "composer.input.sendAndInterrupt"
+      : "composer.input.steer",
+  );
+}
+
+export function resolveAlternateSendLabel(action: AlternateSendAction, t: TFunction): string {
+  return t(action === "steer" ? "composer.input.sendAndSteer" : "composer.input.queueMessage");
 }

@@ -71,7 +71,9 @@ import {
 const ComposerTextInput = withUnistyles(EditingTextInput, (theme) => ({
   placeholderTextColor: theme.colors.foregroundMuted,
 }));
+import { AlternateSendButton } from "./alternate-send-button";
 import {
+  resolveAlternateSendLabel,
   resolveSendTooltipLabel,
   resolveSubmitAccessibilityLabel,
   resolveVoiceAccessibilityLabel,
@@ -80,6 +82,8 @@ import {
 import {
   applyDictationTranscript,
   computeCanStartDictation,
+  resolveAlternateSendAction,
+  resolveComposerSendKey,
   resolveComposerSurfacePresentation,
   runAlternateSendAction,
   runDefaultSendAction,
@@ -213,6 +217,7 @@ type WebTextInputKeyPressEvent = NativeSyntheticEvent<
     metaKey?: boolean;
     ctrlKey?: boolean;
     shiftKey?: boolean;
+    altKey?: boolean;
     // Web-only: present on DOM KeyboardEvent during IME composition (CJK input).
     isComposing?: boolean;
     keyCode?: number;
@@ -415,6 +420,7 @@ function SendButtonContent({
 interface DesktopKeyPressContext {
   onKeyPressCallback: ((event: ComposerKeyPressEvent) => boolean) | undefined;
   input: ComposerKeyPressEvent["input"];
+  hasAttachments: boolean;
   submitOnEnter: boolean;
   isAgentRunning: boolean;
   onQueue: ((payload: MessagePayload) => void) | undefined;
@@ -440,21 +446,25 @@ function handleDesktopKeyPressImpl(
     if (handled) return;
   }
 
-  const { shiftKey, metaKey, ctrlKey } = event.nativeEvent;
-
-  if (event.nativeEvent.key !== "Enter") return;
   if (!ctx.submitOnEnter) return;
-  if (shiftKey) return;
-
-  if ((metaKey || ctrlKey) && ctx.isAgentRunning && ctx.onQueue) {
-    if (ctx.isSubmitDisabled || ctx.isSubmitLoading || ctx.disabled) return;
-    event.preventDefault();
+  const { shiftKey, metaKey, ctrlKey, altKey } = event.nativeEvent;
+  const intent = resolveComposerSendKey({
+    key: event.nativeEvent.key,
+    shiftKey: Boolean(shiftKey),
+    metaKey: Boolean(metaKey),
+    ctrlKey: Boolean(ctrlKey),
+    altKey: Boolean(altKey),
+    isAgentRunning: ctx.isAgentRunning,
+    canQueue: Boolean(ctx.onQueue),
+    hasSendableContent: ctx.input.text.trim().length > 0 || ctx.hasAttachments,
+  });
+  if (!intent) return;
+  if (ctx.isSubmitDisabled || ctx.isSubmitLoading || ctx.disabled) return;
+  event.preventDefault();
+  if (intent === "alternate") {
     ctx.handleAlternateSendAction();
     return;
   }
-
-  if (ctx.isSubmitDisabled || ctx.isSubmitLoading || ctx.disabled) return;
-  event.preventDefault();
   ctx.handleDefaultSendAction();
 }
 
@@ -846,6 +856,16 @@ function hasSendableComposerContent(input: {
   hasExternalContent: boolean;
 }): boolean {
   return input.hasText || input.attachments.length > 0 || input.hasExternalContent;
+}
+
+function shouldShowAlternateSend(input: {
+  isAgentRunning: boolean;
+  hasSendableContent: boolean;
+  onQueue: ((payload: MessagePayload) => void) | undefined;
+  isSubmitLoading: boolean;
+}): boolean {
+  const canQueue = input.onQueue !== undefined;
+  return input.isAgentRunning && input.hasSendableContent && canQueue && !input.isSubmitLoading;
 }
 
 function resolvePrimaryActionKind(input: {
@@ -1697,6 +1717,7 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
           valueRef.current,
           selectionRef.current,
         ),
+        hasAttachments: attachments.length > 0,
         submitOnEnter: shouldSubmitOnEnter,
         isAgentRunning,
         onQueue,
@@ -1708,14 +1729,22 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
       });
     }
 
+    const hasSendableContent = hasSendableComposerContent({
+      hasText: hasLiveText,
+      attachments,
+      hasExternalContent,
+    });
     const primaryActionKind = resolvePrimaryActionKind({
-      hasSendableContent: hasSendableComposerContent({
-        hasText: hasLiveText,
-        attachments,
-        hasExternalContent,
-      }),
+      hasSendableContent,
       allowEmptySubmit,
       isAgentRunning,
+      isSubmitLoading,
+    });
+    const alternateSendAction = resolveAlternateSendAction(defaultSendBehavior);
+    const showAlternateSend = shouldShowAlternateSend({
+      isAgentRunning,
+      hasSendableContent,
+      onQueue,
       isSubmitLoading,
     });
     const { canPressLoadingButton, isSendButtonDisabled, defaultActionQueues } =
@@ -1756,8 +1785,11 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
     const sendTooltipLabel = resolveSendTooltipLabel({
       submitButtonAccessibilityLabel,
       defaultActionQueues,
+      defaultSendBehavior,
+      isAgentRunning,
       t,
     });
+    const alternateSendLabel = resolveAlternateSendLabel(alternateSendAction, t);
 
     const handleInputChange = useCallback(
       (nextValue: string) => {
@@ -1958,6 +1990,14 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
                 dictationToggleKeys={dictationToggleKeys}
               />
               {rightContent}
+              <AlternateSendButton
+                visible={showAlternateSend}
+                action={alternateSendAction}
+                label={alternateSendLabel}
+                disabled={isSendButtonDisabled}
+                buttonIconSize={buttonIconSize}
+                onPress={handleAlternateSendAction}
+              />
               <PrimaryAction
                 kind={primaryActionKind}
                 activeActionContent={activeActionContent}

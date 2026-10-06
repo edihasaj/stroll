@@ -129,6 +129,7 @@ export const en = {
       sendMessage: "Send message",
       queue: "Queue",
       send: "Send",
+      steer: "Steer",
     },
     cancel: {
       cancelingAgent: "Canceling agent",
@@ -2258,10 +2259,10 @@ export const en = {
       defaultSend: {
         label: "Default send",
         descriptions: {
-          interrupt: "When the agent is running, Enter interrupts. Command/Ctrl+Enter queues.",
+          interrupt: "When the agent is running, Enter interrupts it and sends. Tab queues.",
           steer:
-            "When the agent is running, Enter steers the active turn. Command/Ctrl+Enter queues.",
-          queue: "When the agent is running, Enter queues. Command/Ctrl+Enter submits.",
+            "When the agent is running, Enter steers the active turn without stopping its tools. Tab queues.",
+          queue: "When the agent is running, Enter queues. Tab steers the active turn.",
         },
         options: {
           interrupt: "Interrupt",

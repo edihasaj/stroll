@@ -134,6 +134,7 @@ export const ja: TranslationResources = {
       sendMessage: "メッセージを送信",
       queue: "キュー",
       send: "送信",
+      steer: "指示",
     },
     cancel: {
       cancelingAgent: "エージェントをキャンセル中",
@@ -2153,10 +2154,11 @@ export const ja: TranslationResources = {
       defaultSend: {
         label: "デフォルトの送信",
         descriptions: {
-          interrupt: "エージェント実行中、Enterで中断します。Command/Ctrl+Enterでキューに追加。",
+          interrupt: "エージェント実行中、Enterで中断して送信します。Tabでキューに追加。",
           steer:
-            "エージェント実行中、Enterで現在のターンに指示を送ります。Command/Ctrl+Enterでキューに追加。",
-          queue: "エージェント実行中、Enterでキューに追加します。Command/Ctrl+Enterで送信。",
+            "エージェント実行中、Enterでツールを止めずに現在のターンに指示を送ります。Tabでキューに追加。",
+          queue:
+            "エージェント実行中、Enterでキューに追加します。Tabで現在のターンに指示を送ります。",
         },
         options: {
           interrupt: "中断",

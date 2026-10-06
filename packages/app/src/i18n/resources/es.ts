@@ -134,6 +134,7 @@ export const es: TranslationResources = {
       sendMessage: "enviar mensaje",
       queue: "Cola",
       send: "Enviar",
+      steer: "Dirigir",
     },
     cancel: {
       cancelingAgent: "Agente de cancelación",
@@ -2184,11 +2185,11 @@ export const es: TranslationResources = {
         label: "Envío predeterminado",
         descriptions: {
           interrupt:
-            "Cuando el agente se está ejecutando, Enter interrumpe. Command/Ctrl+Enter pone en cola.",
+            "Cuando el agente se está ejecutando, Enter lo interrumpe y envía. Tab pone en cola.",
           steer:
-            "Cuando el agente se está ejecutando, Enter dirige el turno activo. Command/Ctrl+Enter pone en cola.",
+            "Cuando el agente se está ejecutando, Enter dirige el turno activo sin detener sus herramientas. Tab pone en cola.",
           queue:
-            "Cuando el agente se está ejecutando, Enter pone en cola. Command/Ctrl+Enter envía.",
+            "Cuando el agente se está ejecutando, Enter pone en cola. Tab dirige el turno activo.",
         },
         options: {
           interrupt: "Interrumpir",

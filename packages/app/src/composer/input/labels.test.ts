@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  resolveAlternateSendLabel,
   resolveSendTooltipLabel,
   resolveSubmitAccessibilityLabel,
   resolveVoiceAccessibilityLabel,
@@ -14,6 +15,7 @@ const translations: Record<string, string> = {
   "composer.input.sendMessage": "Send message",
   "composer.input.queue": "Queue",
   "composer.input.send": "Send",
+  "composer.input.steer": "Steer",
   "composer.voice.unmuteVoiceMode": "Unmute Voice mode",
   "composer.voice.muteVoiceMode": "Mute Voice mode",
   "composer.voice.stopDictation": "Stop dictation",
@@ -139,6 +141,8 @@ describe("composer input labels", () => {
       resolveSendTooltipLabel({
         submitButtonAccessibilityLabel: undefined,
         defaultActionQueues: true,
+        defaultSendBehavior: "queue",
+        isAgentRunning: true,
         t,
       }),
     ).toBe("Queue");
@@ -146,8 +150,36 @@ describe("composer input labels", () => {
       resolveSendTooltipLabel({
         submitButtonAccessibilityLabel: undefined,
         defaultActionQueues: false,
+        defaultSendBehavior: "steer",
+        isAgentRunning: false,
         t,
       }),
     ).toBe("Send");
+  });
+
+  it("names what the send button does to a running turn", () => {
+    expect(
+      resolveSendTooltipLabel({
+        submitButtonAccessibilityLabel: undefined,
+        defaultActionQueues: false,
+        defaultSendBehavior: "steer",
+        isAgentRunning: true,
+        t,
+      }),
+    ).toBe("Steer");
+    expect(
+      resolveSendTooltipLabel({
+        submitButtonAccessibilityLabel: undefined,
+        defaultActionQueues: false,
+        defaultSendBehavior: "interrupt",
+        isAgentRunning: true,
+        t,
+      }),
+    ).toBe("Send and interrupt");
+  });
+
+  it("labels the alternate send button by its action", () => {
+    expect(resolveAlternateSendLabel("queue", t)).toBe("Queue message");
+    expect(resolveAlternateSendLabel("steer", t)).toBe("Send and steer");
   });
 });

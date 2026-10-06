@@ -133,6 +133,7 @@ export const ko: TranslationResources = {
       sendMessage: "메시지 보내기",
       queue: "대기열",
       send: "보내기",
+      steer: "지시",
     },
     cancel: {
       cancelingAgent: "에이전트 취소 중",
@@ -2144,11 +2145,10 @@ export const ko: TranslationResources = {
         label: "기본 전송",
         descriptions: {
           interrupt:
-            "에이전트가 실행 중일 때 Enter는 중단합니다. Command/Ctrl+Enter는 대기열에 추가합니다.",
+            "에이전트가 실행 중일 때 Enter는 중단하고 보냅니다. Tab은 대기열에 추가합니다.",
           steer:
-            "에이전트가 실행 중일 때 Enter는 현재 턴에 지시합니다. Command/Ctrl+Enter는 대기열에 추가합니다.",
-          queue:
-            "에이전트가 실행 중일 때 Enter는 대기열에 추가합니다. Command/Ctrl+Enter는 제출합니다.",
+            "에이전트가 실행 중일 때 Enter는 도구를 멈추지 않고 현재 턴에 지시합니다. Tab은 대기열에 추가합니다.",
+          queue: "에이전트가 실행 중일 때 Enter는 대기열에 추가합니다. Tab은 현재 턴에 지시합니다.",
         },
         options: {
           interrupt: "중단",

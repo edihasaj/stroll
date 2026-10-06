@@ -2426,6 +2426,9 @@ export class HostRuntimeStore {
           }),
           encodeImages,
           submission: createMessageSubmissionWriter(serverId),
+          // The agent just went idle, but a send from another surface can start a turn first.
+          // Steering joins that turn instead of canceling it.
+          activeTurnBehavior: "steer",
         });
       },
     })

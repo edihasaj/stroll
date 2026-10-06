@@ -136,6 +136,7 @@ export const fr: TranslationResources = {
       sendMessage: "Envoyer un message",
       queue: "File d'attente",
       send: "Envoyer",
+      steer: "Orienter",
     },
     cancel: {
       cancelingAgent: "Agent d'annulation",
@@ -2188,11 +2189,11 @@ export const fr: TranslationResources = {
         label: "Envoi par défaut",
         descriptions: {
           interrupt:
-            "Lorsque l'agent est en cours d'exécution, Entrée interrompt. Commande/Ctrl+Entrée met en file d'attente.",
+            "Lorsque l'agent est en cours d'exécution, Entrée l'interrompt et envoie. Tab met en file d'attente.",
           steer:
-            "Lorsque l’agent est en cours d’exécution, Entrée oriente le tour actif. Commande/Ctrl+Entrée met en file d’attente.",
+            "Lorsque l'agent est en cours d'exécution, Entrée oriente le tour actif sans arrêter ses outils. Tab met en file d'attente.",
           queue:
-            "Lorsque l'agent est en cours d'exécution, Entrée met en file d'attente. Commande/Ctrl+Entrée envoie.",
+            "Lorsque l'agent est en cours d'exécution, Entrée met en file d'attente. Tab oriente le tour actif.",
         },
         options: {
           interrupt: "Interrompre",
