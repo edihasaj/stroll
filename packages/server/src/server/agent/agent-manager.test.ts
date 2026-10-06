@@ -7226,6 +7226,58 @@ test("applies live autonomous events and preserves usage omitted from completion
   expect(lifecycleUpdates).toContain("idle");
 });
 
+test("records lastTurn once a turn completes, unaffected by a later label edit", async () => {
+  const workdir = mkdtempSync(join(tmpdir(), "agent-manager-last-turn-"));
+  const storage = new AgentStorage(join(workdir, "agents"), logger);
+  let capturedSession: TestAgentSession | null = null;
+
+  class LiveEventClient extends TestAgentClient {
+    override async createSession(config: AgentSessionConfig): Promise<AgentSession> {
+      capturedSession = new TestAgentSession(config);
+      return capturedSession;
+    }
+  }
+
+  const manager = new AgentManager({
+    clients: { codex: new LiveEventClient() },
+    registry: storage,
+    logger,
+    idFactory: () => "00000000-0000-4000-8000-000000000210",
+  });
+
+  const snapshot = await manager.createAgent({ provider: "codex", cwd: workdir }, undefined, {
+    workspaceId: undefined,
+  });
+
+  const turnId = "turn-last";
+  capturedSession!.pushEvent({ type: "turn_started", provider: "codex", turnId });
+  await vi.waitFor(() => {
+    expect(manager.getAgent(snapshot.id)?.lifecycle).toBe("running");
+  });
+
+  capturedSession!.pushEvent({ type: "turn_completed", provider: "codex", turnId });
+  await vi.waitFor(() => {
+    expect(manager.getAgent(snapshot.id)?.lifecycle).toBe("idle");
+  });
+
+  const finished = manager.getAgent(snapshot.id)!;
+  const lastTurnAfterCompletion = toAgentPayload(finished).lastTurn;
+  const updatedAtAfterCompletion = finished.updatedAt.getTime();
+  expect(lastTurnAfterCompletion).not.toBeNull();
+  expect(Date.parse(lastTurnAfterCompletion!.startedAt)).toBeLessThanOrEqual(
+    Date.parse(lastTurnAfterCompletion!.endedAt),
+  );
+
+  // Opening the subagent's tab labels it after it finished — this used to be the bug: the label
+  // write bumps the generic `updatedAt` revision stamp, which the UI mistakenly read as the end
+  // of the run. lastTurn must hold steady across it.
+  await manager.setLabels(snapshot.id, { [DESKTOP_OPEN_AGENT_TAB_LABEL]: "true" });
+
+  const afterLabelChange = manager.getAgent(snapshot.id)!;
+  expect(toAgentPayload(afterLabelChange).lastTurn).toEqual(lastTurnAfterCompletion);
+  expect(afterLabelChange.updatedAt.getTime()).toBeGreaterThan(updatedAtAfterCompletion);
+});
+
 test("ignores stale autonomous terminals without lowering the active turn lifecycle", async () => {
   const workdir = mkdtempSync(join(tmpdir(), "agent-manager-stale-autonomous-terminal-"));
   const storage = new AgentStorage(join(workdir, "agents"), logger);

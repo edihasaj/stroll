@@ -24,7 +24,7 @@ import {
   type SubagentToolCallRowPresentation,
 } from "./transcript-row-model";
 import type { SubagentToolCallLink } from "./tool-call-link";
-import { resolveManagedStartedAt } from "./track-presentation";
+import { resolveManagedElapsedWindow } from "./track-presentation";
 import { useElapsedLabel } from "./use-elapsed-label";
 import { useOpenSubagent } from "./use-open-subagent";
 
@@ -66,14 +66,15 @@ function useManagedAgentLiveFields(
   if (!agent) {
     return null;
   }
+  const elapsed = resolveManagedElapsedWindow(agent);
   return {
     title: agent.title,
     provider: agent.provider,
     model: agent.model,
     routeId: agent.labels[ROUTE_ID_LABEL] ?? null,
     isRunning: agent.turn.phase === "open",
-    startedAt: resolveManagedStartedAt(agent),
-    endedAt: agent.updatedAt,
+    startedAt: elapsed.startedAt,
+    endedAt: elapsed.endedAt,
     pendingPermissionCount: agent.pendingPermissions.length,
     isFailed: agent.status === "error",
     lastError: agent.lastError ?? null,

@@ -18,6 +18,7 @@ const AGENT_DEFAULTS: Agent = {
   provider: "codex",
   status: "idle",
   turn: { phase: "idle", cancellationRequestId: null },
+  lastTurn: null,
   createdAt: AGENT_TIMESTAMP,
   updatedAt: AGENT_TIMESTAMP,
   lastUserMessageAt: null,
@@ -390,7 +391,7 @@ describe("selectSubagentsForParent", () => {
         turn: { phase: "idle", cancellationRequestId: null },
         requiresAttention: true,
         createdAt,
-        updatedAt: AGENT_TIMESTAMP,
+        lastTurn: null,
       },
     ]);
     expect(Object.keys(rows[0] ?? {}).sort()).toEqual([
@@ -398,17 +399,48 @@ describe("selectSubagentsForParent", () => {
       "description",
       "id",
       "kind",
+      "lastTurn",
       "provider",
       "requiresAttention",
       "status",
       "subtitle",
       "title",
       "turn",
-      "updatedAt",
     ]);
     expect(rows[0]).not.toHaveProperty("onOpen");
     expect(rows[0]).not.toHaveProperty("model");
     expect(rows[0]).not.toHaveProperty("cwd");
+  });
+
+  it("carries the agent's last completed turn onto the row instead of updatedAt", () => {
+    const lastTurn = {
+      startedAt: new Date("2026-03-08T10:00:00.000Z"),
+      endedAt: new Date("2026-03-08T10:00:10.000Z"),
+    };
+    setAgents([
+      makeAgent({ id: "parent" }),
+      makeAgent({ id: "child", parentAgentId: "parent", lastTurn }),
+    ]);
+
+    const rows = selectSubagentsForParent(
+      useSessionStore.getState(),
+      { serverId: SERVER_ID, parentAgentId: "parent" },
+      EMPTY_PENDING_ARCHIVE_IDS,
+    );
+
+    expect(rows[0]).toMatchObject({ lastTurn });
+  });
+
+  it("reports no last turn when the agent never recorded one", () => {
+    setAgents([makeAgent({ id: "parent" }), makeAgent({ id: "child", parentAgentId: "parent" })]);
+
+    const rows = selectSubagentsForParent(
+      useSessionStore.getState(),
+      { serverId: SERVER_ID, parentAgentId: "parent" },
+      EMPTY_PENDING_ARCHIVE_IDS,
+    );
+
+    expect(rows[0]).toMatchObject({ lastTurn: null });
   });
 
   it("moves a child when parentAgentId changes", () => {

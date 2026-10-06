@@ -18,8 +18,9 @@ export interface PaseoSubagentRow {
   turn: Agent["turn"];
   requiresAttention: Agent["requiresAttention"];
   createdAt: Agent["createdAt"];
-  /** When the agent's record last changed — the end of the run once it has finished. */
-  updatedAt: Agent["updatedAt"];
+  /** The agent's last completed turn — its elapsed-time window once finished. `null` when none
+   * is recorded; never the record's generic `updatedAt` revision stamp. */
+  lastTurn: { startedAt: Date; endedAt: Date } | null;
 }
 
 export interface ProviderSubagentRow {
@@ -76,7 +77,7 @@ function toSubagentRow(agent: Agent): PaseoSubagentRow {
     turn: agent.turn,
     requiresAttention: agent.requiresAttention,
     createdAt: agent.createdAt,
-    updatedAt: agent.updatedAt,
+    lastTurn: agent.lastTurn ?? null,
   };
 }
 

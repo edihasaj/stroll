@@ -78,6 +78,10 @@ export interface Agent {
   accountProfileId?: string | null;
   status: AgentLifecycleStatus;
   turn: TurnLiveness;
+  /** The agent's most recently completed turn. `null`/absent once finished with none recorded
+   * (e.g. a daemon from before this field existed) — never derive elapsed time from `updatedAt`,
+   * a generic revision stamp also bumped by label/title/mode edits unrelated to any run. */
+  lastTurn?: { startedAt: Date; endedAt: Date } | null;
   createdAt: Date;
   updatedAt: Date;
   lastUserMessageAt: Date | null;

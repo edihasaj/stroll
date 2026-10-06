@@ -21,17 +21,41 @@ export interface SubagentRowPresentationData {
   subtitle: string;
   titleState: "ready" | "loading";
   statusBucket: SidebarStateBucket | null;
-  /** Elapsed-time anchor — `turn.startedAt` when a managed row's turn is live, else `createdAt`. */
-  startedAt: Date;
+  /** Elapsed-time anchor. `null` when no timing is known yet — never shown as elapsed time. */
+  startedAt: Date | null;
   /** True while the row is still running; elapsed time ticks live until this flips. */
   isRunning: boolean;
   /** When the row finished. Meaningful only once `isRunning` is false. */
-  endedAt: Date;
+  endedAt: Date | null;
 }
 
-/** The live start of a managed row's current run, falling back to its creation time. */
-export function resolveManagedStartedAt(row: Pick<PaseoSubagentRow, "turn" | "createdAt">): Date {
-  return (row.turn.phase === "open" ? row.turn.startedAt : null) ?? row.createdAt;
+export interface ManagedSubagentElapsedWindow {
+  startedAt: Date | null;
+  endedAt: Date | null;
+}
+
+/**
+ * The elapsed-time window for a managed (kind `"paseo"`) subagent row. Live while its turn is
+ * open — anchored to the turn's own start, falling back to the row's creation time. Frozen to
+ * the agent's last completed turn once it isn't running. Absent when neither is known, which
+ * never falls back to the record's `updatedAt`: that is a generic revision stamp, also bumped by
+ * a label or title edit with no run attached (e.g. opening the row's tab).
+ */
+export function resolveManagedElapsedWindow(
+  row: Pick<PaseoSubagentRow, "turn" | "createdAt"> & { lastTurn?: PaseoSubagentRow["lastTurn"] },
+): ManagedSubagentElapsedWindow {
+  if (row.turn.phase === "open") {
+    return { startedAt: row.turn.startedAt ?? row.createdAt, endedAt: null };
+  }
+  if (row.lastTurn) {
+    return { startedAt: row.lastTurn.startedAt, endedAt: row.lastTurn.endedAt };
+  }
+  return { startedAt: null, endedAt: null };
+}
+
+function resolveElapsedWindow(row: SubagentRow): ManagedSubagentElapsedWindow {
+  if (row.kind === "paseo") return resolveManagedElapsedWindow(row);
+  return { startedAt: row.createdAt, endedAt: row.updatedAt };
 }
 
 export function buildSubagentRowPresentationData(row: SubagentRow): SubagentRowPresentationData {
@@ -43,6 +67,7 @@ export function buildSubagentRowPresentationData(row: SubagentRow): SubagentRowP
   const providerSubtitle = row.kind === "provider" ? resolveRowLabel(row.subtitle) : null;
   const subtitle = providerSubtitle ?? (description ? title : null);
   const status = presentationStatus(row);
+  const elapsed = resolveElapsedWindow(row);
   return {
     key: `${row.kind}_subagent_${row.id}`,
     kind: "agent",
@@ -53,9 +78,9 @@ export function buildSubagentRowPresentationData(row: SubagentRow): SubagentRowP
       status,
       requiresAttention: false,
     }),
-    startedAt: row.kind === "paseo" ? resolveManagedStartedAt(row) : row.createdAt,
+    startedAt: elapsed.startedAt,
     isRunning: status === "running",
-    endedAt: row.updatedAt,
+    endedAt: elapsed.endedAt,
   };
 }
 

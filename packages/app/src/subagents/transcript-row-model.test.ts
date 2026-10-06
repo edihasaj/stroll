@@ -173,6 +173,28 @@ describe("buildManagedSubagentRowPresentation", () => {
     expect(presentation.startedAt).toBe(STARTED);
     expect(presentation.endedAt).toBe(ENDED);
   });
+
+  it("reports no elapsed time once finished with no recorded last turn", () => {
+    const presentation = buildManagedSubagentRowPresentation({
+      agentId: "agent-1",
+      agent: managedFields({ isRunning: false, isFailed: false, startedAt: null, endedAt: null }),
+      toolCallDescription: null,
+    });
+    expect(presentation.statusBucket).toBe("done");
+    expect(presentation.isRunning).toBe(false);
+    expect(presentation.startedAt).toBeNull();
+    expect(presentation.endedAt).toBeNull();
+  });
+
+  it("stays live while running even without a known start, reporting no elapsed anchor", () => {
+    const presentation = buildManagedSubagentRowPresentation({
+      agentId: "agent-1",
+      agent: managedFields({ isRunning: true, startedAt: null, endedAt: null }),
+      toolCallDescription: null,
+    });
+    expect(presentation.isRunning).toBe(true);
+    expect(presentation.startedAt).toBeNull();
+  });
 });
 
 function descriptorFields(

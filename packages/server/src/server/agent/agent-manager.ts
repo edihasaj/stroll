@@ -397,6 +397,41 @@ function resolveInitialAttention(input: AttentionState | undefined): AttentionSt
   };
 }
 
+interface ManagedAgentRegisterOptions {
+  createdAt?: Date;
+  updatedAt?: Date;
+  lastUserMessageAt?: Date | null;
+  labels?: Record<string, string>;
+  historyPrimed?: boolean;
+  lastUsage?: AgentUsage;
+  lastError?: string;
+  lastTurn?: { startedAt: Date; endedAt: Date } | null;
+  attention?: AttentionState;
+  persistence?: AgentPersistenceHandle;
+  workspaceId?: string;
+  owner?: AgentOwner;
+}
+
+interface ManagedAgentRegisterHistory {
+  lastUsage: AgentUsage | undefined;
+  lastError: string | undefined;
+  lastTurn: { startedAt: Date; endedAt: Date } | null;
+  attention: AttentionState;
+}
+
+/** The parts of register options that come from a prior run (resume/reload) rather than a fresh
+ * create, pulled into one place so `buildManagedAgentForRegister` stays a flat assembly. */
+function resolveManagedAgentRegisterHistory(
+  options: ManagedAgentRegisterOptions | undefined,
+): ManagedAgentRegisterHistory {
+  return {
+    lastUsage: options?.lastUsage,
+    lastError: options?.lastError,
+    lastTurn: options?.lastTurn ?? null,
+    attention: resolveInitialAttention(options?.attention),
+  };
+}
+
 interface StreamEventFlags {
   shouldDispatchEvent: boolean;
   shouldNotifyWaiters: boolean;
@@ -452,6 +487,12 @@ interface ManagedAgentBase {
   lastUserMessageAt: Date | null;
   activeTurnId: string | null;
   activeTurnStartedAt: Date | null;
+  /**
+   * The most recently completed turn, kept once the active one closes. Distinct from
+   * `updatedAt`, which is a generic revision stamp also bumped by label/title/mode edits that
+   * have no run attached — see docs/data-model.md.
+   */
+  lastTurn: { startedAt: Date; endedAt: Date } | null;
   lastUsage?: AgentUsage;
   lastError?: string;
   attention: AttentionState;
@@ -1340,6 +1381,7 @@ export class AgentManager {
       workspaceId?: string;
       owner?: AgentOwner;
       attention?: AttentionState;
+      lastTurn?: { startedAt: Date; endedAt: Date } | null;
     },
     resumeOptions?: AgentResumeSessionOptions,
   ): Promise<ManagedAgent> {
@@ -1372,6 +1414,7 @@ export class AgentManager {
       workspaceId?: string;
       owner?: AgentOwner;
       attention?: AttentionState;
+      lastTurn?: { startedAt: Date; endedAt: Date } | null;
     },
     resumeOptions?: AgentResumeSessionOptions,
   ): Promise<ManagedAgent> {
@@ -1551,6 +1594,7 @@ export class AgentManager {
     const preservedLastUsage = existing.lastUsage;
     const preservedLastError = existing.lastError;
     const preservedAttention = existing.attention;
+    const preservedLastTurn = existing.lastTurn;
     const handle = existing.persistence;
     const provider = handle?.provider ?? existing.provider;
     const client = this.requireClient(provider);
@@ -1622,6 +1666,7 @@ export class AgentManager {
         lastUsage: preservedLastUsage,
         lastError: preservedLastError,
         attention: preservedAttention,
+        lastTurn: preservedLastTurn,
         restoring: true,
       });
     } catch (error) {
@@ -1920,6 +1965,12 @@ export class AgentManager {
   private dispatchStoredAgentState(record: StoredAgentRecord): void {
     const updatedAt = new Date(record.updatedAt);
     const attention = extractAttention(record);
+    const lastTurn = record.lastTurn
+      ? {
+          startedAt: new Date(record.lastTurn.startedAt),
+          endedAt: new Date(record.lastTurn.endedAt),
+        }
+      : null;
     this.dispatch({
       type: "agent_state",
       agent: {
@@ -1946,6 +1997,7 @@ export class AgentManager {
         activeForegroundTurnId: null,
         activeTurnId: null,
         activeTurnStartedAt: null,
+        lastTurn,
         foregroundTurnWaiters: new Set(),
         finalizedForegroundTurnIds: new Set(),
         unsubscribeSession: null,
@@ -2705,6 +2757,8 @@ export class AgentManager {
     if (fromHistory) return "stale";
     if (!agent.activeTurnId) return "untracked";
     if (turnId && agent.activeTurnId !== turnId) return "stale";
+    const endedAt = new Date();
+    agent.lastTurn = { startedAt: agent.activeTurnStartedAt ?? endedAt, endedAt };
     agent.activeTurnId = null;
     agent.activeTurnStartedAt = null;
     return "closed_current";
@@ -3539,6 +3593,7 @@ export class AgentManager {
       historyPrimed?: boolean;
       lastUsage?: AgentUsage;
       lastError?: string;
+      lastTurn?: { startedAt: Date; endedAt: Date } | null;
       attention?: AttentionState;
       /**
        * Bringing a known agent back, rather than starting a new one. Its timestamps and
@@ -3713,23 +3768,10 @@ export class AgentManager {
     config: AgentSessionConfig;
     now: Date;
     durableTimelineHasRows: boolean;
-    options:
-      | {
-          createdAt?: Date;
-          updatedAt?: Date;
-          lastUserMessageAt?: Date | null;
-          labels?: Record<string, string>;
-          historyPrimed?: boolean;
-          lastUsage?: AgentUsage;
-          lastError?: string;
-          attention?: AttentionState;
-          persistence?: AgentPersistenceHandle;
-          workspaceId?: string;
-          owner?: AgentOwner;
-        }
-      | undefined;
+    options: ManagedAgentRegisterOptions | undefined;
   }): ActiveManagedAgent {
     const { resolvedAgentId, session, config, now, durableTimelineHasRows, options } = params;
+    const history = resolveManagedAgentRegisterHistory(options);
     return {
       id: resolvedAgentId,
       provider: config.provider,
@@ -3753,6 +3795,7 @@ export class AgentManager {
       activeForegroundTurnId: null,
       activeTurnId: null,
       activeTurnStartedAt: null,
+      lastTurn: history.lastTurn,
       foregroundTurnWaiters: new Set<ForegroundTurnWaiter>(),
       finalizedForegroundTurnIds: new Set<string>(),
       unsubscribeSession: null,
@@ -3762,9 +3805,9 @@ export class AgentManager {
       ),
       historyPrimed: options?.historyPrimed ?? durableTimelineHasRows,
       lastUserMessageAt: options?.lastUserMessageAt ?? null,
-      lastUsage: options?.lastUsage,
-      lastError: options?.lastError,
-      attention: resolveInitialAttention(options?.attention),
+      lastUsage: history.lastUsage,
+      lastError: history.lastError,
+      attention: history.attention,
       internal: config.internal ?? false,
       labels: options?.labels ?? {},
     } as ActiveManagedAgent;

@@ -72,6 +72,12 @@ export function toStoredAgentRecord(
   const config = buildSerializableConfig(agent.config);
   const persistence = sanitizePersistenceHandle(agent.persistence);
   const runtimeInfo = sanitizeRuntimeInfo(agent.runtimeInfo);
+  const lastTurn = agent.lastTurn
+    ? {
+        startedAt: agent.lastTurn.startedAt.toISOString(),
+        endedAt: agent.lastTurn.endedAt.toISOString(),
+      }
+    : null;
 
   return {
     id: agent.id,
@@ -91,6 +97,7 @@ export function toStoredAgentRecord(
     features: normalizeFeatures(agent.features),
     persistence,
     lastError: agent.lastError ?? undefined,
+    lastTurn,
     requiresAttention: agent.attention.requiresAttention,
     attentionReason: agent.attention.requiresAttention ? agent.attention.attentionReason : null,
     attentionTimestamp: agent.attention.requiresAttention
@@ -130,6 +137,12 @@ export function toAgentPayload(
       ? {
           turnId: agent.activeTurnId,
           startedAt: agent.activeTurnStartedAt?.toISOString() ?? null,
+        }
+      : null,
+    lastTurn: agent.lastTurn
+      ? {
+          startedAt: agent.lastTurn.startedAt.toISOString(),
+          endedAt: agent.lastTurn.endedAt.toISOString(),
         }
       : null,
     goal: agent.goal ?? null,
@@ -240,6 +253,7 @@ export function buildStoredAgentPayload(
     updatedAt: updatedAt.toISOString(),
     lastUserMessageAt: lastUserMessageAt ? lastUserMessageAt.toISOString() : null,
     status: record.lastStatus,
+    lastTurn: record.lastTurn ?? null,
     capabilities: defaultCapabilities,
     currentModeId: record.lastModeId ?? null,
     availableModes: [],

@@ -18,6 +18,7 @@ function createSnapshot(
     lastUserMessageAt: input.lastUserMessageAt ?? null,
     status: input.status ?? "idle",
     activeTurn: input.activeTurn,
+    lastTurn: input.lastTurn,
     goal: input.goal,
     capabilities: input.capabilities ?? {
       supportsStreaming: true,
@@ -77,6 +78,25 @@ describe("normalizeAgentSnapshot", () => {
       startedAt: new Date(startedAt),
       cancellationRequestId: null,
     });
+  });
+
+  it("round-trips the last completed turn through the canonical snapshot boundary", () => {
+    const lastTurn = { startedAt: "2026-07-31T12:00:00.000Z", endedAt: "2026-07-31T12:00:10.000Z" };
+    const snapshot = createSnapshot({ status: "idle", lastTurn });
+
+    expect(normalizeAgentSnapshot(snapshot, "server-1").lastTurn).toEqual({
+      startedAt: new Date(lastTurn.startedAt),
+      endedAt: new Date(lastTurn.endedAt),
+    });
+    expect(projectAgentSnapshot(normalizeAgentSnapshot(snapshot, "server-1"))).toMatchObject({
+      lastTurn,
+    });
+  });
+
+  it("reports no last turn when the daemon sent none", () => {
+    const agent = normalizeAgentSnapshot(createSnapshot(), "server-1");
+    expect(agent.lastTurn).toBeNull();
+    expect(projectAgentSnapshot(agent)).toMatchObject({ lastTurn: null });
   });
 
   it("derives parentAgentId from the parent label while preserving labels", () => {

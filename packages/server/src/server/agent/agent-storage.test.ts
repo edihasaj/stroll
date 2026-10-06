@@ -113,6 +113,7 @@ function createManagedAgent(overrides: ManagedAgentOverrides = {}): ManagedAgent
     currentModeId: overrides.currentModeId ?? core.config.modeId ?? null,
     pendingPermissions: overrides.pendingPermissions ?? new Map<string, AgentPermissionRequest>(),
     activeForegroundTurnId: core.activeForegroundTurnId,
+    lastTurn: overrides.lastTurn ?? null,
     foregroundTurnWaiters: new Set(),
     unsubscribeSession: null,
     timeline: overrides.timeline ?? [],
@@ -228,6 +229,37 @@ describe("AgentStorage", () => {
     const persisted = await reloaded.get("agent-feature-values");
     expect(persisted?.config?.featureValues).toEqual({ fast_mode: true });
     expect(buildSessionConfig(persisted!).featureValues).toEqual({ fast_mode: true });
+  });
+
+  test("applySnapshot persists and reloads lastTurn across a daemon restart", async () => {
+    const lastTurn = {
+      startedAt: new Date("2025-01-01T00:00:00.000Z"),
+      endedAt: new Date("2025-01-01T00:00:10.000Z"),
+    };
+    await storage.applySnapshot(
+      createManagedAgent({ id: "agent-last-turn", lifecycle: "idle", lastTurn }),
+    );
+
+    const record = await storage.get("agent-last-turn");
+    expect(record?.lastTurn).toEqual({
+      startedAt: lastTurn.startedAt.toISOString(),
+      endedAt: lastTurn.endedAt.toISOString(),
+    });
+
+    // A fresh AgentStorage instance over the same directory simulates a daemon restart.
+    const reloaded = new AgentStorage(storagePath, logger);
+    const persisted = await reloaded.get("agent-last-turn");
+    expect(persisted?.lastTurn).toEqual({
+      startedAt: lastTurn.startedAt.toISOString(),
+      endedAt: lastTurn.endedAt.toISOString(),
+    });
+  });
+
+  test("applySnapshot leaves lastTurn null when the agent never completed a turn", async () => {
+    await storage.applySnapshot(createManagedAgent({ id: "agent-no-turn", lifecycle: "idle" }));
+
+    const record = await storage.get("agent-no-turn");
+    expect(record?.lastTurn).toBeNull();
   });
 
   test("applySnapshot keeps featureValues absent when they were never set", async () => {

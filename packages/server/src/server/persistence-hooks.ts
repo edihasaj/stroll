@@ -141,6 +141,7 @@ export function extractTimestamps(record: StoredAgentRecord): {
   labels?: Record<string, string>;
   workspaceId?: string;
   owner?: StoredAgentRecord["owner"];
+  lastTurn: { startedAt: Date; endedAt: Date } | null;
 } {
   return {
     createdAt: new Date(record.createdAt),
@@ -149,6 +150,16 @@ export function extractTimestamps(record: StoredAgentRecord): {
     labels: record.labels,
     workspaceId: record.workspaceId,
     owner: record.owner,
+    lastTurn: extractLastTurn(record),
+  };
+}
+
+/** The agent's last completed turn, restored on resume so a daemon restart does not lose it. */
+function extractLastTurn(record: StoredAgentRecord): { startedAt: Date; endedAt: Date } | null {
+  if (!record.lastTurn) return null;
+  return {
+    startedAt: new Date(record.lastTurn.startedAt),
+    endedAt: new Date(record.lastTurn.endedAt),
   };
 }
 

@@ -3356,6 +3356,12 @@ describe("HostRuntimeStore", () => {
               cancellationRequestId: null,
             }
           : { phase: "idle", cancellationRequestId: null },
+        lastTurn: stale.lastTurn
+          ? {
+              startedAt: new Date(stale.lastTurn.startedAt),
+              endedAt: new Date(stale.lastTurn.endedAt),
+            }
+          : null,
         serverId: host.serverId,
         createdAt: new Date(stale.createdAt),
         updatedAt: new Date(stale.updatedAt),

@@ -855,6 +855,11 @@ const AgentActiveTurnPayloadSchema = z.object({
   startedAt: z.string().nullable(),
 });
 
+const AgentLastTurnPayloadSchema = z.object({
+  startedAt: z.string(),
+  endedAt: z.string(),
+});
+
 export const AgentSnapshotPayloadSchema = z.object({
   id: z.string(),
   provider: AgentProviderSchema,
@@ -870,6 +875,10 @@ export const AgentSnapshotPayloadSchema = z.object({
   lastUserMessageAt: z.string().nullable(),
   status: AgentStatusSchema,
   activeTurn: AgentActiveTurnPayloadSchema.nullable().optional(),
+  /** The agent's most recently completed turn, when known. `null` once finished with no recorded
+   * turn (e.g. a record from before this field existed). Distinct from `updatedAt`, which is a
+   * generic revision stamp bumped by label/title/mode edits unrelated to any run. */
+  lastTurn: AgentLastTurnPayloadSchema.nullable().optional(),
   goal: AgentGoalPayloadSchema.nullable().optional(),
   capabilities: AgentCapabilityFlagsSchema,
   currentModeId: z.string().nullable(),

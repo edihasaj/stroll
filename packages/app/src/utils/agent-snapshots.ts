@@ -32,6 +32,16 @@ function normalizeTurn(
     : TURN_LIVENESS_IDLE;
 }
 
+function normalizeLastTurn(
+  snapshot: AgentSnapshotPayload,
+): { startedAt: Date; endedAt: Date } | null {
+  if (!snapshot.lastTurn) return null;
+  return {
+    startedAt: new Date(snapshot.lastTurn.startedAt),
+    endedAt: new Date(snapshot.lastTurn.endedAt),
+  };
+}
+
 function projectActiveTurn(agent: Agent): Pick<AgentSnapshotPayload, "activeTurn"> {
   if (agent.turn.phase === "idle") return { activeTurn: null };
   if (agent.turn.turnId === null) return {};
@@ -39,6 +49,16 @@ function projectActiveTurn(agent: Agent): Pick<AgentSnapshotPayload, "activeTurn
     activeTurn: {
       turnId: agent.turn.turnId,
       startedAt: agent.turn.startedAt?.toISOString() ?? null,
+    },
+  };
+}
+
+function projectLastTurn(agent: Agent): Pick<AgentSnapshotPayload, "lastTurn"> {
+  if (!agent.lastTurn) return { lastTurn: null };
+  return {
+    lastTurn: {
+      startedAt: agent.lastTurn.startedAt.toISOString(),
+      endedAt: agent.lastTurn.endedAt.toISOString(),
     },
   };
 }
@@ -72,6 +92,7 @@ export function projectAgentSnapshot(agent: Agent): AgentSnapshotPayload {
     lastUserMessageAt: agent.lastUserMessageAt?.toISOString() ?? null,
     status: agent.status,
     ...projectActiveTurn(agent),
+    ...projectLastTurn(agent),
     capabilities: agent.capabilities,
     currentModeId: agent.currentModeId,
     availableModes: agent.availableModes,
@@ -112,6 +133,7 @@ export function normalizeAgentSnapshot(snapshot: AgentSnapshotPayload, serverId:
     accountProfileId: snapshot.accountProfileId,
     status: snapshot.status,
     turn,
+    lastTurn: normalizeLastTurn(snapshot),
     createdAt,
     updatedAt,
     lastUserMessageAt,

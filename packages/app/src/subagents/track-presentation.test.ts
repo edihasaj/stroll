@@ -33,7 +33,7 @@ function row(
         : { phase: "idle", cancellationRequestId: null }),
     requiresAttention: overrides.requiresAttention ?? false,
     createdAt: overrides.createdAt ?? new Date("2026-04-20T00:00:00.000Z"),
-    updatedAt: overrides.updatedAt ?? new Date("2026-04-20T00:00:00.000Z"),
+    lastTurn: overrides.lastTurn ?? null,
   };
 }
 
@@ -337,15 +337,29 @@ describe("buildSubagentRowPresentationData elapsed-time fields", () => {
     expect(presentation.startedAt).toBe(createdAt);
   });
 
-  it("anchors a finished managed row to createdAt and freezes at updatedAt", () => {
-    const createdAt = new Date("2026-04-20T00:00:00.000Z");
-    const updatedAt = new Date("2026-04-20T00:02:30.000Z");
+  it("anchors a finished managed row to its last turn's window", () => {
+    const startedAt = new Date("2026-04-20T00:00:00.000Z");
+    const endedAt = new Date("2026-04-20T00:02:30.000Z");
     const presentation = buildSubagentRowPresentationData(
-      row({ id: "a", status: "idle", createdAt, updatedAt }),
+      row({ id: "a", status: "idle", lastTurn: { startedAt, endedAt } }),
     );
     expect(presentation.isRunning).toBe(false);
-    expect(presentation.startedAt).toBe(createdAt);
-    expect(presentation.endedAt).toBe(updatedAt);
+    expect(presentation.startedAt).toBe(startedAt);
+    expect(presentation.endedAt).toBe(endedAt);
+  });
+
+  it("shows no elapsed time for a finished managed row with no recorded last turn", () => {
+    // Regression: a finished subagent must never fall back to createdAt — the record's
+    // `updatedAt` (not modeled on this row at all) is a generic revision stamp that a label or
+    // title edit (e.g. opening the row's tab) bumps long after the run actually ended, which is
+    // exactly why timing now comes from `lastTurn` instead.
+    const createdAt = new Date("2026-04-20T00:00:00.000Z");
+    const presentation = buildSubagentRowPresentationData(
+      row({ id: "a", status: "idle", createdAt, lastTurn: null }),
+    );
+    expect(presentation.isRunning).toBe(false);
+    expect(presentation.startedAt).toBeNull();
+    expect(presentation.endedAt).toBeNull();
   });
 
   it("anchors a provider row to createdAt and reports updatedAt as the end", () => {

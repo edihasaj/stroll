@@ -80,6 +80,7 @@ function createManagedAgent(overrides: ManagedAgentOverrides = {}): ManagedAgent
     activeForegroundTurnId: activeForegroundTurnIdValue,
     activeTurnId: activeForegroundTurnIdValue,
     activeTurnStartedAt: lifecycle === "running" ? new Date("2025-01-01T00:00:01.000Z") : null,
+    lastTurn: null,
     foregroundTurnWaiters: new Set(),
     unsubscribeSession: null,
     timeline: [],

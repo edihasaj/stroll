@@ -84,8 +84,10 @@ export interface ManagedSubagentLiveFields {
   /** `agent.labels["stroll.route"]`, when the agent started on a route. */
   routeId: string | null;
   isRunning: boolean;
-  startedAt: Date;
-  endedAt: Date;
+  /** `null` when no timing is known yet — never shown as elapsed time. */
+  startedAt: Date | null;
+  /** When the agent finished its last turn. Meaningful only once `isRunning` is false. */
+  endedAt: Date | null;
   pendingPermissionCount: number;
   isFailed: boolean;
   lastError: string | null;
