@@ -1,4 +1,6 @@
 import { getHostRuntimeStore } from "@/runtime/host-runtime";
+import { useHostFeature } from "@/runtime/host-features";
+import { AgentContextToolbar, RouteBanner } from "@/agent-routes";
 import { Button } from "@/components/ui/button";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import type { DaemonClient } from "@getpaseo/client/internal/daemon-client";
@@ -1171,6 +1173,16 @@ const ChatAgentReadyContent = memo(function ChatAgentReadyContent({
     rows: subagentRows,
   });
   const hasPluginComposerPills = useHasPluginComposerPills(serverId, workspaceId, agentId);
+  // Agent routes (docs/agent-routes.md): a single host-feature gate for both the Context
+  // toolbar button and the route banner above the composer — neither surface has anything to
+  // show on a daemon that predates routes.
+  const supportsAgentRoutes = useHostFeature(serverId, "agentRoutes");
+  const contextToolbar = supportsAgentRoutes ? (
+    <AgentContextToolbar serverId={serverId} agentId={agentId} toast={toastApi} />
+  ) : null;
+  const routeBanner = supportsAgentRoutes ? (
+    <RouteBanner serverId={serverId} agentId={agentId} toast={toastApi} />
+  ) : null;
   const hasActiveComposer = !agentState.archivedAt && !isArchivingCurrentAgent;
   const hasVisibleAgentTracks = hasAgentTracks({
     subagentRows,
@@ -1225,22 +1237,25 @@ const ChatAgentReadyContent = memo(function ChatAgentReadyContent({
     ],
   );
   const composerSection = (
-    <RenderProfile id={`AgentComposerSection:${agentId}`}>
-      <AgentComposerSection
-        agentId={agentId}
-        serverId={serverId}
-        isPaneFocused={isPaneFocused}
-        isArchivingCurrentAgent={isArchivingCurrentAgent}
-        archivedAt={agentState.archivedAt}
-        cwd={cwd}
-        isSubmitLoading={false}
-        agentInputDraft={agentInputDraft}
-        onAttentionInputFocus={onAttentionInputFocus}
-        onAttentionPromptSend={onAttentionPromptSend}
-        onComposerHeightChange={handleComposerHeightChange}
-        onMessageSent={handleMessageSent}
-      />
-    </RenderProfile>
+    <>
+      {routeBanner}
+      <RenderProfile id={`AgentComposerSection:${agentId}`}>
+        <AgentComposerSection
+          agentId={agentId}
+          serverId={serverId}
+          isPaneFocused={isPaneFocused}
+          isArchivingCurrentAgent={isArchivingCurrentAgent}
+          archivedAt={agentState.archivedAt}
+          cwd={cwd}
+          isSubmitLoading={false}
+          agentInputDraft={agentInputDraft}
+          onAttentionInputFocus={onAttentionInputFocus}
+          onAttentionPromptSend={onAttentionPromptSend}
+          onComposerHeightChange={handleComposerHeightChange}
+          onMessageSent={handleMessageSent}
+        />
+      </RenderProfile>
+    </>
   );
   const streamContent = (
     <View style={animatedStaticStyles.content}>
@@ -1313,6 +1328,7 @@ const ChatAgentReadyContent = memo(function ChatAgentReadyContent({
       onRewindComplete={handleRewindComplete}
     >
       <View style={styles.root}>
+        {contextToolbar}
         {dock}
 
         {isArchivingCurrentAgent ? (

@@ -21,12 +21,13 @@ import {
   type StyleProp,
   type ViewStyle,
 } from "react-native";
-import { StyleSheet, useUnistyles } from "react-native-unistyles";
+import { StyleSheet, useUnistyles, withUnistyles } from "react-native-unistyles";
 import { useShallow } from "zustand/shallow";
-import { Settings2, Zap } from "lucide-react-native";
+import { Settings2, X, Zap } from "lucide-react-native";
 import { getAgentFeatureIcon } from "@/agent-controls/icons";
 import { formatThinkingOptionLabel } from "@/agent-controls/labels";
 import { ComboboxTrigger } from "@/components/ui/combobox-trigger";
+import { mutedIconColorMapping } from "@/components/ui/icon-color";
 import { CombinedModelSelector } from "@/components/combined-model-selector";
 import {
   buildProviderSelectorProviders,
@@ -169,6 +170,13 @@ export interface DraftAgentControlsProps {
   disabled?: boolean;
   modelSelectorServerId?: string | null;
   isCompactLayout?: boolean;
+  /**
+   * The new-chat composer's "Route: <name>" chip (docs/agent-routes.md) — set only by
+   * `new-workspace-screen.tsx` when the draft has a default route and hasn't removed it. While
+   * present, the route picks provider/model/mode/thinking/account on creation, so the rest of
+   * this row goes inert rather than showing choices the route will override.
+   */
+  routeChip?: { label: string; onRemove: () => void } | null;
 }
 
 interface AgentControlsProps {
@@ -2009,6 +2017,7 @@ export function DraftAgentControls({
   disabled = false,
   modelSelectorServerId = null,
   isCompactLayout,
+  routeChip = null,
 }: DraftAgentControlsProps) {
   const mappedThinkingOptions = useMemo<AgentControlOption[]>(() => {
     return toThinkingControlOptions(thinkingOptions);
@@ -2090,6 +2099,9 @@ export function DraftAgentControls({
   return (
     <>
       {profileEditor.element}
+      {routeChip ? (
+        <DraftRouteChip label={routeChip.label} onRemove={routeChip.onRemove} disabled={disabled} />
+      ) : null}
       <ControlledAgentControls
         provider={selectedProvider ?? ""}
         modelSelectorProviders={modelSelectorProviders}
@@ -2112,13 +2124,50 @@ export function DraftAgentControls({
         onModelSelectorOpen={onModelSelectorOpen}
         onRetryModelProvider={onRetryModelProvider}
         isRetryingModelProvider={isRetryingModelProvider}
-        disabled={disabled}
+        disabled={disabled || Boolean(routeChip)}
         modeControl={modeControl}
         accountControl={accountControl}
         modelSelectorServerId={modelSelectorServerId}
         isCompactLayout={isCompactLayout}
       />
     </>
+  );
+}
+
+const ThemedRouteChipRemove = withUnistyles(X);
+
+/**
+ * The new-chat composer's "Route: <name>" chip, leading the controls row while a draft is
+ * pinned to a default route (docs/agent-routes.md). Matches the 28px toolbar pill geometry
+ * (`AgentControlTrigger`'s `toolbarControl`) so it reads as part of the same row.
+ */
+function DraftRouteChip({
+  label,
+  onRemove,
+  disabled,
+}: {
+  label: string;
+  onRemove: () => void;
+  disabled: boolean;
+}): ReactElement {
+  const { t } = useTranslation();
+  return (
+    <View style={styles.routeChip}>
+      <Text style={styles.routeChipLabel} numberOfLines={1}>
+        {t("agentRoutes.chip.label", { name: label })}
+      </Text>
+      <Pressable
+        onPress={onRemove}
+        disabled={disabled}
+        hitSlop={8}
+        accessibilityRole="button"
+        accessibilityLabel={t("agentRoutes.chip.remove", { name: label })}
+        style={styles.routeChipRemove}
+        testID="agent-route-chip-remove"
+      >
+        <ThemedRouteChipRemove size={12} uniProps={mutedIconColorMapping} />
+      </Pressable>
+    </View>
   );
 }
 
@@ -2131,6 +2180,32 @@ const styles = StyleSheet.create((theme) => ({
     alignItems: "center",
     gap: theme.spacing[1],
     overflow: "hidden",
+  },
+  // Same 28px pill geometry as `AgentControlTrigger`'s `toolbarControl`, but with a trailing
+  // remove glyph instead of a caret — `surface2` fill (vs. the triggers' transparent rest state)
+  // marks it as the row's one fixed, non-interactive-until-removed control.
+  routeChip: {
+    height: 28,
+    flexShrink: 0,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing[1],
+    paddingLeft: theme.spacing[2],
+    paddingRight: theme.spacing[1],
+    borderRadius: theme.borderRadius["2xl"],
+    backgroundColor: theme.colors.surface2,
+  },
+  routeChipLabel: {
+    maxWidth: 160,
+    color: theme.colors.foreground,
+    fontSize: theme.fontSize.sm,
+  },
+  routeChipRemove: {
+    width: 20,
+    height: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: theme.borderRadius.full,
   },
   // Pushed to the row's right edge with `marginLeft: auto` — see the comment at the top of
   // `DesktopAgentControlsContent`'s return.

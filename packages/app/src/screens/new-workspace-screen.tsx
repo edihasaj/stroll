@@ -2,7 +2,11 @@ import type {
   CreateAgentRequestOptions,
   CreateWorkspaceRequestOptions,
 } from "@getpaseo/client/internal/daemon-client";
-import type { AgentSnapshotPayload, CreationSnapshot } from "@getpaseo/protocol/messages";
+import type {
+  AgentSnapshotPayload,
+  CreationSnapshot,
+  MutableDaemonConfig,
+} from "@getpaseo/protocol/messages";
 import { encodeImages } from "@/utils/encode-images";
 import { getHostRuntimeStore } from "@/runtime/host-runtime";
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
@@ -1082,6 +1086,8 @@ interface CreateChatAgentInput {
    * daemon confirms the workspace — see `chat-hero-transition.ts`.
    */
   readyToNavigate?: Promise<void>;
+  /** The route chip's route id, when the chip is showing for this draft (docs/agent-routes.md). */
+  routeId?: string | null;
   labels: {
     composerStateRequired: string;
     selectModel: string;
@@ -1182,6 +1188,9 @@ async function createWorkspaceChatAgent(input: CreateChatAgentInput): Promise<Su
       thinkingOptionId: composerState.effectiveThinkingOptionId || undefined,
       featureValues: composerState.featureValues,
     },
+    // Replaces `config.provider`/`model` on the daemon when set (docs/agent-routes.md); absent
+    // whenever the route chip isn't showing, so removing it falls back to normal model selection.
+    route: input.routeId ?? undefined,
     initialPrompt: text,
     clientMessageId: `${input.draftId}:initial-message`,
     images: images?.length ? images : undefined,
@@ -1844,6 +1853,43 @@ function useNewWorkspaceFormStack(input: NewWorkspaceFormStackInput): ReactEleme
   );
 }
 
+/**
+ * The default route's chip (docs/agent-routes.md): shown next to the model selector in chat
+ * mode while the host supports routes, has one set as default, and the user hasn't removed it
+ * for this draft. Tracking the dismissal by draft key, rather than a plain boolean, means a
+ * fresh new-chat draft offers the chip again even after a previous draft removed it.
+ */
+function useNewWorkspaceRouteChip(input: {
+  serverId: string;
+  draftKey: string;
+  daemonConfig: MutableDaemonConfig | null;
+}): {
+  /** For the composer's controls row; `null` whenever there is nothing to show. */
+  routeChip: { label: string; onRemove: () => void } | null;
+  /** For the create request's `route` field — already in that field's own optionality shape. */
+  routeId: string | undefined;
+} {
+  const { draftKey, daemonConfig } = input;
+  const supportsAgentRoutes = useHostFeature(input.serverId, "agentRoutes");
+  const defaultAgentRouteId = daemonConfig?.defaultAgentRoute;
+  const agentRoutes = daemonConfig?.agentRoutes;
+  const defaultRoute = useMemo(() => {
+    if (!supportsAgentRoutes || !defaultAgentRouteId) return null;
+    return agentRoutes?.find((route) => route.id === defaultAgentRouteId) ?? null;
+  }, [agentRoutes, defaultAgentRouteId, supportsAgentRoutes]);
+  const [dismissedRouteDraftKey, setDismissedRouteDraftKey] = useState<string | null>(null);
+  const handleRemoveRouteChip = useCallback(() => setDismissedRouteDraftKey(draftKey), [draftKey]);
+  const visible = Boolean(defaultRoute) && dismissedRouteDraftKey !== draftKey;
+  const routeChip = useMemo(
+    () =>
+      visible && defaultRoute
+        ? { label: defaultRoute.name, onRemove: handleRemoveRouteChip }
+        : null,
+    [defaultRoute, handleRemoveRouteChip, visible],
+  );
+  return { routeChip, routeId: visible ? defaultRoute?.id : undefined };
+}
+
 export function NewWorkspaceScreen({
   serverId,
   sourceDirectory: sourceDirectoryProp,
@@ -2000,6 +2046,11 @@ export function NewWorkspaceScreen({
     projects: projectIconTargets,
   });
   const draftKey = buildNewWorkspaceDraftKey(draftId);
+  const { routeChip, routeId: defaultRouteId } = useNewWorkspaceRouteChip({
+    serverId: selectedServerId,
+    draftKey,
+    daemonConfig,
+  });
   const forkDraftSetup = usePendingWorkspaceDraftSetup(draftId);
   const draftContextScopeKey = useDraftWorkspaceAttachmentScopeKey(draftId);
   const visibleDraftContextScopeKeys = useMemo(
@@ -2419,6 +2470,7 @@ export function NewWorkspaceScreen({
           resolveClient: withConnectedClient,
           isStillOnCreateScreen,
           readyToNavigate,
+          routeId: defaultRouteId,
           labels: {
             composerStateRequired: t("newWorkspace.errors.composerStateRequired"),
             selectModel: t("newWorkspace.errors.selectModel"),
@@ -2441,6 +2493,7 @@ export function NewWorkspaceScreen({
     [
       chatHeroVisible,
       composerState,
+      defaultRouteId,
       draftContextScopeKey,
       creationIdentity,
       chatDraft.clear,
@@ -2575,9 +2628,10 @@ export function NewWorkspaceScreen({
         ? {
             ...composerState.agentControls,
             disabled: isPending,
+            routeChip,
           }
         : undefined,
-    [composerState, isPending],
+    [composerState, isPending, routeChip],
   );
 
   const pickerEmptyText =

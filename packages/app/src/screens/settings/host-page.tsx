@@ -22,6 +22,7 @@ import {
   DEFAULT_TERMINAL_PROFILES,
 } from "@getpaseo/protocol/terminal-profiles";
 import { AgentProfilesSection } from "@/agent-profiles";
+import { AgentRoutesSection } from "@/agent-routes";
 import { AgentSkillsSection } from "@/agent-skills";
 import { AdaptiveModalSheet, type SheetHeader } from "@/components/adaptive-modal-sheet";
 import { SettingsTextAreaCard } from "@/components/settings-textarea";
@@ -338,6 +339,20 @@ export function HostProvidersPage({ serverId }: { serverId: string }) {
     <View>
       <ProviderAccountsSettingsSection serverId={serverId} />
       <ProvidersSection serverId={serverId} />
+    </View>
+  );
+}
+
+export function HostRoutesPage({ serverId }: { serverId: string }) {
+  const host = useHostProfile(serverId);
+
+  if (!host) {
+    return <HostNotFound />;
+  }
+
+  return (
+    <View>
+      <AgentRoutesSection serverId={serverId} />
     </View>
   );
 }
