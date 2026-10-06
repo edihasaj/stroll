@@ -142,6 +142,9 @@ const MutableStructuredGenerationProviderSchema = z
 const MutableMetadataGenerationConfigSchema = z
   .object({
     providers: z.array(MutableStructuredGenerationProviderSchema).default([]),
+    // false keeps metadata generation on the configured providers and the agent's own
+    // provider, without the built-in cloud fallback models.
+    builtInFallbacks: z.boolean().optional(),
   })
   .passthrough();
 

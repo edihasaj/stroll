@@ -13,6 +13,7 @@ export interface StructuredGenerationDaemonConfig {
       model?: string;
       thinkingOptionId?: string;
     }>;
+    builtInFallbacks?: boolean;
   };
 }
 
@@ -65,7 +66,11 @@ export async function resolveStructuredGenerationProviders(
     providers.push(resolvedConfigured);
   }
 
-  for (const identifier of DEFAULT_STRUCTURED_GENERATION_PROVIDERS) {
+  // The built-in defaults are cloud models (Haiku, GPT mini, ...). A host that must keep
+  // prompts on its own providers turns them off; the agent's own provider stays, since it
+  // already sees the prompt.
+  const useBuiltInFallbacks = options.daemonConfig?.metadataGeneration?.builtInFallbacks !== false;
+  for (const identifier of useBuiltInFallbacks ? DEFAULT_STRUCTURED_GENERATION_PROVIDERS : []) {
     const resolved = resolveByModelSubstring(modelEntries, identifier);
     if (resolved) {
       providers.push(resolved);

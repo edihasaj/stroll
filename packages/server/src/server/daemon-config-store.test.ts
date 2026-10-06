@@ -606,6 +606,47 @@ describe("DaemonConfigStore", () => {
     });
   });
 
+  test("patching metadata providers keeps a hand-written builtInFallbacks", () => {
+    const paseoHome = mkdtempSync(path.join(tmpdir(), "paseo-daemon-config-store-"));
+    tempDirs.push(paseoHome);
+    writeFileSync(
+      path.join(paseoHome, "config.json"),
+      `${JSON.stringify({
+        version: 1,
+        agents: {
+          metadataGeneration: {
+            providers: [{ provider: "pi", model: "qwen" }],
+            builtInFallbacks: false,
+          },
+        },
+      })}\n`,
+    );
+
+    const store = new DaemonConfigStore(
+      paseoHome,
+      {
+        mcp: { injectIntoAgents: false },
+        browserTools: { enabled: false },
+        providers: {},
+        metadataGeneration: {
+          providers: [{ provider: "pi", model: "qwen" }],
+          builtInFallbacks: false,
+        },
+        autoArchiveAfterMerge: false,
+        enableTerminalAgentHooks: false,
+        appendSystemPrompt: "",
+      },
+      undefined,
+    );
+
+    store.patch({ metadataGeneration: { providers: [{ provider: "pi", model: "qwen-next" }] } });
+
+    expect(loadPersistedConfig(paseoHome).agents?.metadataGeneration).toEqual({
+      providers: [{ provider: "pi", model: "qwen-next" }],
+      builtInFallbacks: false,
+    });
+  });
+
   test("patch persists provider removal when in-memory config is already clean", () => {
     const paseoHome = mkdtempSync(path.join(tmpdir(), "paseo-daemon-config-store-"));
     tempDirs.push(paseoHome);

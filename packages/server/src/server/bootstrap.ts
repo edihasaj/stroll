@@ -449,6 +449,7 @@ export interface PaseoDaemonConfig {
       model?: string;
       thinkingOptionId?: string;
     }>;
+    builtInFallbacks?: boolean;
   };
   providerOverrides?: Record<string, ProviderOverride>;
   log?: PersistedConfig["log"];
@@ -529,6 +530,17 @@ function resolveExpressTrustProxySetting(config: PaseoDaemonConfig): true | stri
   return config.trustedProxies ?? ["loopback"];
 }
 
+function initialMetadataGeneration(
+  metadataGeneration: PaseoDaemonConfig["metadataGeneration"],
+): MutableDaemonConfig["metadataGeneration"] {
+  return {
+    providers: metadataGeneration?.providers ?? [],
+    ...(metadataGeneration?.builtInFallbacks !== undefined
+      ? { builtInFallbacks: metadataGeneration.builtInFallbacks }
+      : {}),
+  };
+}
+
 function createInitialMutableDaemonConfig(config: PaseoDaemonConfig): MutableDaemonConfig {
   const providers = config.providerOverrides ?? {};
 
@@ -548,9 +560,7 @@ function createInitialMutableDaemonConfig(config: PaseoDaemonConfig): MutableDae
       : {}),
     browserTools: { enabled: config.browserToolsEnabled ?? false },
     providers,
-    metadataGeneration: {
-      providers: config.metadataGeneration?.providers ?? [],
-    },
+    metadataGeneration: initialMetadataGeneration(config.metadataGeneration),
     autoArchiveAfterMerge: config.autoArchiveAfterMerge ?? false,
     enableTerminalAgentHooks: config.enableTerminalAgentHooks ?? false,
     appendSystemPrompt: config.appendSystemPrompt ?? "",

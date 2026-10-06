@@ -22,7 +22,9 @@ interface SupportedMutableConfigPatch {
   browserTools?: { enabled?: boolean };
   providers?: MutableDaemonConfig["providers"];
   removeProviders?: string[];
-  metadataGeneration?: MutableDaemonConfig["metadataGeneration"];
+  metadataGeneration?: Partial<
+    Pick<MutableDaemonConfig["metadataGeneration"], "providers" | "builtInFallbacks">
+  >;
   autoArchiveAfterMerge?: boolean;
   enableTerminalAgentHooks?: boolean;
   appendSystemPrompt?: string;
@@ -249,7 +251,19 @@ function compactOwnedPaths(paths: readonly string[], owners: readonly string[]):
   return Array.from(compacted).sort();
 }
 
+function pickMetadataGenerationPatch(
+  patch: MutableDaemonConfigPatch["metadataGeneration"],
+): SupportedMutableConfigPatch["metadataGeneration"] {
+  if (!patch) return undefined;
+  const picked = {
+    ...(patch.providers !== undefined ? { providers: patch.providers } : {}),
+    ...(patch.builtInFallbacks !== undefined ? { builtInFallbacks: patch.builtInFallbacks } : {}),
+  };
+  return Object.keys(picked).length > 0 ? picked : undefined;
+}
+
 function pickSupportedPatchFields(patch: MutableDaemonConfigPatch): SupportedMutableConfigPatch {
+  const metadataGeneration = pickMetadataGenerationPatch(patch.metadataGeneration);
   return {
     ...(patch.relay?.enabled !== undefined ? { relay: { enabled: patch.relay.enabled } } : {}),
     ...(patch.mcp?.injectIntoAgents !== undefined
@@ -260,9 +274,7 @@ function pickSupportedPatchFields(patch: MutableDaemonConfigPatch): SupportedMut
       : {}),
     ...(patch.providers !== undefined ? { providers: patch.providers } : {}),
     ...(patch.removeProviders !== undefined ? { removeProviders: patch.removeProviders } : {}),
-    ...(patch.metadataGeneration?.providers !== undefined
-      ? { metadataGeneration: { providers: patch.metadataGeneration.providers } }
-      : {}),
+    ...(metadataGeneration ? { metadataGeneration } : {}),
     ...(patch.autoArchiveAfterMerge !== undefined
       ? { autoArchiveAfterMerge: patch.autoArchiveAfterMerge }
       : {}),
@@ -619,11 +631,17 @@ function mergeMutableAgentPatch(
   if (providerOverrides) next["providers"] = providerOverrides;
   else delete next["providers"];
 
-  if (patch.metadataGeneration?.providers !== undefined) {
-    next["metadataGeneration"] = { providers: patch.metadataGeneration.providers };
+  if (patch.metadataGeneration) {
+    // Merge, not replace: the settings screen patches only the provider list, and must not
+    // drop a hand-written `builtInFallbacks: false`.
+    next["metadataGeneration"] = {
+      ...persistedAgents?.metadataGeneration,
+      ...patch.metadataGeneration,
+    };
   } else if (removeProviders.length > 0 && persistedAgents?.metadataGeneration?.providers) {
     const removed = new Set(removeProviders);
     next["metadataGeneration"] = {
+      ...persistedAgents.metadataGeneration,
       providers: persistedAgents.metadataGeneration.providers.filter(
         (entry) => !removed.has(entry.provider),
       ),

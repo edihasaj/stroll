@@ -47,6 +47,36 @@ describe("resolveStructuredGenerationProviders", () => {
     expect(snapshots.calls).toEqual([{ cwd: "/tmp/repo", wait: true }]);
   });
 
+  test("skips the built-in cloud fallbacks when builtInFallbacks is false", async () => {
+    const snapshots = new ProviderSnapshots([
+      {
+        provider: "work-claude",
+        status: READY,
+        enabled: true,
+        models: [
+          { provider: "work-claude", id: "claude-haiku-2026", label: "Haiku", isDefault: true },
+        ],
+      },
+    ]);
+
+    const providers = await resolveStructuredGenerationProviders({
+      cwd: "/tmp/repo",
+      providerSnapshotManager: snapshots,
+      daemonConfig: {
+        metadataGeneration: {
+          providers: [{ provider: "mock", model: "ten-second-stream" }],
+          builtInFallbacks: false,
+        },
+      },
+      currentSelection: { provider: "mock", model: "five-minute-stream" },
+    });
+
+    expect(providers).toEqual([
+      { provider: "mock", model: "ten-second-stream" },
+      { provider: "mock", model: "five-minute-stream" },
+    ]);
+  });
+
   test("falls back to dynamic defaults and current selection when no provider is configured", async () => {
     const snapshots = new ProviderSnapshots([
       {
