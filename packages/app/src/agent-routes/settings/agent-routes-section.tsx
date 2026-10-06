@@ -20,7 +20,7 @@ export function AgentRoutesSection({ serverId }: { serverId: string }): ReactEle
   const { t } = useTranslation();
   const isConnected = useHostRuntimeIsConnected(serverId);
   const client = useHostRuntimeClient(serverId);
-  const { routes, profiles, defaultRouteId, isSupported, setDefaultRoute } =
+  const { routes, profiles, defaultRouteId, isSupported, setDefaultRoute, updateRouteDescription } =
     useAgentRoutesConfig(serverId);
 
   const handleTest = useCallback(
@@ -94,6 +94,7 @@ export function AgentRoutesSection({ serverId }: { serverId: string }): ReactEle
               profiles={profiles}
               isFirst={index === 0}
               onTest={handleTest}
+              onUpdateDescription={updateRouteDescription}
             />
           ))}
         </View>

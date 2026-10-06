@@ -3,6 +3,7 @@ import type { AgentProfile } from "@getpaseo/protocol/messages";
 import type { AgentRoute } from "@getpaseo/protocol/agent-route";
 import { useDaemonConfig } from "@/hooks/use-daemon-config";
 import { useHostFeature } from "@/runtime/host-features";
+import { applyRouteDescriptionPatch } from "./route-description-patch";
 
 export interface UseAgentRoutesConfigResult {
   /** `null` until the daemon config has arrived. */
@@ -15,6 +16,8 @@ export interface UseAgentRoutesConfigResult {
   isLoading: boolean;
   /** `null` clears the default; routes themselves stay config.json-only (docs/agent-routes.md). */
   setDefaultRoute: (routeId: string | null) => Promise<void>;
+  /** Empty (after trimming) removes the route's `description` field instead of storing "". */
+  updateRouteDescription: (routeId: string, description: string) => Promise<void>;
 }
 
 export function useAgentRoutesConfig(serverId: string | null): UseAgentRoutesConfigResult {
@@ -28,6 +31,22 @@ export function useAgentRoutesConfig(serverId: string | null): UseAgentRoutesCon
     [patchConfig],
   );
 
+  const updateRouteDescription = useCallback(
+    async (routeId: string, description: string) => {
+      if (!config) {
+        return;
+      }
+      await patchConfig({
+        agentRoutes: applyRouteDescriptionPatch({
+          routes: config.agentRoutes ?? [],
+          routeId,
+          description,
+        }),
+      });
+    },
+    [config, patchConfig],
+  );
+
   return {
     routes: config ? (config.agentRoutes ?? []) : null,
     profiles: config ? (config.agentProfiles ?? []) : null,
@@ -35,5 +54,6 @@ export function useAgentRoutesConfig(serverId: string | null): UseAgentRoutesCon
     isSupported,
     isLoading,
     setDefaultRoute,
+    updateRouteDescription,
   };
 }

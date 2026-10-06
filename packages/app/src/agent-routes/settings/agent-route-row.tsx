@@ -1,4 +1,4 @@
-import { useCallback, useState, type ReactElement } from "react";
+import { useCallback, useEffect, useState, type ReactElement } from "react";
 import { useTranslation } from "react-i18next";
 import { Text, View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
@@ -12,6 +12,8 @@ import {
 import type { AgentProfile } from "@getpaseo/protocol/messages";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { EditingTextInput } from "@/components/ui/text-input";
+import { useToast } from "@/contexts/toast-context";
 import { settingsStyles } from "@/styles/settings";
 import { toAgentRoutePreflightResultView } from "../internal/preflight-result-view";
 
@@ -51,16 +53,65 @@ function EntryRow({
   );
 }
 
+/**
+ * The route's `description` (docs/agent-routes.md): one sentence agents read when choosing a
+ * role for a subagent. Commits on blur rather than per keystroke — a patch per character would
+ * spam the daemon for a field nothing downstream reads mid-edit. An empty save removes the field
+ * (`useAgentRoutesConfig.updateRouteDescription`) rather than persisting an empty string.
+ */
+function RouteDescriptionField({
+  route,
+  onUpdateDescription,
+}: {
+  route: AgentRoute;
+  onUpdateDescription: (routeId: string, description: string) => Promise<void>;
+}): ReactElement {
+  const { t } = useTranslation();
+  const toast = useToast();
+  const [draft, setDraft] = useState(route.description ?? "");
+
+  useEffect(() => {
+    setDraft(route.description ?? "");
+  }, [route.description]);
+
+  const handleBlur = useCallback(() => {
+    const trimmed = draft.trim();
+    if (trimmed === (route.description ?? "")) {
+      return;
+    }
+    void onUpdateDescription(route.id, trimmed).catch((error) => {
+      toast.error(error instanceof Error ? error.message : t("errors.unableToSave"));
+    });
+  }, [draft, onUpdateDescription, route.description, route.id, t, toast]);
+
+  return (
+    <View style={styles.descriptionField}>
+      <Text style={styles.descriptionLabel}>{t("agentRoutes.description.label")}</Text>
+      <EditingTextInput
+        testID={`agent-route-description-${route.id}`}
+        accessibilityLabel={t("agentRoutes.description.label")}
+        initialValue={route.description ?? ""}
+        onChangeText={setDraft}
+        onBlur={handleBlur}
+        placeholder={t("agentRoutes.description.placeholder")}
+        style={styles.descriptionInput}
+      />
+    </View>
+  );
+}
+
 export function AgentRouteRow({
   route,
   profiles,
   isFirst,
   onTest,
+  onUpdateDescription,
 }: {
   route: AgentRoute;
   profiles: readonly AgentProfile[] | null;
   isFirst: boolean;
   onTest: (routeId: string) => Promise<AgentRoutePreflightResult[]>;
+  onUpdateDescription: (routeId: string, description: string) => Promise<void>;
 }): ReactElement {
   const { t } = useTranslation();
   const [isTesting, setIsTesting] = useState(false);
@@ -111,6 +162,7 @@ export function AgentRouteRow({
           {isTesting ? t("agentRoutes.preflight.testing") : t("agentRoutes.preflight.test")}
         </Button>
       </View>
+      <RouteDescriptionField route={route} onUpdateDescription={onUpdateDescription} />
       {testError ? <Text style={settingsStyles.rowError}>{testError}</Text> : null}
       <View style={styles.entries}>
         {route.entries.map((entry) => (
@@ -148,6 +200,18 @@ const styles = StyleSheet.create((theme) => ({
   badgeRow: {
     flexDirection: "row",
     gap: theme.spacing[2],
+  },
+  descriptionField: {
+    paddingHorizontal: theme.spacing[4],
+    paddingTop: theme.spacing[2],
+    gap: theme.spacing[1],
+  },
+  descriptionLabel: {
+    color: theme.colors.foregroundMuted,
+    fontSize: theme.fontSize.sm,
+  },
+  descriptionInput: {
+    fontSize: theme.fontSize.base,
   },
   entries: {
     paddingBottom: theme.spacing[2],

@@ -129,6 +129,9 @@ same check as Preflight's `privacy` reason, computed without running preflight).
 `defaultRoute`. A route's `description` is one sentence on what the route is for; an agent choosing
 a role for a subagent reads it, and the `create_agent` tool description lists configured routes by
 id and description so a model can often pick one without a separate `list_profiles` call.
+`description` is also the one route field Settings → Routes lets a user edit directly, through the
+same daemon-config patch as `defaultAgentRoute`; name, privacy, failover, and entries stay
+config.json-only.
 
 ## Failover
 
