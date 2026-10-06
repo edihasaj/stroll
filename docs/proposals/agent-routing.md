@@ -108,6 +108,15 @@ The ledger already holds everything; what fails over is a small, current summary
 4. **Mid-turn failover** using the handoff packet.
 5. **Subagents in place**: native-first spawning, in-turn rows, sidebar nesting, side panel.
 
+Status (2026-10-06): steps 2–5 are built. For step 5, a spawn names a route
+([agent-routes.md](../agent-routes.md#spawning-subagents-by-role)), and an agent on a local route can
+only spawn onto local routes. Spawns show in the parent's turn as live rows (status, route or model,
+elapsed time), and the panel above the composer splits Active from Done. A subagent opens beside its
+parent; ⌘/Ctrl- or middle-click opens it as a tab. Worktree subagents nest under their parent chat
+in the sidebar. OMP needs no extension tool: it already receives Stroll's tools in-process as RPC host
+tools. Still open: native Codex and OMP spawn rows show live status but cannot open the child yet,
+because their tool calls do not carry the child's id.
+
 Each step ships on its own and is useful without the next.
 
 ## Decisions (2026-10-06)

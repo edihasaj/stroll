@@ -111,6 +111,11 @@ agent — preflight in entry order, first usable entry wins. `provider` is optio
 omit it when you pass `route`, and pass it (provider/model, for example `codex/gpt-5.4`) only when
 no route fits.
 
+Agents only see `create_agent` when `daemon.mcp.injectIntoAgents` is on (see
+[public-docs/mcp.md](../public-docs/mcp.md)); it is off by default, and then agents spawn only their
+provider's own subagents (Claude's Task tool, Codex's `spawnAgent`, OMP's task tool). OMP receives
+the tools in-process as RPC host tools rather than over MCP.
+
 A call with neither `route` nor `provider` falls back to the daemon config's `defaultAgentRoute`,
 when one is set: `create_agent` behaves exactly as if `route: defaultAgentRoute` had been passed,
 including the route labels in [Creating a routed agent](#creating-a-routed-agent). A call with
