@@ -86,6 +86,24 @@ describe("Claude terminal agent hooks", () => {
     expect(registeredAgentHooksAreInstalled({ configDir })).toBe(true);
   });
 
+  it("keeps its place when another tool's hook was added after it", () => {
+    const configDir = createTempDir("paseo-claude-config-stable-");
+    installRegisteredAgentHooks({ configDir });
+    const settingsPath = join(configDir, "settings.json");
+    const settings = JSON.parse(readFileSync(settingsPath, "utf8")) as {
+      hooks: Record<string, unknown[]>;
+    };
+    for (const entries of Object.values(settings.hooks)) {
+      entries.push({ matcher: "", hooks: [{ type: "command", command: "other-tool" }] });
+    }
+    writeFileSync(settingsPath, `${JSON.stringify(settings, null, 2)}\n`);
+    const before = readFileSync(settingsPath, "utf8");
+
+    installRegisteredAgentHooks({ configDir });
+
+    expect(readFileSync(settingsPath, "utf8")).toBe(before);
+  });
+
   it("preserves unrelated user hooks", () => {
     const configDir = createTempDir("paseo-claude-config-preserve-");
     writeFileSync(

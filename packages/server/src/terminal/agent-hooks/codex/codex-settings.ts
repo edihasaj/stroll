@@ -3,6 +3,7 @@ import {
   buildAgentHookShellCommand,
   buildAgentHookWindowsCommand,
 } from "../agent-hook-installer.js";
+import { upsertMarkedHookGroup } from "../hook-group-upsert.js";
 
 interface CodexCommandHook {
   type?: unknown;
@@ -40,10 +41,9 @@ export const codexHooksFormat: AgentHookConfigFormat<CodexHooksFile> = {
     const install = provider.install;
     const hooks = normalizeHooks(config.hooks);
     for (const event of provider.events) {
-      const userEntries = removePaseoHooks(hooks[event.event], install.hookMarker);
-      hooks[event.event] = [
-        ...userEntries,
-        {
+      hooks[event.event] = upsertMarkedHookGroup({
+        entries: hooks[event.event],
+        desired: {
           matcher: "",
           hooks: [
             {
@@ -54,7 +54,8 @@ export const codexHooksFormat: AgentHookConfigFormat<CodexHooksFile> = {
             },
           ],
         },
-      ];
+        isMarked: (hook) => commandContainsMarker(hook, install.hookMarker),
+      });
     }
     return { ...config, hooks };
   },

@@ -77,6 +77,53 @@ describe("Codex terminal agent hooks", () => {
     expect(agentHooksAreInstalled(codexAgentHookProvider, { configDir })).toBe(true);
   });
 
+  it("keeps its place when another tool's hook was added after it, so Codex does not re-ask trust", () => {
+    const configDir = createTempDir("paseo-codex-config-stable-");
+    installAgentHooks(codexAgentHookProvider, { configDir });
+    const installed = readHooksFile(configDir);
+    const stopEntries = installed.hooks?.Stop;
+    if (!Array.isArray(stopEntries)) throw new Error("expected Stop hooks");
+    stopEntries.push({
+      matcher: "",
+      hooks: [{ type: "command", command: "other-tool stop", timeout: 5 }],
+    });
+    writeFileSync(join(configDir, "hooks.json"), `${JSON.stringify(installed, null, 2)}\n`);
+    const before = readFileSync(join(configDir, "hooks.json"), "utf8");
+
+    const reinstall = installAgentHooks(codexAgentHookProvider, { configDir });
+
+    expect(reinstall.changed).toBe(false);
+    expect(readFileSync(join(configDir, "hooks.json"), "utf8")).toBe(before);
+  });
+
+  it("updates an outdated Paseo hook in place without moving the hooks around it", () => {
+    const configDir = createTempDir("paseo-codex-config-update-");
+    writeFileSync(
+      join(configDir, "hooks.json"),
+      `${JSON.stringify(
+        {
+          hooks: {
+            Stop: [
+              { matcher: "", hooks: [{ type: "command", command: "first-tool stop" }] },
+              { matcher: "", hooks: [{ type: "command", command: "old-paseo hooks codex Stop" }] },
+              { matcher: "", hooks: [{ type: "command", command: "last-tool stop" }] },
+            ],
+          },
+        },
+        null,
+        2,
+      )}\n`,
+    );
+
+    installAgentHooks(codexAgentHookProvider, { configDir });
+
+    expect(commandHooks(readHooksFile(configDir), "Stop").map((hook) => hook.command)).toEqual([
+      "first-tool stop",
+      'if [ -n "$PASEO_TERMINAL_ID" ]; then "${PASEO_HOOK_CLI:-paseo}" hooks codex Stop; fi',
+      "last-tool stop",
+    ]);
+  });
+
   it("preserves unrelated user hooks", () => {
     const configDir = createTempDir("paseo-codex-config-preserve-");
     writeFileSync(

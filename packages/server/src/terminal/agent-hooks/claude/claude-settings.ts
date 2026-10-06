@@ -1,4 +1,5 @@
 import { type AgentHookConfigFormat, buildAgentHookShellCommand } from "../agent-hook-installer.js";
+import { upsertMarkedHookGroup } from "../hook-group-upsert.js";
 
 interface ClaudeCommandHook {
   type?: unknown;
@@ -34,10 +35,9 @@ export const claudeSettingsFormat: AgentHookConfigFormat<ClaudeSettings> = {
     const install = provider.install;
     const hooks = normalizeHooks(config.hooks);
     for (const event of provider.events) {
-      const userEntries = removePaseoHooks(hooks[event.event], install.hookMarker);
-      hooks[event.event] = [
-        ...userEntries,
-        {
+      hooks[event.event] = upsertMarkedHookGroup({
+        entries: hooks[event.event],
+        desired: {
           matcher: "",
           hooks: [
             {
@@ -47,7 +47,8 @@ export const claudeSettingsFormat: AgentHookConfigFormat<ClaudeSettings> = {
             },
           ],
         },
-      ];
+        isMarked: (hook) => commandContainsMarker(hook, install.hookMarker),
+      });
     }
     return { ...config, hooks };
   },
