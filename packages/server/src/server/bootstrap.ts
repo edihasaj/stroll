@@ -226,6 +226,7 @@ import {
   createAgentCommand,
   type CreateAgentCommandDependencies,
 } from "./agent/create-agent/create.js";
+import { createAgentRoutingWiring } from "./agent/routes/wiring.js";
 import { archiveAgentCommand, cancelAgentRunCommand } from "./agent/lifecycle-command.js";
 import { CreateAgentLifecycleDispatch } from "./agent/create-agent-lifecycle-dispatch.js";
 import {
@@ -1278,6 +1279,19 @@ export async function createPaseoDaemon(
   };
   const createAgent = (input: Parameters<typeof createAgentCommand>[1]) =>
     createAgentCommand(createAgentCommandDependencies, input);
+  // Agent routes and the brief (docs/agent-routes.md).
+  const agentRoutingWiring = createAgentRoutingWiring({
+    agentManager,
+    agentStorage,
+    daemonConfigStore,
+    providerSnapshotManager,
+    providerAccounts,
+    listUsageReports: () => pluginRuntime.listUsageReports(),
+    createAgent,
+    paseoHome: config.paseoHome,
+    logger,
+  });
+  agentRoutingWiring.start();
   const archiveWorkspaceByIdExternal = (workspaceId: string, requestId: string) =>
     archiveByScope(
       {
@@ -1509,6 +1523,7 @@ export async function createPaseoDaemon(
     voiceOnly: runtime.voiceOnly,
     resolveSpeakHandler: (agentId) => wsServer?.resolveVoiceSpeakHandler(agentId) ?? null,
     resolveCallerContext: (agentId) => wsServer?.resolveVoiceCallerContext(agentId) ?? null,
+    agentRouteCreation: agentRoutingWiring.routeService,
     logger,
   });
   const createAgentToolCatalog = (runtime: PaseoToolRuntimeContext) =>
@@ -1807,6 +1822,8 @@ export async function createPaseoDaemon(
               workspaceLabelService,
               workspaceServiceRuntime,
               providerAccounts,
+              agentRoutingWiring.routing,
+              agentRoutingWiring.routeService,
             );
             await recoverInterruptedAgents({
               agentManager,
@@ -1903,6 +1920,7 @@ export async function createPaseoDaemon(
     terminalManager.killAll();
     await speechService.stop();
     await scheduleService.stop().catch(() => undefined);
+    agentRoutingWiring.stop();
     await relayRuntime?.stop().catch(() => undefined);
     if (wsServer) {
       await wsServer.close();
