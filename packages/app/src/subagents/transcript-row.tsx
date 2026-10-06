@@ -270,10 +270,12 @@ export function SubagentToolCallRow(props: SubagentToolCallRowProps): ReactEleme
             {displayTitle}
           </Text>
           {presentation.meta ? (
-            <Text style={styles.metaText} numberOfLines={1}>
-              {" · "}
-              {presentation.meta}
-            </Text>
+            <>
+              <Text style={styles.metaDivider}>{"·"}</Text>
+              <Text style={styles.metaText} numberOfLines={1}>
+                {presentation.meta}
+              </Text>
+            </>
           ) : null}
         </View>
         <View style={styles.statusRow}>
@@ -297,36 +299,39 @@ export function SubagentToolCallRow(props: SubagentToolCallRowProps): ReactEleme
       style={[styles.container, !disableOuterSpacing && styles.containerSpacing]}
       testID="subagent-tool-call-row"
     >
-      {presentation.openTarget ? (
+      <View style={styles.card}>
+        {presentation.openTarget ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={accessibilityLabel}
+            onPress={handlePress}
+            style={styles.row}
+          >
+            {rowContent}
+          </Pressable>
+        ) : (
+          <View accessibilityLabel={accessibilityLabel} style={styles.row}>
+            {rowContent}
+          </View>
+        )}
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={accessibilityLabel}
-          onPress={handlePress}
-          style={styles.row}
+          accessibilityLabel={t(
+            isExpanded ? "subagents.collapseAction" : "subagents.expandAction",
+            { label: displayTitle },
+          )}
+          testID="subagent-tool-call-row-expand"
+          onPress={toggleExpanded}
+          hitSlop={8}
+          style={styles.chevron}
         >
-          {rowContent}
+          {isExpanded ? (
+            <ThemedChevronDown size={CHEVRON_SIZE} uniProps={mutedColorMapping} />
+          ) : (
+            <ThemedChevronRight size={CHEVRON_SIZE} uniProps={mutedColorMapping} />
+          )}
         </Pressable>
-      ) : (
-        <View accessibilityLabel={accessibilityLabel} style={styles.row}>
-          {rowContent}
-        </View>
-      )}
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={t(isExpanded ? "subagents.collapseAction" : "subagents.expandAction", {
-          label: displayTitle,
-        })}
-        testID="subagent-tool-call-row-expand"
-        onPress={toggleExpanded}
-        hitSlop={8}
-        style={styles.chevron}
-      >
-        {isExpanded ? (
-          <ThemedChevronDown size={CHEVRON_SIZE} uniProps={mutedColorMapping} />
-        ) : (
-          <ThemedChevronRight size={CHEVRON_SIZE} uniProps={mutedColorMapping} />
-        )}
-      </Pressable>
+      </View>
       {isExpanded ? (
         <View style={[styles.detailWrapper, isLastInSequence && styles.detailWrapperLast]}>
           <ToolCallDetailsContent
@@ -351,6 +356,16 @@ const styles = StyleSheet.create((theme) => ({
   containerSpacing: {
     marginBottom: theme.spacing[2],
   },
+  card: {
+    flexDirection: "row",
+    alignItems: "center",
+    flexGrow: 1,
+    flexShrink: 1,
+    minWidth: 0,
+    borderRadius: theme.borderRadius.md,
+    borderWidth: theme.borderWidth[1],
+    borderColor: theme.colors.border,
+  },
   row: {
     flexDirection: "row",
     alignItems: "center",
@@ -359,10 +374,7 @@ const styles = StyleSheet.create((theme) => ({
     minWidth: 0,
     gap: theme.spacing[2],
     paddingVertical: theme.spacing[1],
-    paddingHorizontal: theme.spacing[2],
-    borderRadius: theme.borderRadius.md,
-    borderWidth: theme.borderWidth[1],
-    borderColor: theme.colors.border,
+    paddingLeft: theme.spacing[2],
   },
   textColumn: {
     flexGrow: 1,
@@ -374,6 +386,11 @@ const styles = StyleSheet.create((theme) => ({
     flexDirection: "row",
     alignItems: "baseline",
     minWidth: 0,
+    gap: theme.spacing[1],
+  },
+  metaDivider: {
+    fontSize: theme.fontSize.sm,
+    color: theme.colors.foregroundMuted,
   },
   titleText: {
     flexShrink: 1,
@@ -406,11 +423,10 @@ const styles = StyleSheet.create((theme) => ({
     fontVariant: ["tabular-nums"],
   },
   chevron: {
-    width: CHEVRON_SIZE,
-    height: CHEVRON_SIZE,
+    alignSelf: "stretch",
     alignItems: "center",
     justifyContent: "center",
-    padding: theme.spacing[1],
+    paddingHorizontal: theme.spacing[2],
   },
   detailWrapper: {
     width: "100%",

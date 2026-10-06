@@ -15,13 +15,31 @@ function parseJsonText(value: unknown): unknown {
 }
 
 /**
+ * Claude hands an MCP result over as the text the model saw: the daemon's model-visible format
+ * (`formatStructuredContentForModel` in the server), which is the JSON alone or a few
+ * `key_count=` summary lines, a blank line, then the JSON.
+ */
+function parseModelVisibleText(text: string): unknown {
+  const direct = parseJsonText(text);
+  if (direct !== undefined) return direct;
+  const jsonStart = text.indexOf("\n\n{");
+  return jsonStart === -1 ? undefined : parseJsonText(text.slice(jsonStart + 2));
+}
+
+/**
  * Mirrors `unwrapMcpResult` in `packages/protocol/src/paseo-tool-call-detail.ts`, which is not
  * exported. The `create_agent` tool's result arrives as a raw MCP envelope — either a
- * `structuredContent` object or a single text content block carrying a JSON string — and the
- * `agentId` the daemon assigned lives inside that envelope, not at the top level.
+ * `structuredContent` object or a single text content block carrying a JSON string — or, from
+ * Claude, as the plain model-visible text. The `agentId` the daemon assigned lives inside it, not
+ * at the top level.
  */
 function unwrapMcpToolResult(output: unknown): unknown {
+  if (typeof output === "string") return parseModelVisibleText(output) ?? output;
   if (!isRecord(output)) return output;
+  // The Claude provider wraps a tool result as `{ output }`: the parsed JSON, or the text as is.
+  if ("output" in output && !("agentId" in output)) {
+    return unwrapMcpToolResult(output.output);
+  }
   if (output.structuredContent !== undefined) {
     return output.structuredContent;
   }

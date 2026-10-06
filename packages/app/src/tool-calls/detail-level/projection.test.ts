@@ -479,4 +479,30 @@ describe("tool call detail-level projection", () => {
     expect(result.groupsByHostId.get(singleCall.id)?.run.calls).toEqual([singleCall]);
     expect(result.groupsByHostId.size).toBe(1);
   });
+
+  it("leaves subagent spawns ungrouped so their live rows show in place", () => {
+    const before = toolCall("1", { type: "shell", command: "one" });
+    const nativeSpawn = toolCall(
+      "2",
+      { type: "sub_agent", subAgentType: "Explore", description: "Map the code", log: "" },
+      { name: "Task" },
+    );
+    const managedSpawn = toolCall(
+      "3",
+      { type: "unknown", input: { route: "worker" }, output: null },
+      { name: "mcp__paseo__create_agent", status: "running" },
+    );
+    const after = toolCall("4", { type: "shell", command: "four" });
+
+    const result = project({
+      level: "overview",
+      head: [before, nativeSpawn, managedSpawn, after],
+    });
+
+    expect(result.head).toEqual([before, nativeSpawn, managedSpawn, after]);
+    expect(result.groupsByHostId.has(nativeSpawn.id)).toBe(false);
+    expect(result.groupsByHostId.has(managedSpawn.id)).toBe(false);
+    expect(result.groupsByHostId.get(before.id)?.run.calls).toEqual([before]);
+    expect(result.groupsByHostId.get(after.id)?.run.calls).toEqual([after]);
+  });
 });

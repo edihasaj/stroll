@@ -22,6 +22,40 @@ describe("extractCreatedAgentId", () => {
     ).toBe("agent-456");
   });
 
+  it("reads the agent id out of Claude's plain-text result: summary lines, a blank line, then JSON", () => {
+    const text = [
+      "availableModes_count=2",
+      "availableModes_ids=load-test,approval-test",
+      "",
+      JSON.stringify({ agentId: "agent-text", status: "running" }, null, 2),
+    ].join("\n");
+
+    expect(extractCreatedAgentId("mcp__paseo__create_agent", text)).toBe("agent-text");
+  });
+
+  it("reads the agent id out of the Claude provider's `{ output }` wrapper", () => {
+    const text = ["availableModes_count=1", "", JSON.stringify({ agentId: "agent-wrapped" })].join(
+      "\n",
+    );
+
+    expect(extractCreatedAgentId("mcp__paseo__create_agent", { output: text })).toBe(
+      "agent-wrapped",
+    );
+    expect(
+      extractCreatedAgentId("mcp__paseo__create_agent", { output: { agentId: "agent-parsed" } }),
+    ).toBe("agent-parsed");
+  });
+
+  it("reads the agent id out of a plain JSON string result", () => {
+    expect(
+      extractCreatedAgentId("mcp__paseo__create_agent", JSON.stringify({ agentId: "agent-json" })),
+    ).toBe("agent-json");
+  });
+
+  it("returns null for a plain-text result that carries no JSON", () => {
+    expect(extractCreatedAgentId("mcp__paseo__create_agent", "Agent creation failed")).toBeNull();
+  });
+
   it("recognizes the dotted paseo tool name form", () => {
     expect(
       extractCreatedAgentId("paseo.create_agent", { structuredContent: { agentId: "agent-789" } }),

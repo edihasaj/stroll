@@ -1,4 +1,5 @@
 import type { ToolCallDetail } from "@getpaseo/protocol/agent-types";
+import { getPaseoToolLeafName } from "@getpaseo/protocol/tool-name-normalization";
 import type { StreamItem, ToolCallItem } from "@/types/stream";
 
 export interface ToolCallDescriptor {
@@ -67,7 +68,23 @@ export function isGroupableToolCall(item: StreamItem): item is ToolCallItem {
     return false;
   }
   const descriptor = describeToolCall(item);
-  return descriptor.detail.type !== "plan" && descriptor.name.trim().toLowerCase() !== "speak";
+  return (
+    descriptor.detail.type !== "plan" &&
+    descriptor.name.trim().toLowerCase() !== "speak" &&
+    !isSubagentSpawn(descriptor)
+  );
+}
+
+/**
+ * A subagent spawn renders as its own live row in the transcript (`SubagentToolCallRow`), so it
+ * stays out of the collapsed tool summary. `create_agent` is matched by name, not by its result,
+ * so the call does not jump out of a group when its agent id arrives.
+ */
+function isSubagentSpawn(descriptor: ToolCallDescriptor): boolean {
+  return (
+    descriptor.detail.type === "sub_agent" ||
+    getPaseoToolLeafName(descriptor.name) === "create_agent"
+  );
 }
 
 function createRun(calls: readonly ToolCallItem[], isSealed: boolean): ToolCallRun {
