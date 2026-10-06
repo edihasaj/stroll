@@ -139,10 +139,25 @@ function buildOmpSettings(args) {
   modelRoles.slow = planning;
   return {
     modelRoles,
+    // Fail fast on a dead endpoint so a Stroll route can move the work on (docs/agent-routes.md);
+    // OMP's default of 10 retries with backoff waits about 8.5 minutes first.
+    retry: { maxRetries: 2, maxDelayMs: 10_000, fallbackChains: buildFallbackChains(args) },
     startup: { checkUpdate: false },
     marketplace: { autoUpdate: "off" },
     telemetry: { otlpExportEnabled: false },
   };
+}
+
+// With two or more endpoints serving the same model, each one falls back to the others inside the
+// same OMP session, so losing one Spark keeps the conversation without a Stroll handoff.
+function buildFallbackChains(args) {
+  if (args.endpoints.length < 2) return {};
+  return Object.fromEntries(
+    args.endpoints.map((endpoint) => [
+      `${endpoint.name}/*`,
+      args.endpoints.filter((other) => other !== endpoint).map((other) => `${other.name}/*`),
+    ]),
+  );
 }
 
 function deepMerge(base, patch) {

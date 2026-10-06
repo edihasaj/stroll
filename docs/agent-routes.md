@@ -109,6 +109,22 @@ A failed turn on a routed agent is classified from the turn failure's text and c
 
 Any other failure is an ordinary failure and stays visible as one; failover never hides a real error.
 
+### Stalled turns
+
+An endpoint that drops packets (a powered-off or firewalled Spark) does not fail a turn: the
+provider waits on the connection and retries for minutes. The route service watches every running
+turn; when a routed turn on an entry with `probeUrl` has produced no event for 60 seconds, it runs
+that entry's probe. If the probe says `unreachable`, the turn is canceled and fails over as
+`unreachable`; if the endpoint answers, the turn is left alone and checked again after another
+quiet minute. An entry without `probeUrl` is never canceled for silence, because silence alone
+cannot tell a dead endpoint from a long-running tool.
+
+Give every self-hosted entry a `probeUrl`, and keep the harness's own retries short so a dead
+endpoint fails within seconds. `scripts/stroll-omp-workers.mjs` sets OMP to two retries with a
+10-second ceiling (OMP's default of ten retries waits about 8.5 minutes), and with two or more
+Sparks it adds OMP `retry.fallbackChains` between them, so losing one Spark switches inside the
+same OMP session without a Stroll handoff.
+
 On a classified failure, the daemon looks for the next usable entry after the agent's own, in order:
 
 - **Found, `failover: "auto"`.** It creates a continuation agent in the same workspace and directory,

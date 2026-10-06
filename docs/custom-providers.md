@@ -324,7 +324,9 @@ existing files and never parses hand-written YAML: if `models.yml` or `config.ym
 it prints the snippet to merge by hand.
 
 The script sets `thinkingFormat: "qwen-chat-template"` (thinking through the chat template's
-`enable_thinking`, as vLLM and SGLang expect) and `supportsDeveloperRole: false`.
+`enable_thinking`, as vLLM and SGLang expect) and `supportsDeveloperRole: false`. It also keeps
+OMP's retries short and, with two endpoints, makes each Spark fall back to the other inside the
+same session; [agent routes](agent-routes.md#stalled-turns) covers why.
 
 ### Pi
 
