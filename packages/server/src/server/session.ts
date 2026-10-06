@@ -189,6 +189,11 @@ import {
 import { ScheduleSession } from "./session/schedule/schedule-session.js";
 import { ProviderCatalogSession } from "./session/provider/provider-catalog-session.js";
 import { UsageSession } from "./session/usage/usage-session.js";
+import {
+  AgentRoutingSession,
+  isAgentRoutingMessage,
+} from "./session/agent-routing/agent-routing-session.js";
+import type { AgentRouting } from "./agent/routes/handlers.js";
 import { WorkspaceFilesSession } from "./session/files/workspace-files-session.js";
 import { AgentConfigSession } from "./session/agent-config/agent-config-session.js";
 import { ProjectConfigSession } from "./session/project-config/project-config-session.js";
@@ -451,6 +456,8 @@ const nodeSessionFileSystem: SessionFileSystem = {
 type AgentMcpTransportFactory = () => Promise<unknown>;
 
 export interface SessionOptions {
+  /** Agent routes and the brief (docs/agent-routes.md). Absent on hosts that do not wire them. */
+  agentRouting?: AgentRouting | null;
   browserToolsBroker?: BrowserToolsBroker | null;
   clientId: string;
   permissions: readonly DaemonPermission[];
@@ -807,6 +814,7 @@ export class Session {
   private readonly providerCatalogSession: ProviderCatalogSession;
   private readonly providerAccountSession: ProviderAccountSession;
   private readonly usageSession: UsageSession;
+  private readonly agentRoutingSession: AgentRoutingSession;
   private readonly workspaceFilesSession: WorkspaceFilesSession;
   private readonly agentConfigSession: AgentConfigSession;
   private readonly projectConfigSession: ProjectConfigSession;
@@ -1027,6 +1035,11 @@ export class Session {
     this.usageSession = new UsageSession({
       emit: (msg) => this.emit(msg),
       runtime: pluginRuntime,
+      logger: this.sessionLogger,
+    });
+    this.agentRoutingSession = new AgentRoutingSession({
+      routing: options.agentRouting,
+      emit: (msg) => this.emit(msg),
       logger: this.sessionLogger,
     });
     this.providerAccountSession = new ProviderAccountSession({
@@ -3044,6 +3057,7 @@ export class Session {
   }
 
   private dispatchProviderMessage(msg: SessionInboundMessage): Promise<void> | undefined {
+    if (isAgentRoutingMessage(msg)) return this.agentRoutingSession.dispatch(msg);
     switch (msg.type) {
       case "list_provider_models_request":
         return this.providerCatalogSession.handleListProviderModelsRequest(msg);
@@ -3063,6 +3077,7 @@ export class Session {
         return this.usageSession.handleLegacyList(msg);
       case "usage.list_reports.request":
         return this.usageSession.handleListReports(msg);
+
       case "provider.account.list.request":
         return this.providerAccountSession.handleList(msg);
       case "provider.account.create.request":
