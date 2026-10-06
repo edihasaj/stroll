@@ -218,8 +218,12 @@ Use the recipient's agent ID from `paseo ls`, or [copy it from the agent's tab](
 ```bash
 paseo send <id> "now run the tests"
 paseo send <id> --image screenshot.png "what's wrong here?"
-paseo send <id> --no-wait "queue this task"
+paseo send <id> --no-wait "what are you working on?"
+paseo send <id> --queue "then update the changelog"
+paseo send <id> --interrupt "stop, use the other API instead"
 ```
+
+When the agent is busy, a message steers its current turn: the agent reads it at its next tool boundary, and running tools and background jobs keep going. `--queue` holds the message until the turn ends and runs it as the next turn. `--interrupt` stops the turn first, the same as the stop button. If the provider cannot take a message mid-turn, Paseo queues it and the command reports `queued`.
 
 ## Viewing logs
 

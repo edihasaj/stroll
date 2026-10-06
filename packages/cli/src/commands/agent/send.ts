@@ -13,7 +13,7 @@ import { extname, resolve } from "node:path";
 /** Result type for agent send command */
 export interface AgentSendResult {
   agentId: string;
-  status: "sent" | "completed" | "timeout" | "permission" | "error";
+  status: "sent" | "queued" | "completed" | "timeout" | "permission" | "error";
   message: string;
 }
 
@@ -32,6 +32,8 @@ export interface AgentSendOptions extends CommandOptions {
   image?: string[];
   prompt?: string;
   promptFile?: string;
+  queue?: boolean;
+  interrupt?: boolean;
 }
 
 export function addSendOptions(cmd: Command): Command {
@@ -42,7 +44,71 @@ export function addSendOptions(cmd: Command): Command {
     .option("--prompt <text>", "Provide the message inline as a flag")
     .option("--prompt-file <path>", "Read the message from a UTF-8 text file")
     .option("--image <path>", "Attach image(s) to the message", collectMultiple, [])
+    .option(
+      "--queue",
+      "If the agent is running, queue the message for after its current turn instead of steering it",
+    )
+    .option(
+      "--interrupt",
+      "If the agent is running, stop its current turn and send the message as a new one",
+    )
     .option("--no-wait", "Return immediately without waiting for completion");
+}
+
+type SendMode = "steer" | "queue" | "interrupt";
+
+/**
+ * A message sent to a running agent steers its current turn by default: it reaches the agent at
+ * the next tool boundary without stopping running tools or background jobs, matching the app's
+ * Enter key. --queue waits for the turn to end; --interrupt is the only mode that cancels work.
+ */
+function resolveSendMode(options: AgentSendOptions): SendMode {
+  if (options.queue && options.interrupt) {
+    const error: CommandError = {
+      code: "CONFLICTING_SEND_MODE",
+      message: "Use either --queue or --interrupt, not both",
+    };
+    throw error;
+  }
+  if (options.queue && options.image && options.image.length > 0) {
+    const error: CommandError = {
+      code: "QUEUE_IMAGES_UNSUPPORTED",
+      message: "Queued messages cannot carry images",
+      details: "Send without --queue to steer the running turn with the image instead",
+    };
+    throw error;
+  }
+  if (options.queue) return "queue";
+  if (options.interrupt) return "interrupt";
+  return "steer";
+}
+
+async function queueMessage(
+  client: Awaited<ReturnType<typeof connectToDaemon>>,
+  agentIdArg: string,
+  text: string,
+): Promise<AgentSendResult> {
+  // The queue is keyed by the full agent id, so resolve a prefix first.
+  const fetched = await client.fetchAgent({ agentId: agentIdArg });
+  if (!fetched) {
+    const error: CommandError = {
+      code: "AGENT_NOT_FOUND",
+      message: `No agent found matching: ${agentIdArg}`,
+      details: "Use `paseo ls` to list available agents",
+    };
+    throw error;
+  }
+  const agentId = fetched.agent.id;
+  const response = await client.createAgentQueuePrompt({ agentId, text });
+  if (response.error) {
+    const error: CommandError = { code: "QUEUE_FAILED", message: response.error };
+    throw error;
+  }
+  return {
+    agentId,
+    status: "queued",
+    message: "Message queued; it runs when the agent's current turn ends",
+  };
 }
 
 /**
@@ -184,15 +250,39 @@ export async function runSendCommand(
     promptFile: options.promptFile,
   });
 
+  const mode = resolveSendMode(options);
   const client = await connectToDaemon({ target: options.daemonTarget });
 
   try {
+    if (mode === "queue") {
+      const queued = await queueMessage(client, agentIdArg, promptInput);
+      await client.close();
+      return { type: "single", data: queued, schema: agentSendSchema };
+    }
+
     // Read image files if provided
     const images =
       options.image && options.image.length > 0 ? await readImageFiles(options.image) : undefined;
 
-    // Send the message
-    await client.sendAgentMessage(agentIdArg, promptInput, { images });
+    const { dispatch } = await client.sendAgentMessage(agentIdArg, promptInput, {
+      images,
+      activeTurnBehavior: mode,
+    });
+
+    // The agent could not take a steer mid-turn, so the daemon queued it for after the turn.
+    // Waiting now would report the current turn's outcome, not this message's.
+    if (dispatch === "queued_fallback") {
+      await client.close();
+      return {
+        type: "single",
+        data: {
+          agentId: agentIdArg,
+          status: "queued",
+          message: "Agent could not take the message mid-turn; queued for after the current turn",
+        },
+        schema: agentSendSchema,
+      };
+    }
 
     // If --no-wait, return immediately
     if (options.wait === false) {

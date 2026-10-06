@@ -43,12 +43,16 @@ try {
     assert(result.stdout.includes("--prompt"), "help should mention --prompt option");
     assert(result.stdout.includes("--prompt-file"), "help should mention --prompt-file option");
     assert(result.stdout.includes("--no-wait"), "help should mention --no-wait flag");
+    assert(result.stdout.includes("--queue"), "help should mention --queue flag");
+    assert(result.stdout.includes("--interrupt"), "help should mention --interrupt flag");
     assert(result.stdout.includes("--host"), "help should mention --host option");
     assert(result.stdout.includes("<id>"), "help should mention id argument");
     assert(result.stdout.includes("[prompt]"), "help should mention optional prompt argument");
     console.log("  help should mention --prompt option");
     console.log("  help should mention --prompt-file option");
     console.log("  help should mention --no-wait flag");
+    console.log("  help should mention --queue flag");
+    console.log("  help should mention --interrupt flag");
     console.log("  help should mention --host option");
     console.log("  help should mention <id> argument");
     console.log("  help should mention [prompt] argument");
