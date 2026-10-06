@@ -68,7 +68,7 @@ per-agent examples and provider-specific keys.
 - [Z.AI (Zhipu) coding plan](#zai-zhipu-coding-plan)
 - [Alibaba Cloud (Qwen) coding plan](#alibaba-cloud-qwen-coding-plan)
 - [Codex with a custom OpenAI-compatible endpoint](#codex-with-a-custom-openai-compatible-endpoint)
-- [Local Qwen on DGX Spark via LiteLLM (Stroll)](#local-qwen-on-dgx-spark-via-litellm-stroll)
+- [Local Qwen on DGX Spark (Stroll)](#local-qwen-on-dgx-spark-stroll)
 - [Multiple profiles for the same provider](#multiple-profiles-for-the-same-provider)
 - [Custom binary for a provider](#custom-binary-for-a-provider)
 - [Disabling a provider](#disabling-a-provider)
@@ -285,22 +285,48 @@ requires_openai_auth = false
 
 ---
 
-## Local Qwen on DGX Spark via LiteLLM (Stroll)
+## Local Qwen on DGX Spark (Stroll)
 
-Two NVIDIA DGX Sparks serving Qwen3.8-Flash-Next (NVFP4, vLLM or SGLang) sit behind a
-LiteLLM router at `http://127.0.0.1:4000`, with an OpenAI-compatible API and
-`--reasoning-parser` on. This is a worker deployment, not a chat provider: no traffic from
-these workers may reach OpenAI. Local endpoints only, `requires_openai_auth = false`, no
-telemetry.
+Two NVIDIA DGX Sparks serve Qwen3.8-Flash-Next (NVFP4, vLLM or SGLang) over an
+OpenAI-compatible API, either directly (`http://spark-689b:8000/v1`) or behind a LiteLLM router
+(`http://127.0.0.1:4000/v1`), with `--reasoning-parser` on. This is a worker deployment: no
+traffic from these workers may reach OpenAI.
 
-**Not yet validated on GB10 hardware.** The Sparks were not reachable when these entries
-were written. Nothing here has been benchmarked or run end to end — treat every field below
-as unverified until you've completed a real session against it.
+**Not yet validated on GB10 hardware.** No model was being served when this was written, so no
+session has run end to end against it. The configuration below loads in OMP 18.6.1
+(`omp models ls` lists both Spark models); the wire settings (`thinkingFormat`, context window)
+still need a real session.
 
-Ready-to-paste versions of both entries below live in
-[`docs/examples/stroll-local-qwen.settings.json`](examples/stroll-local-qwen.settings.json).
+### Oh My Pi (recommended for 24/7 workers)
 
-### Pi (recommended for 24/7 workers)
+OMP is the workhorse: open source, released weekly, and Stroll's deepest integration. Its task
+tool spawns subagents that Stroll shows in the parent's subagents track, and its model roles
+split the work without any routing layer of ours: `task` runs subagents, `plan` and `slow` plan
+and think, and `smol`, `commit`, `tiny`, and `memory` run housekeeping. OMP needs Bun 1.3.14 or
+later (`bun add -g @oh-my-pi/pi-coding-agent`).
+
+`scripts/stroll-omp-workers.mjs` writes the whole setup. It probes each endpoint, then merges
+the Spark providers into `~/.omp/agent/models.yml`, points every model role at them, turns off
+OMP's update check, plugin auto-update, and OTLP export, and, with `--stroll-home`, enables OMP
+in Stroll with metadata generation on the local model and no cloud fallbacks:
+
+```bash
+node scripts/stroll-omp-workers.mjs --check --write \
+  --endpoint spark-a=http://spark-689b:8000/v1 \
+  --endpoint spark-b=http://spark-e118:8000/v1 \
+  --model qwen3.8-flash-next --stroll-home ~/.stroll
+```
+
+The first endpoint serves the default and housekeeping roles, the second serves subagents. Pass
+`--plan <provider/model>` to plan on a stronger model; that model's provider then sees the
+planning context. Without `--write` the script prints what it would write. It merges into
+existing files and never parses hand-written YAML: if `models.yml` or `config.yml` is not JSON,
+it prints the snippet to merge by hand.
+
+The script sets `thinkingFormat: "qwen-chat-template"` (thinking through the chat template's
+`enable_thinking`, as vLLM and SGLang expect) and `supportsDeveloperRole: false`.
+
+### Pi
 
 Pi is the open-source SDK Paseo is closest to, and it gives you session and compaction
 control that a black-box CLI doesn't. Extend `pi` in `config.json`:
@@ -395,19 +421,16 @@ exposes a Responses-compatible surface for a local vLLM/SGLang backend is unconf
 
 ### Which one, and why
 
-Pi is the default recommendation for an unattended, always-on worker: it's the open SDK,
-Paseo's wiring for it is direct (`env` + `models` only, no config injection), and there's no
-hidden auxiliary traffic to account for. Codex is a closed-source CLI binary Paseo spawns and
-configures via `OPENAI_BASE_URL`/`OPENAI_API_KEY` — that wiring itself makes no calls outside
-`OPENAI_BASE_URL`, but the `codex` binary's own update checks and telemetry are outside
-Paseo's control and unaudited here. Before running Codex against these workers, audit the
-installed `codex` binary for any outbound calls that bypass `OPENAI_BASE_URL` and disable
-them.
+OMP for unattended workers: it is open source, its subagents and model roles cover the
+planner/worker split, and every outbound call is either a configured model or a setting the
+script turns off. Plain Pi works the same way with one model and no roles. Codex is a
+closed-source CLI binary Stroll configures through `OPENAI_BASE_URL`/`OPENAI_API_KEY`; that wiring
+makes no calls outside `OPENAI_BASE_URL`, but the binary's own update checks and telemetry are
+outside Stroll's control, so audit it before pointing it at these workers.
 
-Settings that keep egress local for either path: `OPENAI_BASE_URL` / Pi's `baseUrl` pointed at
-`127.0.0.1:4000`, no `ANTHROPIC_*` env left over from another provider, and no cloud fallback
-route configured on the LiteLLM side (see the `litellm-router` integration in the `lokai`
-repo).
+Settings that keep egress local on every path: base URLs pointed at the Sparks or the local
+router, no `ANTHROPIC_*` env left over from another provider, no cloud fallback route on the
+LiteLLM side, and `agents.metadataGeneration.builtInFallbacks: false` in Stroll's config.
 
 ---
 
