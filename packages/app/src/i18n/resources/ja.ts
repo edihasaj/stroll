@@ -2002,6 +2002,14 @@ export const ja: TranslationResources = {
     stopAllAction: "Stop all active",
     stopAllConfirmTitle: "Stop all active work?",
     stopAllConfirmMessage: "This will interrupt {{count}} active subagent(s): {{names}}.",
+    statusWorking: "実行中",
+    statusNeedsPermission: "権限が必要",
+    statusDone: "完了",
+    statusFailed: "失敗: {{reason}}",
+    statusFailedGeneric: "失敗",
+    expandAction: "{{label}}を展開",
+    collapseAction: "{{label}}を折りたたむ",
+    doneGroupLabel: "完了 ({{count}})",
   },
   goals: {
     status: {

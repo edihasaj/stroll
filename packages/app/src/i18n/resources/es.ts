@@ -2031,6 +2031,14 @@ export const es: TranslationResources = {
     stopAllAction: "Stop all active",
     stopAllConfirmTitle: "Stop all active work?",
     stopAllConfirmMessage: "This will interrupt {{count}} active subagent(s): {{names}}.",
+    statusWorking: "En ejecución",
+    statusNeedsPermission: "Necesita permiso",
+    statusDone: "Completado",
+    statusFailed: "Error: {{reason}}",
+    statusFailedGeneric: "Error",
+    expandAction: "Expandir {{label}}",
+    collapseAction: "Contraer {{label}}",
+    doneGroupLabel: "Completados ({{count}})",
   },
   goals: {
     status: {

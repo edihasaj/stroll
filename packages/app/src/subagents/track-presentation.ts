@@ -2,7 +2,7 @@ import type { TFunction } from "i18next";
 import type { ComposerTrackPillSegment } from "@/composer/tracks";
 import type { SidebarStateBucket } from "@/utils/sidebar-agent-state";
 import { deriveSidebarStateBucket, STATUS_BUCKET_ORDER } from "@/utils/sidebar-agent-state";
-import type { SubagentRow } from "./select";
+import type { PaseoSubagentRow, SubagentRow, SubagentTreeNode } from "./select";
 import { isFinishedSubagent } from "./archive-finished";
 import { providerSubagentLifecycleStatus } from "./provider-store";
 
@@ -21,6 +21,17 @@ export interface SubagentRowPresentationData {
   subtitle: string;
   titleState: "ready" | "loading";
   statusBucket: SidebarStateBucket | null;
+  /** Elapsed-time anchor — `turn.startedAt` when a managed row's turn is live, else `createdAt`. */
+  startedAt: Date;
+  /** True while the row is still running; elapsed time ticks live until this flips. */
+  isRunning: boolean;
+  /** When the row finished. Meaningful only once `isRunning` is false. */
+  endedAt: Date;
+}
+
+/** The live start of a managed row's current run, falling back to its creation time. */
+export function resolveManagedStartedAt(row: Pick<PaseoSubagentRow, "turn" | "createdAt">): Date {
+  return (row.turn.phase === "open" ? row.turn.startedAt : null) ?? row.createdAt;
 }
 
 export function buildSubagentRowPresentationData(row: SubagentRow): SubagentRowPresentationData {
@@ -42,7 +53,40 @@ export function buildSubagentRowPresentationData(row: SubagentRow): SubagentRowP
       status,
       requiresAttention: false,
     }),
+    startedAt: row.kind === "paseo" ? resolveManagedStartedAt(row) : row.createdAt,
+    isRunning: status === "running",
+    endedAt: row.updatedAt,
   };
+}
+
+/**
+ * Whether a top-level track row belongs in the Active group: still running, or finished but not
+ * yet acknowledged. Everything else (quietly finished) is Done. Mirrors the finished check the
+ * track already uses to decide whether a row auto-collapses, so the two groupings cannot drift.
+ */
+export function isSubagentRowActive(row: SubagentRow): boolean {
+  return !isFinishedSubagent(row) || row.requiresAttention === true;
+}
+
+export interface SubagentTopLevelGroups {
+  active: SubagentTreeNode[];
+  done: SubagentTreeNode[];
+}
+
+/**
+ * Splits top-level track rows into Active (running or needing attention) and Done — everything
+ * else. Children stay nested under their parent wherever that parent lands; only the top level is
+ * grouped.
+ */
+export function groupSubagentTopLevelNodes(
+  nodes: readonly SubagentTreeNode[],
+): SubagentTopLevelGroups {
+  const active: SubagentTreeNode[] = [];
+  const done: SubagentTreeNode[] = [];
+  for (const node of nodes) {
+    (isSubagentRowActive(node.row) ? active : done).push(node);
+  }
+  return { active, done };
 }
 
 type ActiveStatusBucket = Exclude<SidebarStateBucket, "done">;

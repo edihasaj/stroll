@@ -390,6 +390,7 @@ describe("selectSubagentsForParent", () => {
         turn: { phase: "idle", cancellationRequestId: null },
         requiresAttention: true,
         createdAt,
+        updatedAt: AGENT_TIMESTAMP,
       },
     ]);
     expect(Object.keys(rows[0] ?? {}).sort()).toEqual([
@@ -403,6 +404,7 @@ describe("selectSubagentsForParent", () => {
       "subtitle",
       "title",
       "turn",
+      "updatedAt",
     ]);
     expect(rows[0]).not.toHaveProperty("onOpen");
     expect(rows[0]).not.toHaveProperty("model");

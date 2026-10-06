@@ -18,6 +18,8 @@ export interface PaseoSubagentRow {
   turn: Agent["turn"];
   requiresAttention: Agent["requiresAttention"];
   createdAt: Agent["createdAt"];
+  /** When the agent's record last changed — the end of the run once it has finished. */
+  updatedAt: Agent["updatedAt"];
 }
 
 export interface ProviderSubagentRow {
@@ -36,6 +38,8 @@ export interface ProviderSubagentRow {
   status: ProviderSubagentDescriptorPayload["status"];
   requiresAttention: boolean;
   createdAt: Date;
+  /** When the provider last reported on this child — the end of the run once it has finished. */
+  updatedAt: Date;
 }
 
 export type SubagentRow = PaseoSubagentRow | ProviderSubagentRow;
@@ -72,6 +76,7 @@ function toSubagentRow(agent: Agent): PaseoSubagentRow {
     turn: agent.turn,
     requiresAttention: agent.requiresAttention,
     createdAt: agent.createdAt,
+    updatedAt: agent.updatedAt,
   };
 }
 
@@ -201,6 +206,7 @@ export function selectProviderSubagentsForParent(
       status: subagent.status,
       requiresAttention: subagent.status === "failed",
       createdAt: new Date(subagent.createdAt),
+      updatedAt: new Date(subagent.updatedAt),
     });
   }
   rows.sort((left, right) => left.createdAt.getTime() - right.createdAt.getTime());

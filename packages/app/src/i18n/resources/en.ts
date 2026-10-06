@@ -2008,6 +2008,14 @@ export const en = {
     stopAllAction: "Stop all active",
     stopAllConfirmTitle: "Stop all active work?",
     stopAllConfirmMessage: "This will interrupt {{count}} active subagent(s): {{names}}.",
+    statusWorking: "Working",
+    statusNeedsPermission: "Needs permission",
+    statusDone: "Done",
+    statusFailed: "Failed: {{reason}}",
+    statusFailedGeneric: "Failed",
+    expandAction: "Expand {{label}}",
+    collapseAction: "Collapse {{label}}",
+    doneGroupLabel: "Done ({{count}})",
   },
   goals: {
     status: {

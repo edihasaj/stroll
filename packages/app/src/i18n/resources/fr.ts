@@ -2035,6 +2035,14 @@ export const fr: TranslationResources = {
     stopAllAction: "Stop all active",
     stopAllConfirmTitle: "Stop all active work?",
     stopAllConfirmMessage: "This will interrupt {{count}} active subagent(s): {{names}}.",
+    statusWorking: "En cours",
+    statusNeedsPermission: "Autorisation requise",
+    statusDone: "Terminé",
+    statusFailed: "Échec : {{reason}}",
+    statusFailedGeneric: "Échec",
+    expandAction: "Développer {{label}}",
+    collapseAction: "Réduire {{label}}",
+    doneGroupLabel: "Terminés ({{count}})",
   },
   goals: {
     status: {

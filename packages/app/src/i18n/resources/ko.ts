@@ -1993,6 +1993,14 @@ export const ko: TranslationResources = {
     stopAllAction: "Stop all active",
     stopAllConfirmTitle: "Stop all active work?",
     stopAllConfirmMessage: "This will interrupt {{count}} active subagent(s): {{names}}.",
+    statusWorking: "실행 중",
+    statusNeedsPermission: "권한 필요",
+    statusDone: "완료",
+    statusFailed: "실패: {{reason}}",
+    statusFailedGeneric: "실패",
+    expandAction: "{{label}} 펼치기",
+    collapseAction: "{{label}} 접기",
+    doneGroupLabel: "완료 ({{count}}개)",
   },
   goals: {
     status: {

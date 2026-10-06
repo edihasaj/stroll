@@ -1961,6 +1961,14 @@ export const zhCN: TranslationResources = {
     stopAllAction: "Stop all active",
     stopAllConfirmTitle: "Stop all active work?",
     stopAllConfirmMessage: "This will interrupt {{count}} active subagent(s): {{names}}.",
+    statusWorking: "运行中",
+    statusNeedsPermission: "需要权限",
+    statusDone: "已完成",
+    statusFailed: "失败：{{reason}}",
+    statusFailedGeneric: "失败",
+    expandAction: "展开 {{label}}",
+    collapseAction: "收起 {{label}}",
+    doneGroupLabel: "已完成 ({{count}})",
   },
   goals: {
     status: {

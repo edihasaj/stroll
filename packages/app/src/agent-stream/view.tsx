@@ -877,6 +877,12 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
               isLastInSequence={isLastInSequence}
               onOpenFilePath={handleToolCallOpenFile}
               maxDetailHeight={maxDetailHeight}
+              provider={data.provider}
+              callId={data.callId}
+              serverId={resolvedServerId}
+              agentId={agentId}
+              workspaceId={context.workspaceId}
+              readOnly={readOnly}
             />
           );
         }
@@ -893,10 +899,23 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
             isLastInSequence={isLastInSequence}
             onOpenFilePath={handleToolCallOpenFile}
             maxDetailHeight={maxDetailHeight}
+            callId={data.toolCallId}
+            serverId={resolvedServerId}
+            agentId={agentId}
+            workspaceId={context.workspaceId}
+            readOnly={readOnly}
           />
         );
       },
-      [context.cwd, setInlineDetailsExpanded, handleToolCallOpenFile],
+      [
+        agentId,
+        context.cwd,
+        context.workspaceId,
+        handleToolCallOpenFile,
+        readOnly,
+        resolvedServerId,
+        setInlineDetailsExpanded,
+      ],
     );
 
     // Read through a stable event so live group updates do not change the renderer identity

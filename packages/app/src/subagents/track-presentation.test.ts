@@ -1,10 +1,17 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import { i18n } from "@/i18n/i18next";
-import type { PaseoSubagentRow, ProviderSubagentRow, SubagentRow } from "./select";
+import type {
+  PaseoSubagentRow,
+  ProviderSubagentRow,
+  SubagentRow,
+  SubagentTreeNode,
+} from "./select";
 import {
   buildSubagentPillPresentation,
   buildSubagentRowPresentationData,
   countFinishedSubagents,
+  groupSubagentTopLevelNodes,
+  isSubagentRowActive,
   resolveRowLabel,
 } from "./track-presentation";
 
@@ -26,6 +33,7 @@ function row(
         : { phase: "idle", cancellationRequestId: null }),
     requiresAttention: overrides.requiresAttention ?? false,
     createdAt: overrides.createdAt ?? new Date("2026-04-20T00:00:00.000Z"),
+    updatedAt: overrides.updatedAt ?? new Date("2026-04-20T00:00:00.000Z"),
   };
 }
 
@@ -112,6 +120,7 @@ describe("countFinishedSubagents", () => {
         status: "running",
         requiresAttention: false,
         createdAt: new Date("2026-04-20T00:00:00.000Z"),
+        updatedAt: new Date("2026-04-20T00:00:00.000Z"),
       },
       {
         kind: "provider",
@@ -124,6 +133,7 @@ describe("countFinishedSubagents", () => {
         status: "failed",
         requiresAttention: true,
         createdAt: new Date("2026-04-20T00:00:01.000Z"),
+        updatedAt: new Date("2026-04-20T00:00:01.000Z"),
       },
     ];
 
@@ -219,6 +229,7 @@ describe("buildSubagentRowPresentationData for provider rows", () => {
       status: overrides.status ?? "running",
       requiresAttention: false,
       createdAt: overrides.createdAt ?? new Date("2026-07-26T00:00:00.000Z"),
+      updatedAt: overrides.updatedAt ?? new Date("2026-07-26T00:00:00.000Z"),
     };
   }
 
@@ -273,6 +284,7 @@ describe("provider-owned row subtitles", () => {
       status: "running",
       requiresAttention: false,
       createdAt: new Date("2026-07-26T00:00:00.000Z"),
+      updatedAt: new Date("2026-07-26T00:00:00.000Z"),
       ...overrides,
     };
   }
@@ -295,5 +307,201 @@ describe("provider-owned row subtitles", () => {
         providerRow({ description: null, subtitle: null, title: "general-purpose" }),
       ).subtitle,
     ).toBe("");
+  });
+});
+
+describe("buildSubagentRowPresentationData elapsed-time fields", () => {
+  it("anchors a running managed row to its turn's startedAt", () => {
+    const startedAt = new Date("2026-04-20T00:05:00.000Z");
+    const presentation = buildSubagentRowPresentationData(
+      row({
+        id: "a",
+        status: "running",
+        turn: { phase: "open", turnId: "t1", startedAt, cancellationRequestId: null },
+      }),
+    );
+    expect(presentation.startedAt).toBe(startedAt);
+    expect(presentation.isRunning).toBe(true);
+  });
+
+  it("falls back to createdAt when a running managed row's turn has no startedAt", () => {
+    const createdAt = new Date("2026-04-20T00:00:00.000Z");
+    const presentation = buildSubagentRowPresentationData(
+      row({
+        id: "a",
+        status: "running",
+        createdAt,
+        turn: { phase: "open", turnId: null, startedAt: null, cancellationRequestId: null },
+      }),
+    );
+    expect(presentation.startedAt).toBe(createdAt);
+  });
+
+  it("anchors a finished managed row to createdAt and freezes at updatedAt", () => {
+    const createdAt = new Date("2026-04-20T00:00:00.000Z");
+    const updatedAt = new Date("2026-04-20T00:02:30.000Z");
+    const presentation = buildSubagentRowPresentationData(
+      row({ id: "a", status: "idle", createdAt, updatedAt }),
+    );
+    expect(presentation.isRunning).toBe(false);
+    expect(presentation.startedAt).toBe(createdAt);
+    expect(presentation.endedAt).toBe(updatedAt);
+  });
+
+  it("anchors a provider row to createdAt and reports updatedAt as the end", () => {
+    const createdAt = new Date("2026-07-26T00:00:00.000Z");
+    const updatedAt = new Date("2026-07-26T00:01:40.000Z");
+    const presentation = buildSubagentRowPresentationData({
+      kind: "provider",
+      id: "toolu_1",
+      parentAgentId: "parent",
+      provider: "claude",
+      title: "general-purpose",
+      description: "Reply with banana",
+      subtitle: null,
+      status: "completed",
+      requiresAttention: false,
+      createdAt,
+      updatedAt,
+    });
+    expect(presentation.startedAt).toBe(createdAt);
+    expect(presentation.endedAt).toBe(updatedAt);
+    expect(presentation.isRunning).toBe(false);
+  });
+
+  it("reports a running provider row as running", () => {
+    const presentation = buildSubagentRowPresentationData({
+      kind: "provider",
+      id: "toolu_1",
+      parentAgentId: "parent",
+      provider: "claude",
+      title: "general-purpose",
+      description: null,
+      subtitle: null,
+      status: "running",
+      requiresAttention: false,
+      createdAt: new Date("2026-07-26T00:00:00.000Z"),
+      updatedAt: new Date("2026-07-26T00:00:00.000Z"),
+    });
+    expect(presentation.isRunning).toBe(true);
+  });
+});
+
+describe("isSubagentRowActive", () => {
+  it("treats a running managed row as active", () => {
+    expect(isSubagentRowActive(row({ id: "a", status: "running" }))).toBe(true);
+  });
+
+  it("treats a quietly finished managed row as done", () => {
+    expect(isSubagentRowActive(row({ id: "a", status: "idle" }))).toBe(false);
+  });
+
+  it("treats a finished-but-unacknowledged managed row as active", () => {
+    expect(isSubagentRowActive(row({ id: "a", status: "idle", requiresAttention: true }))).toBe(
+      true,
+    );
+  });
+
+  it("treats a quietly errored managed row as done, matching the track's own finished check", () => {
+    expect(isSubagentRowActive(row({ id: "a", status: "error" }))).toBe(false);
+  });
+
+  it("treats an errored-and-unacknowledged managed row as active", () => {
+    expect(isSubagentRowActive(row({ id: "a", status: "error", requiresAttention: true }))).toBe(
+      true,
+    );
+  });
+
+  it("treats a running provider row as active", () => {
+    expect(
+      isSubagentRowActive({
+        kind: "provider",
+        id: "toolu_1",
+        parentAgentId: "parent",
+        provider: "claude",
+        title: "general-purpose",
+        description: null,
+        subtitle: null,
+        status: "running",
+        requiresAttention: false,
+        createdAt: new Date("2026-07-26T00:00:00.000Z"),
+        updatedAt: new Date("2026-07-26T00:00:00.000Z"),
+      }),
+    ).toBe(true);
+  });
+
+  it("treats a completed provider row as done", () => {
+    expect(
+      isSubagentRowActive({
+        kind: "provider",
+        id: "toolu_1",
+        parentAgentId: "parent",
+        provider: "claude",
+        title: "general-purpose",
+        description: null,
+        subtitle: null,
+        status: "completed",
+        requiresAttention: false,
+        createdAt: new Date("2026-07-26T00:00:00.000Z"),
+        updatedAt: new Date("2026-07-26T00:00:00.000Z"),
+      }),
+    ).toBe(false);
+  });
+
+  it("treats a failed provider row as active", () => {
+    expect(
+      isSubagentRowActive({
+        kind: "provider",
+        id: "toolu_1",
+        parentAgentId: "parent",
+        provider: "claude",
+        title: "general-purpose",
+        description: null,
+        subtitle: null,
+        status: "failed",
+        requiresAttention: true,
+        createdAt: new Date("2026-07-26T00:00:00.000Z"),
+        updatedAt: new Date("2026-07-26T00:00:00.000Z"),
+      }),
+    ).toBe(true);
+  });
+});
+
+function node(
+  overrides: Partial<PaseoSubagentRow> & Pick<PaseoSubagentRow, "id">,
+): SubagentTreeNode {
+  const built = row(overrides);
+  return { key: `agent:${built.id}`, row: built, depth: 0, children: [] };
+}
+
+describe("groupSubagentTopLevelNodes", () => {
+  it("splits running and done rows into separate groups", () => {
+    const running = node({ id: "a", status: "running" });
+    const finished = node({ id: "b", status: "idle" });
+    const groups = groupSubagentTopLevelNodes([running, finished]);
+    expect(groups.active).toEqual([running]);
+    expect(groups.done).toEqual([finished]);
+  });
+
+  it("keeps a finished-but-unacknowledged row active", () => {
+    const unacknowledged = node({ id: "a", status: "idle", requiresAttention: true });
+    const groups = groupSubagentTopLevelNodes([unacknowledged]);
+    expect(groups.active).toEqual([unacknowledged]);
+    expect(groups.done).toEqual([]);
+  });
+
+  it("keeps a node's children attached to it regardless of which group it lands in", () => {
+    const child = node({ id: "child", status: "idle" });
+    const parent: SubagentTreeNode = {
+      ...node({ id: "parent", status: "idle" }),
+      children: [child],
+    };
+    const groups = groupSubagentTopLevelNodes([parent]);
+    expect(groups.done).toEqual([parent]);
+    expect(groups.done[0]?.children).toEqual([child]);
+  });
+
+  it("returns empty groups for an empty tree", () => {
+    expect(groupSubagentTopLevelNodes([])).toEqual({ active: [], done: [] });
   });
 });

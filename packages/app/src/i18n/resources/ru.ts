@@ -2015,6 +2015,14 @@ export const ru: TranslationResources = {
     stopAllAction: "Stop all active",
     stopAllConfirmTitle: "Stop all active work?",
     stopAllConfirmMessage: "This will interrupt {{count}} active subagent(s): {{names}}.",
+    statusWorking: "В работе",
+    statusNeedsPermission: "Требуется разрешение",
+    statusDone: "Готово",
+    statusFailed: "Ошибка: {{reason}}",
+    statusFailedGeneric: "Ошибка",
+    expandAction: "Развернуть {{label}}",
+    collapseAction: "Свернуть {{label}}",
+    doneGroupLabel: "Завершено ({{count}})",
   },
   goals: {
     status: {

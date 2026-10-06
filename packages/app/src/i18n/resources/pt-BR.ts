@@ -2016,6 +2016,14 @@ export const ptBR: TranslationResources = {
     stopAllAction: "Stop all active",
     stopAllConfirmTitle: "Stop all active work?",
     stopAllConfirmMessage: "This will interrupt {{count}} active subagent(s): {{names}}.",
+    statusWorking: "Em execução",
+    statusNeedsPermission: "Precisa de permissão",
+    statusDone: "Concluído",
+    statusFailed: "Falhou: {{reason}}",
+    statusFailedGeneric: "Falhou",
+    expandAction: "Expandir {{label}}",
+    collapseAction: "Recolher {{label}}",
+    doneGroupLabel: "Concluídos ({{count}})",
   },
   goals: {
     status: {

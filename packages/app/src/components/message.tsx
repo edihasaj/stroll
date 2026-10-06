@@ -126,6 +126,8 @@ import {
 } from "@/assistant-selection-copy/markup";
 import { capAssistantMessageForRender, getUtf8ByteLength } from "./assistant-message-render-limit";
 import { rewriteAssistantAnnotations } from "@/assistant-annotations/rewrite";
+import { resolveSubagentToolCallLink } from "@/subagents/tool-call-link";
+import { SubagentToolCallRow } from "@/subagents/transcript-row";
 export type { InlinePathTarget } from "@/assistant-file-links";
 export type { AssistantForkTarget };
 
@@ -3432,6 +3434,18 @@ interface ToolCallProps {
   defaultExpanded?: boolean;
   forceInline?: boolean;
   maxDetailHeight?: number;
+  /** The native provider that produced this call — only set for provider-sourced tool calls. */
+  provider?: string;
+  /** The call's own id — Claude's provider-subagent descriptors are keyed under this. */
+  callId?: string;
+  serverId?: string;
+  /** The hosting pane's own top-level agent id, for subagent-row lookups; see
+   * `SubagentToolCallRowProps.parentAgentId`. */
+  agentId?: string;
+  workspaceId?: string;
+  /** A read-only (nested provider-subagent) pane — `agentId` there is a synthetic stream id, not
+   * a real managed agent id, so subagent-row native lookups must not trust it. */
+  readOnly?: boolean;
 }
 
 export const ToolCall = memo(function ToolCall({
@@ -3451,6 +3465,12 @@ export const ToolCall = memo(function ToolCall({
   defaultExpanded,
   forceInline = false,
   maxDetailHeight = 400,
+  provider,
+  callId,
+  serverId,
+  agentId,
+  workspaceId,
+  readOnly = false,
 }: ToolCallProps) {
   const { openToolCall } = useToolCallSheet();
   const [isExpanded, setIsExpanded] = useState(defaultExpanded ?? false);
@@ -3485,6 +3505,12 @@ export const ToolCall = memo(function ToolCall({
       }),
     [toolName, status, error, effectiveDetail, metadata, cwd],
   );
+
+  const subagentLink = useMemo(
+    () => resolveSubagentToolCallLink({ toolName, detail: effectiveDetail, provider, callId }),
+    [toolName, effectiveDetail, provider, callId],
+  );
+
   const handleOpenFile = useMemo(() => {
     const openFilePath = presentation.openFilePath;
     if (!openFilePath || !onOpenFilePath) {
@@ -3578,6 +3604,24 @@ export const ToolCall = memo(function ToolCall({
     );
   }
 
+  if (subagentLink && serverId && effectiveDetail) {
+    return (
+      <SubagentToolCallRow
+        link={subagentLink}
+        toolName={toolName}
+        detail={effectiveDetail}
+        toolCallStatus={status}
+        errorText={presentation.errorText}
+        isLoadingDetails={presentation.isLoadingDetails}
+        serverId={serverId}
+        parentAgentId={readOnly ? null : (agentId ?? null)}
+        workspaceId={workspaceId}
+        isLastInSequence={isLastInSequence}
+        disableOuterSpacing={disableOuterSpacing}
+      />
+    );
+  }
+
   return (
     <ExpandableBadge
       testID="tool-call-badge"
@@ -3598,6 +3642,10 @@ export const ToolCall = memo(function ToolCall({
 }, areToolCallPropsEqual);
 
 function areToolCallPropsEqual(previous: ToolCallProps, next: ToolCallProps) {
+  return areToolCallCorePropsEqual(previous, next) && areSubagentRowPropsEqual(previous, next);
+}
+
+function areToolCallCorePropsEqual(previous: ToolCallProps, next: ToolCallProps) {
   if (previous.toolName !== next.toolName) return false;
   if (previous.args !== next.args) return false;
   if (previous.result !== next.result) return false;
@@ -3612,5 +3660,17 @@ function areToolCallPropsEqual(previous: ToolCallProps, next: ToolCallProps) {
   if (previous.defaultExpanded !== next.defaultExpanded) return false;
   if (previous.forceInline !== next.forceInline) return false;
   if (previous.maxDetailHeight !== next.maxDetailHeight) return false;
+  return true;
+}
+
+/** The props `SubagentToolCallRow` reads — split out so the comparator stays under the
+ * complexity ceiling rather than growing one giant function every time a prop is added. */
+function areSubagentRowPropsEqual(previous: ToolCallProps, next: ToolCallProps) {
+  if (previous.provider !== next.provider) return false;
+  if (previous.callId !== next.callId) return false;
+  if (previous.serverId !== next.serverId) return false;
+  if (previous.agentId !== next.agentId) return false;
+  if (previous.workspaceId !== next.workspaceId) return false;
+  if (previous.readOnly !== next.readOnly) return false;
   return true;
 }

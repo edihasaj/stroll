@@ -1983,6 +1983,14 @@ export const ar: TranslationResources = {
     stopAllAction: "Stop all active",
     stopAllConfirmTitle: "Stop all active work?",
     stopAllConfirmMessage: "This will interrupt {{count}} active subagent(s): {{names}}.",
+    statusWorking: "قيد التشغيل",
+    statusNeedsPermission: "يحتاج إلى إذن",
+    statusDone: "مكتمل",
+    statusFailed: "فشل: {{reason}}",
+    statusFailedGeneric: "فشل",
+    expandAction: "توسيع {{label}}",
+    collapseAction: "طي {{label}}",
+    doneGroupLabel: "مكتمل ({{count}})",
   },
   goals: {
     status: {
