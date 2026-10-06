@@ -99,6 +99,15 @@ import { useLongPressDragInteraction } from "@/components/sidebar/use-long-press
 import { PinnedSectionHeader } from "@/components/sidebar/pinned-section-header";
 import { SidebarGroupToggleRow } from "@/components/sidebar/sidebar-group-toggle-row";
 import { useLimitedSidebarGroup } from "@/components/sidebar/use-limited-sidebar-group";
+import { useSidebarWorkspaceParents } from "@/components/sidebar/use-sidebar-workspace-parents";
+import {
+  groupWorkspacesByNesting,
+  type WorkspaceParentMap,
+} from "@/components/sidebar/workspace-nesting";
+import {
+  IndentedWorkspaceRow,
+  SidebarNestedWorkspaceGroup,
+} from "@/components/sidebar/sidebar-nested-workspace-group";
 import {
   SidebarWorkspaceRowFrame,
   SidebarWorkspaceRowContent,
@@ -1566,6 +1575,7 @@ function ProjectBlock({
   supportsMultiplicityByServerId,
   supportsPinningByServerId,
   onToggleWorkspacePin,
+  workspaceParents,
 }: {
   project: SidebarProjectEntry;
   workspaceEntriesByKey: ReadonlyMap<string, SidebarWorkspaceEntry>;
@@ -1591,13 +1601,27 @@ function ProjectBlock({
   supportsMultiplicityByServerId: ReadonlyMap<string, boolean>;
   supportsPinningByServerId: ReadonlyMap<string, boolean>;
   onToggleWorkspacePin: ToggleSidebarWorkspacePin;
+  /** Child workspace -> direct parent workspace, scoped to this project's hosts. */
+  workspaceParents: WorkspaceParentMap;
 }) {
+  // Nesting only ever removes a workspace from the *top* level when its parent is in this same
+  // project (see `groupWorkspacesByNesting`), so `topLevel` always matches `project.workspaces`
+  // 1:1 when nothing in the project nests — this is a no-op reshuffle in the common case, not an
+  // extra filter pass with its own edge cases.
+  const { topLevel, childrenByParentKey } = useMemo(
+    () =>
+      groupWorkspacesByNesting({
+        workspaces: project.workspaces,
+        parentByChildKey: workspaceParents,
+      }),
+    [project.workspaces, workspaceParents],
+  );
   const {
     visibleItems: visibleWorkspaces,
     expanded: workspacesExpanded,
     canToggle: canToggleWorkspaces,
     toggleExpanded: toggleWorkspacesExpanded,
-  } = useLimitedSidebarGroup(project.workspaces);
+  } = useLimitedSidebarGroup(topLevel);
   const rowModel = useMemo(
     () =>
       buildSidebarProjectRowModel({
@@ -1629,8 +1653,9 @@ function ProjectBlock({
         isDragging?: boolean;
         dragHandleProps?: DraggableListDragHandleProps;
       },
+      depth = 0,
     ) => {
-      return (
+      const row = (
         <MemoWorkspaceRowItem
           workspace={item}
           workspaceEntry={workspaceEntriesByKey.get(item.workspaceKey) ?? null}
@@ -1649,6 +1674,9 @@ function ProjectBlock({
           dragHandleProps={input?.dragHandleProps}
         />
       );
+      // Nested rows are not draggable (no `input`), so `depth` always lines up with "static,
+      // indented" — a draggable top-level row is never wrapped.
+      return depth > 0 ? <IndentedWorkspaceRow depth={depth}>{row}</IndentedWorkspaceRow> : row;
     },
     [
       project.projectKind,
@@ -1665,6 +1693,14 @@ function ProjectBlock({
     ],
   );
 
+  // Adapts `renderWorkspaceRow`'s drag-info parameter to the two-argument shape
+  // `SidebarNestedWorkspaceGroup` calls with — nested rows are never draggable, so there is no
+  // drag info to pass, only the depth.
+  const renderNestedWorkspaceRow = useCallback(
+    (item: SidebarWorkspacePlacement, depth: number) => renderWorkspaceRow(item, undefined, depth),
+    [renderWorkspaceRow],
+  );
+
   const renderWorkspace = useCallback(
     ({
       item,
@@ -1672,13 +1708,23 @@ function ProjectBlock({
       isActive,
       dragHandleProps: workspaceDragHandleProps,
     }: DraggableRenderItemInfo<SidebarWorkspacePlacement>) => {
-      return renderWorkspaceRow(item, {
-        drag: workspaceDrag,
-        isDragging: isActive,
-        dragHandleProps: workspaceDragHandleProps,
-      });
+      return (
+        <>
+          {renderWorkspaceRow(item, {
+            drag: workspaceDrag,
+            isDragging: isActive,
+            dragHandleProps: workspaceDragHandleProps,
+          })}
+          <SidebarNestedWorkspaceGroup
+            parentKey={item.workspaceKey}
+            depth={1}
+            childrenByParentKey={childrenByParentKey}
+            renderWorkspaceRow={renderNestedWorkspaceRow}
+          />
+        </>
+      );
     },
-    [renderWorkspaceRow],
+    [renderWorkspaceRow, renderNestedWorkspaceRow, childrenByParentKey],
   );
 
   const handleWorkspaceDragEnd = useCallback(
@@ -1850,6 +1896,7 @@ function areProjectBlockPropsEqual(previous: ProjectBlockProps, next: ProjectBlo
     previous.useNestable === next.useNestable &&
     previous.dragGestureHostActive === next.dragGestureHostActive &&
     previous.creatingWorkspaceIds === next.creatingWorkspaceIds &&
+    previous.workspaceParents === next.workspaceParents &&
     areProjectBlockSelectionsEqual(previous, next)
   );
 }
@@ -2142,6 +2189,34 @@ function ProjectModeList({
   );
   const selectionEnabled = isWorkspaceRoute;
   const activeWorkspaceSelection = useActiveWorkspaceSelection();
+  // Scoped to this projection's own hosts rather than every connected host, and computed once
+  // here rather than once per `ProjectBlock` — every project block below shares this reference.
+  const nestingServerIds = useMemo(
+    () =>
+      Array.from(
+        new Set(projects.flatMap((project) => project.hosts.map((host) => host.serverId))),
+      ),
+    [projects],
+  );
+  const workspaceParents = useSidebarWorkspaceParents(nestingServerIds);
+  const setNestedWorkspaceExpanded = useSidebarCollapsedSectionsStore(
+    (state) => state.setNestedWorkspaceExpanded,
+  );
+  // If the selected workspace is a collapsed child, expand every collapsed ancestor so the
+  // selection in the sidebar is never hidden behind a disclosure the user never touched.
+  useEffect(() => {
+    if (!activeWorkspaceSelection) {
+      return;
+    }
+    const activeKey = `${activeWorkspaceSelection.serverId}:${activeWorkspaceSelection.workspaceId}`;
+    const visited = new Set<string>([activeKey]);
+    let current = workspaceParents.get(activeKey);
+    while (current && !visited.has(current)) {
+      setNestedWorkspaceExpanded(current, true);
+      visited.add(current);
+      current = workspaceParents.get(current);
+    }
+  }, [activeWorkspaceSelection, setNestedWorkspaceExpanded, workspaceParents]);
   const { pinnedChats, unpinnedProjects } = pinnedGroups;
   const {
     visibleItems: visiblePinnedChats,
@@ -2318,6 +2393,7 @@ function ProjectModeList({
           supportsMultiplicityByServerId={supportsMultiplicityByServerId}
           supportsPinningByServerId={supportsPinningByServerId}
           onToggleWorkspacePin={onToggleWorkspacePin}
+          workspaceParents={workspaceParents}
         />
       );
     },
@@ -2340,6 +2416,7 @@ function ProjectModeList({
       showShortcutBadges,
       workspaceEntriesByKey,
       creatingWorkspaceIds,
+      workspaceParents,
     ],
   );
 
@@ -2349,6 +2426,9 @@ function ProjectModeList({
     [renderProjectBlock],
   );
 
+  // Pinned chats render flat, with no nesting applied — they are hoisted out of their project
+  // specifically to sit together at the top, and a pinned child still moving with a parent it no
+  // longer renders beside would contradict the point of pinning it.
   const renderPinnedChat = useCallback(
     ({
       item: workspace,

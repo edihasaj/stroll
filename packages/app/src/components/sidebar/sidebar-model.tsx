@@ -8,6 +8,7 @@ import {
 } from "@/hooks/use-sidebar-workspaces-list";
 import { useSidebarWorkspaceEntries } from "@/hooks/use-sidebar-workspace-entries";
 import { usePinnedSidebarKeys, type PinnedSidebarGroups } from "@/hooks/use-sidebar-pins";
+import { useSidebarWorkspaceParents } from "@/components/sidebar/use-sidebar-workspace-parents";
 import { useSidebarCollapsedSectionsStore } from "@/stores/sidebar-collapsed-sections-store";
 import {
   hasActiveSidebarLabelFilter,
@@ -81,6 +82,17 @@ export function SidebarModelProvider({
   const toggleProjectCollapsed = useSidebarCollapsedSectionsStore(
     (state) => state.toggleProjectCollapsed,
   );
+  const expandedNestedWorkspaceKeys = useSidebarCollapsedSectionsStore(
+    (state) => state.expandedNestedWorkspaceKeys,
+  );
+  // Scoped to the servers actually behind a visible workspace, same source `list` already
+  // resolved — not every connected host, which would derive parentage for sidebar rows nothing
+  // here renders.
+  const nestingServerIds = useMemo(
+    () => Array.from(new Set(list.workspacePlacements.map((placement) => placement.serverId))),
+    [list.workspacePlacements],
+  );
+  const workspaceParents = useSidebarWorkspaceParents(nestingServerIds);
   const availableLabelNames = useMemo(
     () => labelHosts.flatMap((host) => host.labels.map((label) => label.name)),
     [labelHosts],
@@ -162,6 +174,8 @@ export function SidebarModelProvider({
       collapsedWorkspaceGroupKeys,
       labelOrder,
       chatsLabel,
+      workspaceParents,
+      expandedNestedWorkspaceKeys,
     }),
     [
       chatsLabel,
@@ -175,6 +189,8 @@ export function SidebarModelProvider({
       pinnedKeys,
       pinnedWorkspaceOrder,
       filteredWorkspaceEntriesByKey,
+      workspaceParents,
+      expandedNestedWorkspaceKeys,
     ],
   );
   const projection = useMemo(() => buildSidebarProjection(projectionInput), [projectionInput]);

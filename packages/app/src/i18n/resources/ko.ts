@@ -298,6 +298,10 @@ export const ko: TranslationResources = {
     unsupported: "이 호스트의 데몬은 아직 에이전트 경로를 지원하지 않습니다",
     emptyState: "아직 경로가 없습니다",
     configNote: "경로는 현재 $PASEO_HOME/config.json에서 편집합니다",
+    description: {
+      label: "설명",
+      placeholder: "이 경로는 무엇에 사용되나요?",
+    },
     default: {
       label: "새 채팅의 기본 경로",
       none: "없음",
@@ -1346,6 +1350,10 @@ export const ko: TranslationResources = {
         actionRequired: "조치 필요: {{count}}개",
         manual: "수동: {{count}}개",
         pending: "대기 중: {{count}}개",
+      },
+      nested: {
+        count_one: "{{count}}개 채팅",
+        count_other: "{{count}}개 채팅",
       },
       actions: {
         menu: "워크스페이스 작업",

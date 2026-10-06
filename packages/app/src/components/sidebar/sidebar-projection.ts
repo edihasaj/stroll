@@ -19,10 +19,18 @@ import {
   type SidebarShortcutSection,
 } from "@/utils/sidebar-shortcuts";
 import {
+  flattenVisibleNestedWorkspaces,
+  groupWorkspacesByNesting,
+  type WorkspaceParentMap,
+} from "./workspace-nesting";
+import {
   labelWorkspaceGroups,
   statusWorkspaceGroups,
   type SidebarWorkspaceGroup,
 } from "./sidebar-labels";
+
+const EMPTY_WORKSPACE_PARENTS: WorkspaceParentMap = new Map();
+const EMPTY_EXPANDED_NESTED_KEYS: ReadonlySet<string> = new Set();
 
 export interface SidebarProjection {
   pinnedGroups: PinnedSidebarGroups;
@@ -53,6 +61,13 @@ export interface SidebarProjectionInput {
   labelOrder: readonly string[];
   /** Translated header for the trailing unlabelled group. */
   chatsLabel: string;
+  /**
+   * Child workspace -> direct parent workspace (project mode only; see `buildWorkspaceGroups`).
+   * Absent/empty means no workspace nests under another.
+   */
+  workspaceParents?: WorkspaceParentMap;
+  /** Nested parent workspace keys currently expanded. Absent/empty means every parent is collapsed. */
+  expandedNestedWorkspaceKeys?: ReadonlySet<string>;
 }
 
 export function buildSidebarProjection(input: SidebarProjectionInput): SidebarProjection {
@@ -71,15 +86,33 @@ export function buildSidebarProjection(input: SidebarProjectionInput): SidebarPr
   const workspaceGroups = buildWorkspaceGroups(input, unpinnedWorkspaces);
 
   const sections: SidebarShortcutSection[] = [];
+  // Pinned chats are hoisted out of every project/group and shown flush, with no header of
+  // their own to nest under — a pinned child still numbers and renders flat here. Project mode
+  // is the only grouping that nests at all (see `buildWorkspaceGroups`'s doc comment).
   if (!input.pinnedCollapsed) {
     sections.push({ workspaces: pinnedGroups.pinnedChats });
   }
   if (input.groupMode === "project") {
+    const workspaceParents = input.workspaceParents ?? EMPTY_WORKSPACE_PARENTS;
+    const expandedNestedWorkspaceKeys =
+      input.expandedNestedWorkspaceKeys ?? EMPTY_EXPANDED_NESTED_KEYS;
     sections.push(
-      ...pinnedGroups.unpinnedProjects.map((project) => ({
-        workspaces: project.workspaces,
-        collapsed: input.collapsedProjectKeys.has(project.viewKey),
-      })),
+      ...pinnedGroups.unpinnedProjects.map((project) => {
+        const { topLevel, childrenByParentKey } = groupWorkspacesByNesting({
+          workspaces: project.workspaces,
+          parentByChildKey: workspaceParents,
+        });
+        return {
+          // Parent, then its visible expanded children in order, so numbering reads top to
+          // bottom the way the rows render; a collapsed parent's children consume no number.
+          workspaces: flattenVisibleNestedWorkspaces({
+            topLevel,
+            childrenByParentKey,
+            isExpanded: (workspaceKey) => expandedNestedWorkspaceKeys.has(workspaceKey),
+          }),
+          collapsed: input.collapsedProjectKeys.has(project.viewKey),
+        };
+      }),
     );
   } else {
     sections.push(
@@ -101,6 +134,12 @@ export function buildSidebarProjection(input: SidebarProjectionInput): SidebarPr
 /**
  * Project mode keeps its project headers and groups nothing; status mode groups the rows by
  * status, and label mode groups them by label with the unlabelled rows in a trailing Chats group.
+ *
+ * Child-workspace nesting (a workspace whose root agent's parent lives in another workspace) is
+ * project-mode-only, applied where `buildSidebarProjection` builds each project's section. Status
+ * and label mode regroup every workspace by a status/label that has nothing to do with its
+ * parent, so a nested child and its parent routinely land in different groups here — flattening
+ * is correct for both, not a gap to close.
  */
 function buildWorkspaceGroups(
   input: SidebarProjectionInput,

@@ -302,6 +302,10 @@ export const ja: TranslationResources = {
     unsupported: "このホストのデーモンはまだエージェントルートに対応していません",
     emptyState: "ルートはまだありません",
     configNote: "ルートは今のところ $PASEO_HOME/config.json で編集します",
+    description: {
+      label: "説明",
+      placeholder: "このルートの用途は?",
+    },
     default: {
       label: "新しいチャットのデフォルトルート",
       none: "なし",
@@ -1353,6 +1357,10 @@ export const ja: TranslationResources = {
         actionRequired: "操作が必要: {{count}}",
         manual: "手動: {{count}}",
         pending: "保留中: {{count}}",
+      },
+      nested: {
+        count_one: "{{count}} 件のチャット",
+        count_other: "{{count}} 件のチャット",
       },
       actions: {
         menu: "ワークスペースアクション",

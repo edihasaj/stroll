@@ -301,6 +301,10 @@ export const ru: TranslationResources = {
     unsupported: "Демон на этом хосте пока не поддерживает маршруты агентов",
     emptyState: "Маршрутов пока нет",
     configNote: "Маршруты пока редактируются в $PASEO_HOME/config.json",
+    description: {
+      label: "Описание",
+      placeholder: "Для чего нужен этот маршрут?",
+    },
     default: {
       label: "Маршрут по умолчанию для новых чатов",
       none: "Нет",
@@ -1357,6 +1361,10 @@ export const ru: TranslationResources = {
         actionRequired: "Требуется действие: {{count}}",
         manual: "Вручную: {{count}}",
         pending: "Ожидают: {{count}}",
+      },
+      nested: {
+        count_one: "{{count}} чат",
+        count_other: "{{count}} чатов",
       },
       actions: {
         menu: "Действия рабочего пространства",

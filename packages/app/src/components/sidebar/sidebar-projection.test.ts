@@ -177,4 +177,70 @@ describe("buildSidebarProjection", () => {
       { serverId: "srv", workspaceId: "unpinned" },
     ]);
   });
+
+  it("omits a collapsed parent's child from shortcut numbering", () => {
+    const parent = makeWorkspace("parent", "done", [], "project");
+    const child = makeWorkspace("child", "done", [], "project");
+    const projection = buildSidebarProjection({
+      ...projectionInput(),
+      projects: [makeProject([parent.placement, child.placement])],
+      pinnedKeys: { pinnedWorkspaceKeys: [], pinnedAtByKey: {} },
+      workspaceEntriesByKey: new Map([
+        [parent.entry.workspaceKey, parent.entry],
+        [child.entry.workspaceKey, child.entry],
+      ]),
+      workspaceParents: new Map([[child.placement.workspaceKey, parent.placement.workspaceKey]]),
+      expandedNestedWorkspaceKeys: new Set(),
+    });
+
+    expect(projection.shortcutModel.shortcutTargets).toEqual([
+      { serverId: "srv", workspaceId: "parent" },
+    ]);
+  });
+
+  it("numbers an expanded parent's child right after it", () => {
+    const parent = makeWorkspace("parent", "done", [], "project");
+    const child = makeWorkspace("child", "done", [], "project");
+    const projection = buildSidebarProjection({
+      ...projectionInput(),
+      projects: [makeProject([parent.placement, child.placement])],
+      pinnedKeys: { pinnedWorkspaceKeys: [], pinnedAtByKey: {} },
+      workspaceEntriesByKey: new Map([
+        [parent.entry.workspaceKey, parent.entry],
+        [child.entry.workspaceKey, child.entry],
+      ]),
+      workspaceParents: new Map([[child.placement.workspaceKey, parent.placement.workspaceKey]]),
+      expandedNestedWorkspaceKeys: new Set([parent.placement.workspaceKey]),
+    });
+
+    expect(projection.shortcutModel.shortcutTargets).toEqual([
+      { serverId: "srv", workspaceId: "parent" },
+      { serverId: "srv", workspaceId: "child" },
+    ]);
+  });
+
+  it("leaves status mode flat even when the same parentage map is supplied", () => {
+    const parent = makeWorkspace("parent", "running", [], "project");
+    const child = makeWorkspace("child", "needs_input", [], "project");
+    const projection = buildSidebarProjection({
+      ...projectionInput({ groupMode: "status" }),
+      projects: [makeProject([parent.placement, child.placement])],
+      pinnedKeys: { pinnedWorkspaceKeys: [], pinnedAtByKey: {} },
+      workspaceEntriesByKey: new Map([
+        [parent.entry.workspaceKey, parent.entry],
+        [child.entry.workspaceKey, child.entry],
+      ]),
+      workspaceParents: new Map([[child.placement.workspaceKey, parent.placement.workspaceKey]]),
+      expandedNestedWorkspaceKeys: new Set(),
+    });
+
+    const groupKeys = projection.workspaceGroups.map((group) => group.key);
+    // needs_input outranks running, so the child's group comes first — status mode never
+    // reorders a child to sit under its parent.
+    expect(groupKeys).toEqual(["needs_input", "running"]);
+    expect(projection.shortcutModel.shortcutTargets).toEqual([
+      { serverId: "srv", workspaceId: "child" },
+      { serverId: "srv", workspaceId: "parent" },
+    ]);
+  });
 });

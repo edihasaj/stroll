@@ -297,6 +297,10 @@ export const ar: TranslationResources = {
     unsupported: "هذا المضيف يشغّل نسخة من الخادم الخلفي لا تدعم مسارات الوكيل بعد",
     emptyState: "لا توجد مسارات حتى الآن",
     configNote: "لا يزال تحرير المسارات يتم حاليًا في $PASEO_HOME/config.json",
+    description: {
+      label: "الوصف",
+      placeholder: "ما الغرض من هذا المسار؟",
+    },
     default: {
       label: "المسار الافتراضي للمحادثات الجديدة",
       none: "بلا",
@@ -1339,6 +1343,10 @@ export const ar: TranslationResources = {
         actionRequired: "إجراء مطلوب: {{count}}",
         manual: "يدوية: {{count}}",
         pending: "قيد الانتظار: {{count}}",
+      },
+      nested: {
+        count_one: "{{count}} محادثة",
+        count_other: "{{count}} محادثات",
       },
       actions: {
         menu: "إجراءات Workspace",

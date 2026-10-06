@@ -302,6 +302,10 @@ export const es: TranslationResources = {
     unsupported: "Este host ejecuta un daemon que aún no admite rutas de agentes",
     emptyState: "Todavía no hay rutas",
     configNote: "Las rutas se editan por ahora en $PASEO_HOME/config.json",
+    description: {
+      label: "Descripción",
+      placeholder: "¿Para qué sirve esta ruta?",
+    },
     default: {
       label: "Ruta predeterminada para chats nuevos",
       none: "Ninguna",
@@ -1375,6 +1379,10 @@ export const es: TranslationResources = {
         actionRequired: "Acción requerida: {{count}}",
         manual: "Manuales: {{count}}",
         pending: "Pendientes: {{count}}",
+      },
+      nested: {
+        count_one: "{{count}} chat",
+        count_other: "{{count}} chats",
       },
       actions: {
         menu: "AccionesWorkspace",

@@ -303,6 +303,10 @@ export const fr: TranslationResources = {
     unsupported: "Cet hôte exécute un démon qui ne prend pas encore en charge les routes d'agents",
     emptyState: "Aucune route pour le moment",
     configNote: "Les routes sont pour l'instant modifiées dans $PASEO_HOME/config.json",
+    description: {
+      label: "Description",
+      placeholder: "À quoi sert cette route ?",
+    },
     default: {
       label: "Route par défaut pour les nouvelles discussions",
       none: "Aucune",
@@ -1375,6 +1379,10 @@ export const fr: TranslationResources = {
         actionRequired: "Action requise : {{count}}",
         manual: "Manuels : {{count}}",
         pending: "En attente : {{count}}",
+      },
+      nested: {
+        count_one: "{{count}} discussion",
+        count_other: "{{count}} discussions",
       },
       actions: {
         menu: "ActionsWorkspace",

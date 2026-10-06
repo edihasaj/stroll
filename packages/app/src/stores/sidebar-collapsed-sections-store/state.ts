@@ -4,6 +4,12 @@ export interface CollapsedProjectsState {
   collapsedProjectKeys: Set<string>;
   collapsedWorkspaceGroupKeys: Set<string>;
   collapsedPinned: boolean;
+  /**
+   * Nested child workspaces (project mode) default to collapsed behind their parent's
+   * disclosure, so this tracks the opposite polarity from the other two sets: membership here
+   * means *expanded*, keyed by the parent workspace's `workspaceKey`.
+   */
+  expandedNestedWorkspaceKeys: Set<string>;
 }
 
 export interface PersistedCollapsedProjects {
@@ -11,6 +17,7 @@ export interface PersistedCollapsedProjects {
   collapsedWorkspaceGroupKeys?: string[];
   collapsedStatusGroupKeys?: string[];
   collapsedPinned?: boolean;
+  expandedNestedWorkspaceKeys?: string[];
 }
 
 export const PersistedCollapsedProjectsSchema: z.ZodType<PersistedCollapsedProjects> =
@@ -20,6 +27,7 @@ export const PersistedCollapsedProjectsSchema: z.ZodType<PersistedCollapsedProje
     // COMPAT(sidebarWorkspaceGroupCollapse): added in v0.4.0, remove after 2027-02-14.
     collapsedStatusGroupKeys: z.array(z.string()).optional(),
     collapsedPinned: z.boolean().optional(),
+    expandedNestedWorkspaceKeys: z.array(z.string()).optional(),
   });
 
 export function togglePinnedCollapsed(state: CollapsedProjectsState): CollapsedProjectsState {
@@ -52,6 +60,35 @@ export function toggleWorkspaceGroupCollapsed(
   return { ...state, collapsedWorkspaceGroupKeys: next };
 }
 
+export function toggleNestedWorkspaceExpanded(
+  state: CollapsedProjectsState,
+  workspaceKey: string,
+): CollapsedProjectsState {
+  return setNestedWorkspaceExpanded(
+    state,
+    workspaceKey,
+    !state.expandedNestedWorkspaceKeys.has(workspaceKey),
+  );
+}
+
+export function setNestedWorkspaceExpanded(
+  state: CollapsedProjectsState,
+  workspaceKey: string,
+  expanded: boolean,
+): CollapsedProjectsState {
+  const isExpanded = state.expandedNestedWorkspaceKeys.has(workspaceKey);
+  if (isExpanded === expanded) {
+    return state;
+  }
+  const next = new Set(state.expandedNestedWorkspaceKeys);
+  if (expanded) {
+    next.add(workspaceKey);
+  } else {
+    next.delete(workspaceKey);
+  }
+  return { ...state, expandedNestedWorkspaceKeys: next };
+}
+
 export function setProjectCollapsed(
   state: CollapsedProjectsState,
   projectKey: string,
@@ -70,11 +107,13 @@ export function serializeCollapsedProjects(state: CollapsedProjectsState): {
   collapsedProjectKeys: string[];
   collapsedWorkspaceGroupKeys: string[];
   collapsedPinned: boolean;
+  expandedNestedWorkspaceKeys: string[];
 } {
   return {
     collapsedProjectKeys: Array.from(state.collapsedProjectKeys),
     collapsedWorkspaceGroupKeys: Array.from(state.collapsedWorkspaceGroupKeys),
     collapsedPinned: state.collapsedPinned,
+    expandedNestedWorkspaceKeys: Array.from(state.expandedNestedWorkspaceKeys),
   };
 }
 
@@ -96,10 +135,14 @@ export function mergePersistedCollapsedProjects<S extends CollapsedProjectsState
       Array.from(current.collapsedWorkspaceGroupKeys),
   );
   const restoredPinned = persisted.collapsedPinned ?? current.collapsedPinned;
+  const restoredExpandedNested = deserializeCollapsedKeys(
+    persisted.expandedNestedWorkspaceKeys ?? Array.from(current.expandedNestedWorkspaceKeys),
+  );
   if (
     areSetsEqual(current.collapsedProjectKeys, restoredProjects) &&
     areSetsEqual(current.collapsedWorkspaceGroupKeys, restoredWorkspaceGroups) &&
-    current.collapsedPinned === restoredPinned
+    current.collapsedPinned === restoredPinned &&
+    areSetsEqual(current.expandedNestedWorkspaceKeys, restoredExpandedNested)
   ) {
     return current;
   }
@@ -108,6 +151,7 @@ export function mergePersistedCollapsedProjects<S extends CollapsedProjectsState
     collapsedProjectKeys: restoredProjects,
     collapsedWorkspaceGroupKeys: restoredWorkspaceGroups,
     collapsedPinned: restoredPinned,
+    expandedNestedWorkspaceKeys: restoredExpandedNested,
   };
 }
 

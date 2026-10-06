@@ -297,6 +297,10 @@ export const zhCN: TranslationResources = {
     unsupported: "此 Host 运行的 Daemon 尚不支持 Agent 路由",
     emptyState: "还没有路由",
     configNote: "目前路由需在 $PASEO_HOME/config.json 中编辑",
+    description: {
+      label: "描述",
+      placeholder: "这个路由是做什么的?",
+    },
     default: {
       label: "新聊天的默认路由",
       none: "无",
@@ -1329,6 +1333,10 @@ export const zhCN: TranslationResources = {
         actionRequired: "需要操作: {{count}}",
         manual: "手动: {{count}}",
         pending: "等待中: {{count}}",
+      },
+      nested: {
+        count_one: "{{count}} 个聊天",
+        count_other: "{{count}} 个聊天",
       },
       actions: {
         menu: "Workspace 操作",

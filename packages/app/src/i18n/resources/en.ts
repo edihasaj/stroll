@@ -294,6 +294,10 @@ export const en = {
     unsupported: "This host runs a daemon that does not support agent routes yet",
     emptyState: "No routes yet",
     configNote: "Routes are edited in $PASEO_HOME/config.json for now",
+    description: {
+      label: "Description",
+      placeholder: "What is this route for?",
+    },
     default: {
       label: "Default route for new chats",
       none: "None",
@@ -1347,6 +1351,10 @@ export const en = {
         actionRequired: "Action required: {{count}}",
         manual: "Manual: {{count}}",
         pending: "Pending: {{count}}",
+      },
+      nested: {
+        count_one: "{{count}} chat",
+        count_other: "{{count}} chats",
       },
       actions: {
         menu: "Workspace actions",

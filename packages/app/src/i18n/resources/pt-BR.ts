@@ -301,6 +301,10 @@ export const ptBR: TranslationResources = {
     unsupported: "Este host executa um daemon que ainda não suporta rotas de agentes",
     emptyState: "Ainda não há rotas",
     configNote: "As rotas ainda são editadas em $PASEO_HOME/config.json",
+    description: {
+      label: "Descrição",
+      placeholder: "Para que serve esta rota?",
+    },
     default: {
       label: "Rota padrão para novos chats",
       none: "Nenhuma",
@@ -1365,6 +1369,10 @@ export const ptBR: TranslationResources = {
         actionRequired: "Ação necessária: {{count}}",
         manual: "Manuais: {{count}}",
         pending: "Pendentes: {{count}}",
+      },
+      nested: {
+        count_one: "{{count}} chat",
+        count_other: "{{count}} chats",
       },
       actions: {
         menu: "Ações do workspace",

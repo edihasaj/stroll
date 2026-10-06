@@ -3,8 +3,10 @@ import {
   type CollapsedProjectsState,
   mergePersistedCollapsedProjects,
   serializeCollapsedProjects,
+  setNestedWorkspaceExpanded,
   setProjectCollapsed,
   togglePinnedCollapsed,
+  toggleNestedWorkspaceExpanded,
   toggleProjectCollapsed,
   toggleWorkspaceGroupCollapsed,
 } from "@/stores/sidebar-collapsed-sections-store/state";
@@ -14,6 +16,7 @@ function emptyState(): CollapsedProjectsState {
     collapsedProjectKeys: new Set(),
     collapsedWorkspaceGroupKeys: new Set(),
     collapsedPinned: false,
+    expandedNestedWorkspaceKeys: new Set(),
   };
 }
 
@@ -35,12 +38,14 @@ describe("sidebar collapsed projects transitions", () => {
       collapsedProjectKeys: new Set(["project-a", "project-b"]),
       collapsedWorkspaceGroupKeys: new Set(["running"]),
       collapsedPinned: true,
+      expandedNestedWorkspaceKeys: new Set(["s1:w-parent"]),
     };
 
     expect(serializeCollapsedProjects(state)).toEqual({
       collapsedProjectKeys: ["project-a", "project-b"],
       collapsedWorkspaceGroupKeys: ["running"],
       collapsedPinned: true,
+      expandedNestedWorkspaceKeys: ["s1:w-parent"],
     });
   });
 
@@ -70,5 +75,41 @@ describe("sidebar collapsed projects transitions", () => {
     expect(mergePersistedCollapsedProjects({ collapsedProjectKeys: [] }, currentState)).toBe(
       currentState,
     );
+  });
+
+  it("expands and collapses a nested workspace parent, collapsed by default", () => {
+    let state = emptyState();
+    expect(state.expandedNestedWorkspaceKeys.has("s1:w-parent")).toBe(false);
+
+    state = toggleNestedWorkspaceExpanded(state, "s1:w-parent");
+    expect(Array.from(state.expandedNestedWorkspaceKeys)).toEqual(["s1:w-parent"]);
+
+    state = toggleNestedWorkspaceExpanded(state, "s1:w-parent");
+    expect(Array.from(state.expandedNestedWorkspaceKeys)).toEqual([]);
+  });
+
+  it("sets nested-expanded explicitly and is a no-op when already at that value", () => {
+    const state = emptyState();
+
+    const expanded = setNestedWorkspaceExpanded(state, "s1:w-parent", true);
+    expect(Array.from(expanded.expandedNestedWorkspaceKeys)).toEqual(["s1:w-parent"]);
+
+    const unchanged = setNestedWorkspaceExpanded(expanded, "s1:w-parent", true);
+    expect(unchanged).toBe(expanded);
+
+    const collapsedAgain = setNestedWorkspaceExpanded(expanded, "s1:w-parent", false);
+    expect(Array.from(collapsedAgain.expandedNestedWorkspaceKeys)).toEqual([]);
+  });
+
+  it("round-trips expanded nested workspace keys through persistence", () => {
+    const restored = mergePersistedCollapsedProjects(
+      { expandedNestedWorkspaceKeys: ["s1:w-parent", "s1:w-mid"] },
+      emptyState(),
+    );
+
+    expect(Array.from(restored.expandedNestedWorkspaceKeys).sort()).toEqual([
+      "s1:w-mid",
+      "s1:w-parent",
+    ]);
   });
 });
