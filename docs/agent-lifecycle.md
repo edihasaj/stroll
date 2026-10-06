@@ -191,11 +191,24 @@ parentAgentId === thisAgent.id  AND  !archivedAt
 
 - **Provider subagents** are child executions owned by Claude, Codex, or OpenCode. They are not inserted into `AgentManager` as managed agents. Providers emit a separate descriptor and timeline stream through `agent.provider_subagents.*`; the client keeps that state outside the normal agent store and merges only the presentation rows into the track. A descriptor's optional `parentSubagentId` identifies its direct provider-subagent parent; an absent value identifies a direct child of the managed agent.
 
-Clicking either kind opens a workspace tab. A Paseo subagent tab is a normal interactive agent pane. A provider subagent tab is a read-only timeline pane with no composer, archive, detach, rewind, or fork actions. It shows its own direct children in a subagents track. Both panes use `AgentStreamView`, so message, reasoning, tool-call, and layout rendering stay identical.
+Clicking either kind — from the track row or from its compact row in the transcript (below) — opens it beside the parent by default (`settings.openInSidePane.subagents`, on desktop only; compact/mobile is unaffected). Cmd-click on macOS, Ctrl-click elsewhere, or middle-click opens it as a normal tab in the parent's pane instead (`packages/app/src/subagents/open-gesture.ts`, `packages/app/src/subagents/use-open-subagent.ts`). A Paseo subagent tab is a normal interactive agent pane. A provider subagent tab is a read-only timeline pane with no composer, archive, detach, rewind, or fork actions. It shows its own direct children in a subagents track. Both panes use `AgentStreamView`, so message, reasoning, tool-call, and layout rendering stay identical.
 
 Provider timelines use the same structural timeline item format but deliberately have a separate lifecycle and transport. A provider thread/session identifier is not a Paseo agent identifier, and closing its tab is always layout-only.
 
 Provider descriptors may include one compact subtitle. The provider owns its contents and formatting; clients display and truncate it without interpreting provider-specific model, thinking, or usage fields.
+
+Top-level track rows are grouped into **Active** (running, or finished but not yet acknowledged) and **Done** (everything else); Done is collapsed behind a count by default. Each row shows elapsed time — live while running, frozen at the final duration once finished — from one shared 1 Hz ticker (`packages/app/src/subagents/elapsed-ticker.ts`) that only runs while a visible running row needs it and the app is actively visible, so idle and finished rows never tick.
+
+A native spawn (Claude Task, Codex spawnAgent, OMP task, OpenCode, …) or a Paseo `create_agent` call renders in the transcript as a compact subagent row instead of a generic tool call (`packages/app/src/components/message.tsx`'s `ToolCall`, delegating to `packages/app/src/subagents/transcript-row.tsx`). It shows the same status/elapsed treatment as the track, and clicking it opens the subagent the same way a track row does; a chevron on the row still reaches the full prompt/log body. Opening a native row needs a reliable id, read off the child the same way the provider's own server producer sets it rather than guessed from the tool call:
+
+| Provider | Id source                                                                                                                                                                  | Reliable? |
+| -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| Claude   | the Task tool call's own id (`parentToolUseId`) — the provider-subagent descriptor is upserted under that same id                                                          | Yes       |
+| OpenCode | `detail.childSessionId`, which the descriptor is also upserted under                                                                                                       | Yes       |
+| Codex    | the descriptor id is an internal `childThreadId` never put on the client-visible detail, and one `spawnAgent` call can fan out to several children                         | No        |
+| OMP      | the descriptor id is OMP's own opaque subagent id; `detail.childSessionId` is a session file path, a different value, and one call can aggregate several children by index | No        |
+
+Where there is no reliable id (`packages/app/src/subagents/tool-call-link.ts`), the row still shows live status from the tool call itself, with no open action — never a control that does nothing.
 
 ### Claude provider subagents: the task protocol
 

@@ -1,5 +1,5 @@
 import { Fragment, useCallback, useMemo, useState, type ReactElement } from "react";
-import { Pressable, Text, View } from "react-native";
+import { Pressable, Text, View, type GestureResponderEvent } from "react-native";
 import { useTranslation } from "react-i18next";
 import { Archive, ChevronDown, ChevronRight, Play, Square, Unlink } from "lucide-react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
@@ -17,12 +17,18 @@ import {
 } from "@/screens/workspace/workspace-tab-presentation";
 import type { Theme } from "@/styles/theme";
 import { getPanelManifest } from "@/panels/panel-manifest";
+import { getShortcutOs } from "@/utils/shortcut-platform";
+import { isSubagentOpenAsTabClick, readSubagentClickModifiers } from "./open-gesture";
 import type { SubagentRow, SubagentTreeNode } from "./select";
+import type { OpenSubagentOptions } from "./use-open-subagent";
 import type { ArchiveFinishedStatus } from "./use-archive-finished";
+import { useElapsedLabel } from "./use-elapsed-label";
 import {
   buildSubagentPillPresentation,
   buildSubagentRowPresentationData,
   countFinishedSubagents,
+  groupSubagentTopLevelNodes,
+  type SubagentRowPresentationData,
 } from "./track-presentation";
 
 const ThemedArchive = withUnistyles(Archive);
@@ -41,8 +47,12 @@ export interface SubagentsTrackProps {
   serverId: string;
   rows: SubagentRow[];
   tree?: SubagentTreeNode[];
-  onOpenSubagent: (id: string) => void;
-  onOpenProviderSubagent: (parentAgentId: string, subagentId: string) => void;
+  onOpenSubagent: (id: string, options?: OpenSubagentOptions) => void;
+  onOpenProviderSubagent: (
+    parentAgentId: string,
+    subagentId: string,
+    options?: OpenSubagentOptions,
+  ) => void;
   onArchiveSubagent: (id: string) => void;
   onArchiveFinished?: () => void;
   archiveFinishedStatus?: ArchiveFinishedStatus;
@@ -95,7 +105,11 @@ function collectSubagentRows(nodes: SubagentTreeNode[]): SubagentRow[] {
 /** Leading and action glyphs share one size so rows keep a single icon column. */
 const ROW_ICON_SIZE = 14;
 
-function useRowPresentation(row: SubagentRow, serverId: string): WorkspaceTabPresentation {
+/** `WorkspaceTabIcon` reads the base presentation; the row itself also reads the elapsed-time fields. */
+type SubagentRowPresentation = WorkspaceTabPresentation &
+  Pick<SubagentRowPresentationData, "startedAt" | "isRunning" | "endedAt">;
+
+function useRowPresentation(row: SubagentRow, serverId: string): SubagentRowPresentation {
   const icon = useProviderIcon(row.provider, serverId);
   const data = buildSubagentRowPresentationData(row);
   return {
@@ -123,10 +137,32 @@ export function SubagentsTrack({
   const { t } = useTranslation();
   const [collapsedKeys, setCollapsedKeys] = useState<Set<string>>(new Set());
   const [expandedFinishedKeys, setExpandedFinishedKeys] = useState<Set<string>>(new Set());
+  const [doneGroupExpanded, setDoneGroupExpanded] = useState(false);
   const treeNodes = useMemo(() => tree ?? toFlatTree(rows), [rows, tree]);
-  const visibleRows = useMemo(
-    () => flattenSubagentTree(treeNodes, collapsedKeys, expandedFinishedKeys),
+  // The pill reflects every top-level row regardless of the Active/Done split below — collapsing
+  // the Done group is a display choice for the row list, not a reason for a failed or
+  // needs-attention child to vanish from the summary above the composer.
+  const pillRows = useMemo(
+    () =>
+      flattenSubagentTree(treeNodes, collapsedKeys, expandedFinishedKeys).map(
+        ({ node }) => node.row,
+      ),
     [collapsedKeys, expandedFinishedKeys, treeNodes],
+  );
+  const { active: activeTopLevel, done: doneTopLevel } = useMemo(
+    () => groupSubagentTopLevelNodes(treeNodes),
+    [treeNodes],
+  );
+  const visibleActiveRows = useMemo(
+    () => flattenSubagentTree(activeTopLevel, collapsedKeys, expandedFinishedKeys),
+    [activeTopLevel, collapsedKeys, expandedFinishedKeys],
+  );
+  const visibleDoneRows = useMemo(
+    () =>
+      doneGroupExpanded
+        ? flattenSubagentTree(doneTopLevel, collapsedKeys, expandedFinishedKeys)
+        : [],
+    [collapsedKeys, doneGroupExpanded, doneTopLevel, expandedFinishedKeys],
   );
   const toggleExpanded = useCallback((node: SubagentTreeNode, expanded: boolean) => {
     setCollapsedKeys((current) => {
@@ -142,17 +178,41 @@ export function SubagentsTrack({
       return next;
     });
   }, []);
+  const toggleDoneGroupExpanded = useCallback(() => setDoneGroupExpanded((prev) => !prev), []);
 
   const isArchivingFinished = archiveFinishedStatus.kind === "archiving";
   const isArchiveFinishedFailed = archiveFinishedStatus.kind === "failed";
-  if (visibleRows.length === 0 && !isArchivingFinished && !isArchiveFinishedFailed) {
+  if (pillRows.length === 0 && !isArchivingFinished && !isArchiveFinishedFailed) {
     return null;
   }
 
-  const flatRows = visibleRows.map(({ node }) => node.row);
-  const pill = buildSubagentPillPresentation(t, flatRows);
+  const pill = buildSubagentPillPresentation(t, pillRows);
   const finishedCount = countFinishedSubagents(collectSubagentRows(treeNodes));
   const showArchiveFinished = finishedCount > 0 || isArchivingFinished || isArchiveFinishedFailed;
+  const hasAnyRow = pillRows.length > 0;
+
+  const renderRowGroup = (visible: Array<{ node: SubagentTreeNode; expanded: boolean }>) =>
+    visible.map(({ node, expanded }) => (
+      <Fragment key={node.key}>
+        <SubagentsTrackRow
+          row={node.row}
+          serverId={serverId}
+          node={node}
+          depth={node.depth}
+          hasChildren={node.children.length > 0}
+          expanded={expanded}
+          onToggleExpanded={toggleExpanded}
+          onOpenSubagent={onOpenSubagent}
+          onOpenProviderSubagent={onOpenProviderSubagent}
+          onArchiveSubagent={onArchiveSubagent}
+          onDetachSubagent={onDetachSubagent}
+          onStopSubagent={onStopSubagent}
+        />
+        {node.row.kind === "paseo" ? (
+          <AgentQueueRows serverId={serverId} agentId={node.row.id} depth={node.depth + 1} />
+        ) : null}
+      </Fragment>
+    ));
 
   return (
     <ComposerTrackPill
@@ -162,12 +222,12 @@ export function SubagentsTrack({
       panelTitle={t("subagents.title")}
     >
       {onStopAllActive ? (
-        <ComposerTrackActions divided={visibleRows.length > 0}>
+        <ComposerTrackActions divided={hasAnyRow}>
           <StopAllRow onPress={onStopAllActive} />
         </ComposerTrackActions>
       ) : null}
       {showArchiveFinished && onArchiveFinished ? (
-        <ComposerTrackActions divided={visibleRows.length > 0}>
+        <ComposerTrackActions divided={hasAnyRow}>
           <ArchiveFinishedRow
             status={archiveFinishedStatus}
             disabled={isArchivingFinished}
@@ -175,28 +235,67 @@ export function SubagentsTrack({
           />
         </ComposerTrackActions>
       ) : null}
-      {visibleRows.map(({ node, expanded }) => (
-        <Fragment key={node.key}>
-          <SubagentsTrackRow
-            row={node.row}
-            serverId={serverId}
-            node={node}
-            depth={node.depth}
-            hasChildren={node.children.length > 0}
-            expanded={expanded}
-            onToggleExpanded={toggleExpanded}
-            onOpenSubagent={onOpenSubagent}
-            onOpenProviderSubagent={onOpenProviderSubagent}
-            onArchiveSubagent={onArchiveSubagent}
-            onDetachSubagent={onDetachSubagent}
-            onStopSubagent={onStopSubagent}
-          />
-          {node.row.kind === "paseo" ? (
-            <AgentQueueRows serverId={serverId} agentId={node.row.id} depth={node.depth + 1} />
-          ) : null}
-        </Fragment>
-      ))}
+      {renderRowGroup(visibleActiveRows)}
+      {doneTopLevel.length > 0 ? (
+        <DoneGroupRow
+          count={doneTopLevel.length}
+          expanded={doneGroupExpanded}
+          onPress={toggleDoneGroupExpanded}
+        />
+      ) : null}
+      {doneGroupExpanded ? renderRowGroup(visibleDoneRows) : null}
     </ComposerTrackPill>
+  );
+}
+
+/**
+ * The Done group's own disclosure — collapsed by default so a long-lived parent's finished fan-out
+ * does not bury the rows someone still needs to act on. Mirrors `ArchiveFinishedRow`'s shape: a
+ * named row above the list it covers, not an icon folded into a count.
+ */
+function DoneGroupRow({
+  count,
+  expanded,
+  onPress,
+}: {
+  count: number;
+  expanded: boolean;
+  onPress: () => void;
+}): ReactElement {
+  const { t } = useTranslation();
+  const label = t("subagents.doneGroupLabel", { count });
+  const renderRow = useCallback(
+    ({ active }: { active: boolean }) => (
+      <>
+        {expanded ? (
+          <ThemedChevronDown
+            size={ROW_ICON_SIZE}
+            uniProps={active ? foregroundColorMapping : foregroundMutedColorMapping}
+          />
+        ) : (
+          <ThemedChevronRight
+            size={ROW_ICON_SIZE}
+            uniProps={active ? foregroundColorMapping : foregroundMutedColorMapping}
+          />
+        )}
+        <Text style={styles.rowLabel} numberOfLines={1}>
+          {label}
+        </Text>
+      </>
+    ),
+    [expanded, label],
+  );
+  return (
+    <ComposerTrackRow
+      accessibilityLabel={label}
+      testID="subagents-track-done-group"
+      // Toggling a group of rows in the panel is a display choice, not a selection — the panel
+      // stays open the same way a per-row disclosure does.
+      closeOnSelect={false}
+      onPress={onPress}
+    >
+      {renderRow}
+    </ComposerTrackRow>
   );
 }
 
@@ -367,8 +466,12 @@ interface SubagentsTrackRowProps {
   hasChildren: boolean;
   expanded: boolean;
   onToggleExpanded: (node: SubagentTreeNode, expanded: boolean) => void;
-  onOpenSubagent: (id: string) => void;
-  onOpenProviderSubagent: (parentAgentId: string, subagentId: string) => void;
+  onOpenSubagent: (id: string, options?: OpenSubagentOptions) => void;
+  onOpenProviderSubagent: (
+    parentAgentId: string,
+    subagentId: string,
+    options?: OpenSubagentOptions,
+  ) => void;
   onArchiveSubagent: (id: string) => void;
   onDetachSubagent?: (id: string) => void;
   onStopSubagent?: (id: string) => void;
@@ -391,6 +494,11 @@ function SubagentsTrackRow({
   const { t } = useTranslation();
   const isCompact = useIsCompactFormFactor();
   const presentation = useRowPresentation(row, serverId);
+  const elapsedLabel = useElapsedLabel({
+    startedAt: presentation.startedAt,
+    isRunning: presentation.isRunning,
+    endedAt: presentation.endedAt,
+  });
   // A collapsed parent hides its children's rows, so it reports what is behind them: how many
   // are still running, or — nothing running — how many there are. Computed from the full
   // subtree rather than `node.children.length` so a collapsed grandparent still counts what a
@@ -405,13 +513,25 @@ function SubagentsTrackRow({
   );
   const displayLabel =
     presentation.titleState === "loading" ? t("common.states.loading") : presentation.label;
-  const handlePress = useCallback(() => {
-    if (row.kind === "provider") {
-      onOpenProviderSubagent(row.parentAgentId, row.id);
-    } else {
-      onOpenSubagent(row.id);
-    }
-  }, [onOpenProviderSubagent, onOpenSubagent, row]);
+  const isMac = useMemo(() => getShortcutOs() === "mac", []);
+  const openRow = useCallback(
+    (forceTab: boolean) => {
+      if (row.kind === "provider") {
+        onOpenProviderSubagent(row.parentAgentId, row.id, { forceTab });
+      } else {
+        onOpenSubagent(row.id, { forceTab });
+      }
+    },
+    [onOpenProviderSubagent, onOpenSubagent, row],
+  );
+  const handlePress = useCallback(
+    (event: GestureResponderEvent) => {
+      const modifiers = readSubagentClickModifiers(event);
+      openRow(isSubagentOpenAsTabClick(modifiers, { isMac }));
+    },
+    [isMac, openRow],
+  );
+  const handleAuxClick = useCallback(() => openRow(true), [openRow]);
   const handleArchivePress = useCallback(() => {
     onArchiveSubagent(row.id);
   }, [onArchiveSubagent, row.id]);
@@ -458,6 +578,15 @@ function SubagentsTrackRow({
             {presentation.subtitle}
           </Text>
         ) : null}
+        {elapsedLabel ? (
+          <Text
+            style={styles.rowElapsed}
+            numberOfLines={1}
+            testID={`subagents-track-elapsed-${row.id}`}
+          >
+            {elapsedLabel}
+          </Text>
+        ) : null}
         {hasChildren && !expanded ? (
           <CollapsedSubagentCount
             rowId={row.id}
@@ -482,6 +611,7 @@ function SubagentsTrackRow({
       displayLabel,
       depth,
       descendantRows.length,
+      elapsedLabel,
       expanded,
       handleArchivePress,
       handleDetachPress,
@@ -502,6 +632,7 @@ function SubagentsTrackRow({
       accessibilityLabel={displayLabel}
       testID={`subagents-track-row-${row.id}`}
       onPress={handlePress}
+      onAuxClick={handleAuxClick}
     >
       {renderRow}
     </ComposerTrackRow>
@@ -682,6 +813,15 @@ const styles = StyleSheet.create((theme) => ({
     minWidth: 0,
     fontSize: theme.fontSize.sm,
     color: theme.colors.foregroundMuted,
+  },
+  // Fixed-ish width digits: shrinks last so a running row's clock doesn't jitter the layout as
+  // the label and subtitle give way first.
+  rowElapsed: {
+    flexShrink: 3,
+    minWidth: 0,
+    fontSize: theme.fontSize.sm,
+    color: theme.colors.foregroundMuted,
+    fontVariant: ["tabular-nums"],
   },
   actionClusterVisible: {
     flexDirection: "row",
