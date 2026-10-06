@@ -62,6 +62,18 @@ export class WordStream {
     }
   }
 
+  /**
+   * Show every complete word now, without pacing. Used while nobody is watching: pacing exists
+   * for the reader's eye, and each paced word costs a render.
+   */
+  releaseReady(): string {
+    if (!this.pending) return this.text;
+    this.visibleEnd = this.readyEnds[this.readyEnds.length - 1]!;
+    this.nextWord = this.readyEnds.length;
+    this.nextInMs = 0;
+    return this.text;
+  }
+
   advance(elapsedMs: number): string {
     if (!this.pending) return this.text;
     this.nextInMs -= Math.min(250, Math.max(0, elapsedMs));

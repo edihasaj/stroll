@@ -20,6 +20,15 @@ describe("word streaming", () => {
     expect(stream.advance(40)).toBe("one two three ");
   });
 
+  it("releases every complete word at once, keeping a partial word back", () => {
+    const stream = new WordStream("");
+    stream.receive("one two three fo", true);
+    expect(stream.releaseReady()).toBe("one two three ");
+    expect(stream.pending).toBe(false);
+    stream.receive("one two three four five", true);
+    expect(stream.advance(16)).toBe("one two three four ");
+  });
+
   it("does not accumulate idle time as credit for the next burst", () => {
     const stream = new WordStream("");
     stream.advance(5000);

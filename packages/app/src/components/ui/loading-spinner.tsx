@@ -12,6 +12,7 @@ import Svg, { Circle } from "react-native-svg";
 import { withUnistyles } from "react-native-unistyles";
 import { isWeb } from "@/constants/platform";
 import { useAppReducedMotion } from "@/hooks/use-app-reduced-motion";
+import { useAppActivelyVisible } from "@/hooks/use-app-visible";
 import { webSpinStyle } from "@/styles/motion";
 import type { Theme } from "@/styles/theme";
 
@@ -80,11 +81,12 @@ interface SpinnerShellProps extends SpinnerRingProps {
 // main-thread frame callback per mounted spinner, which is what made an idle window burn CPU.
 function WebSpinner({ color, diameter, style }: SpinnerShellProps) {
   const reduceMotion = useAppReducedMotion();
+  const windowActive = useAppActivelyVisible();
   return (
     <View
       style={[
         { width: diameter, height: diameter },
-        webSpinStyle(reduceMotion, ROTATION_DURATION_MS),
+        webSpinStyle(reduceMotion, ROTATION_DURATION_MS, !windowActive),
         style,
       ]}
       accessible

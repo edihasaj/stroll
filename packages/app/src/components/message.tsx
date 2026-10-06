@@ -48,6 +48,7 @@ import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { ICON_SIZE, MOTION_DURATION, MOTION_EASING, type Theme } from "@/styles/theme";
 import { useIsCompactFormFactor } from "@/constants/layout";
 import { useAppReducedMotion, withMotion } from "@/hooks/use-app-reduced-motion";
+import { useAppActivelyVisible } from "@/hooks/use-app-visible";
 import { webAppearStyle } from "@/styles/motion";
 import Animated, {
   Easing,
@@ -2933,6 +2934,7 @@ function buildShimmerTextStyle(input: {
   webShimmerTrackStart: number;
   webShimmerTrackEnd: number;
   offsetX: number;
+  paused: boolean;
 }): object | null {
   if (!input.isWebShimmer) return null;
   return inlineUnistylesStyle({
@@ -2945,6 +2947,9 @@ function buildShimmerTextStyle(input: {
     WebkitBackgroundClip: "text",
     WebkitTextFillColor: "transparent",
     animation: `${WEB_TOOLCALL_SHIMMER_ANIMATION_NAME} ${input.shimmerDuration}s linear infinite`,
+    // Stops with the window in the background, like every web loop (docs/design.md
+    // "Continuous loops on web").
+    animationPlayState: input.paused ? "paused" : "running",
     "--paseo-shimmer-start": `${input.webShimmerTrackStart - input.offsetX}px`,
     "--paseo-shimmer-end": `${input.webShimmerTrackEnd - input.offsetX}px`,
   });
@@ -3177,6 +3182,7 @@ export const ExpandableBadge = memo(function ExpandableBadge({
     enabled: !isNative && isDetailMounted && hasDetailContent,
   });
 
+  const windowActive = useAppActivelyVisible();
   const shimmerLabelStyle = useMemo<StyleProp<TextStyle>>(
     () =>
       buildShimmerTextStyle({
@@ -3186,6 +3192,7 @@ export const ExpandableBadge = memo(function ExpandableBadge({
         webShimmerTrackStart,
         webShimmerTrackEnd,
         offsetX: labelOffsetX,
+        paused: !windowActive,
       }),
     [
       isWebShimmer,
@@ -3194,6 +3201,7 @@ export const ExpandableBadge = memo(function ExpandableBadge({
       webShimmerTrackStart,
       webShimmerTrackEnd,
       labelOffsetX,
+      windowActive,
     ],
   );
 
@@ -3206,6 +3214,7 @@ export const ExpandableBadge = memo(function ExpandableBadge({
         webShimmerTrackStart,
         webShimmerTrackEnd,
         offsetX: secondaryOffsetX,
+        paused: !windowActive,
       }),
     [
       isWebShimmer,
@@ -3214,6 +3223,7 @@ export const ExpandableBadge = memo(function ExpandableBadge({
       webShimmerTrackStart,
       webShimmerTrackEnd,
       secondaryOffsetX,
+      windowActive,
     ],
   );
 

@@ -114,9 +114,17 @@ export function webAppearStyle(
  * empty screen. A CSS `transform` animation is promoted to its own layer and runs off the main
  * thread. Native keeps Reanimated, which already animates on the UI thread.
  *
+ * Pass `paused` from `useAppActivelyVisible()` negated: a running loop keeps the browser producing
+ * a frame for the whole window 60 times a second, which costs about a tenth of a core on its own,
+ * so loops stop while the window is in the background (docs/design.md "Continuous loops on web").
+ *
  * Returns `undefined` on native and when `reducedMotion` is on.
  */
-export function webSpinStyle(reducedMotion: boolean, durationMs: number): object | undefined {
+export function webSpinStyle(
+  reducedMotion: boolean,
+  durationMs: number,
+  paused = false,
+): object | undefined {
   if (!isWeb || reducedMotion) return undefined;
   const animationName = ensureWebSpinKeyframe();
   return inlineUnistylesStyle({
@@ -124,6 +132,7 @@ export function webSpinStyle(reducedMotion: boolean, durationMs: number): object
     animationDuration: `${durationMs}ms`,
     animationTimingFunction: "linear",
     animationIterationCount: "infinite",
+    animationPlayState: paused ? "paused" : "running",
     willChange: "transform",
   });
 }

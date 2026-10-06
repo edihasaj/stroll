@@ -9,6 +9,7 @@ import {
 } from "react";
 import type { MarkdownPhase } from "@/components/markdown/fence/types";
 import { useAppReducedMotion } from "@/hooks/use-app-reduced-motion";
+import { useAppActivelyVisible } from "@/hooks/use-app-visible";
 import { Reveal } from "./internal/reveal";
 import type { SourceText } from "./internal/markdown-source";
 import { WordStream } from "./internal/model";
@@ -40,15 +41,18 @@ export function useWordFadeSurface() {
   const reveal = useContext(StreamingWordsContext);
   const source = useContext(SurfaceContext);
   // Reduced motion keeps the paced reveal (text still arrives word by word) but drops the fade.
+  // A window in the background drops it too: nobody sees it, and it repaints every frame.
   const reducedMotion = useAppReducedMotion();
+  const windowActive = useAppActivelyVisible();
+  const fades = !reducedMotion && windowActive;
   const plain = useMemo(() => source && { text: source.text, ranges: [] }, [source]);
   return useMemo(() => {
     const text = source?.text ?? reveal.text;
-    if (reducedMotion) return plain ?? { text, ranges: [] };
+    if (!fades) return plain ?? { text, ranges: [] };
     const offsets = source?.offsets ?? Array.from({ length: text.length }, (_, i) => i);
     const ranges = reveal.surface(text, offsets, Date.now());
     return ranges.length === 0 && plain ? plain : { text, ranges };
-  }, [reveal, source, plain, reducedMotion]);
+  }, [reveal, source, plain, fades]);
 }
 
 export function useWordStream(text: string, phase: MarkdownPhase): PacedText {
@@ -59,6 +63,9 @@ export function useWordStream(text: string, phase: MarkdownPhase): PacedText {
   });
   const lastFrame = useRef<number | null>(null);
   const published = useRef(visible);
+  // Pacing is for the reader's eye. With the window in the background each arrival shows at
+  // once, so a streaming agent costs one render per network update instead of one per word.
+  const windowActive = useAppActivelyVisible();
 
   useEffect(() => {
     model.receive(text, phase === "streaming");
@@ -70,6 +77,7 @@ export function useWordStream(text: string, phase: MarkdownPhase): PacedText {
       published.current = { text: model.text, spanMs: model.spanMs };
       setVisible(published.current);
     };
+    if (!windowActive) model.releaseReady();
     publish();
     if (!model.pending) {
       lastFrame.current = null;
@@ -86,7 +94,7 @@ export function useWordStream(text: string, phase: MarkdownPhase): PacedText {
     };
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
-  }, [model, text, phase]);
+  }, [model, text, phase, windowActive]);
 
   return visible;
 }

@@ -33,6 +33,7 @@ So arrival sets a _target_ and the reveal rate is derived from the backlog inste
   blocks and parses only the growing last block during append. Splitting in the reducer discards
   paragraph separators and exposes fragments to plugin callbacks, which need the whole source text.
 - **First sight of a text is revealed whole.** Only growth is paced. This is what makes history hydration, timeline replay, a virtualized row remounting on scroll, and an already-finished message all render complete on first paint without a special case for each.
+- **Pacing and fades are for a window someone is looking at.** While the window is unfocused or hidden (`useAppActivelyVisible`), each arrival shows at once up to its last complete word, and no word fades. A chat streaming in a background window then costs one render per network update instead of one per word plus a repaint per frame: 46% of a core dropped to 19% in the measurement behind this rule.
 - **Completion releases an unfinished word.** Every platform drains queued words through the same pacing when the provider finishes; the last word also finishes fading.
 - **The reducer queue commits on a frame, with a timer as the ceiling.** A frame callback never fires in a hidden tab, so a timer races it and wins when nothing is painting — the store has to keep advancing either way.
 - **A history row re-renders only when its item or layout item identity changes.** The inverted

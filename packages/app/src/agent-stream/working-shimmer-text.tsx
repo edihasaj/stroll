@@ -10,6 +10,7 @@ import Animated, {
 import { StyleSheet } from "react-native-unistyles";
 import { isWeb } from "@/constants/platform";
 import { useAppReducedMotion } from "@/hooks/use-app-reduced-motion";
+import { useAppActivelyVisible } from "@/hooks/use-app-visible";
 
 // Web: a bright window sweeping across the live-footer "Working" label (docs/design.md §16's
 // Codex parity). The label is drawn once in full foreground; a wide veil the colour of the
@@ -65,6 +66,7 @@ export function WorkingShimmerText({
   testID,
 }: WorkingShimmerTextProps): ReactNode {
   const reducedMotion = useAppReducedMotion();
+  const windowActive = useAppActivelyVisible();
   useEffect(() => {
     ensureWebShimmerKeyframes();
   }, []);
@@ -74,7 +76,10 @@ export function WorkingShimmerText({
         <Text style={[style, webShimmerStyles.label]} numberOfLines={1} testID={testID}>
           {children}
         </Text>
-        <View style={webShimmerStyles.veil} aria-hidden />
+        <View
+          style={[webShimmerStyles.veil, !windowActive && webShimmerStyles.veilPaused]}
+          aria-hidden
+        />
       </View>
     );
   }
@@ -115,6 +120,9 @@ const webShimmerStyles = StyleSheet.create((theme) => {
       animationTimingFunction: "linear",
       animationIterationCount: "infinite",
       willChange: "transform",
+    },
+    veilPaused: {
+      animationPlayState: "paused",
     },
   };
 });
