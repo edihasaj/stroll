@@ -111,7 +111,7 @@ async function main(): Promise<void> {
   const paseoHome = resolvePaseoHome(workerEnv);
   // Before the config load below, which writes a default config.json that would mark the home
   // as already set up (docs/development.md, "Moving from Paseo").
-  reportPaseoImport(paseoHome, workerEnv);
+  reportPaseoImport(paseoHome);
   const persistedConfig = loadPersistedConfig(paseoHome);
   const supervisorLogFile = resolveSupervisorLogFile(paseoHome, persistedConfig, workerEnv);
 
@@ -185,9 +185,9 @@ async function main(): Promise<void> {
 
 // The supervisor opens its log only after config and the PID lock succeed. A background
 // launch discards stderr, so earlier failures also go to the log the launcher points at.
-function reportPaseoImport(paseoHome: string, env: NodeJS.ProcessEnv): void {
+function reportPaseoImport(paseoHome: string): void {
   try {
-    const result = importPaseoHomeOnFirstRun({ env, strollHome: paseoHome });
+    const result = importPaseoHomeOnFirstRun({ strollHome: paseoHome });
     if (result) {
       process.stderr.write(
         `Imported ${result.entries.join(", ")} from ${result.from} (${result.pausedSchedules} schedules paused)\n`,

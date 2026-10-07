@@ -11,10 +11,24 @@ function expandHomeDir(input: string): string {
   return input;
 }
 
+/** Whether a home path is upstream Paseo's own default, `~/.paseo`. */
+export function isUpstreamPaseoDefaultHome(value: string): boolean {
+  return path.resolve(expandHomeDir(value)) === path.join(os.homedir(), ".paseo");
+}
+
+/**
+ * `PASEO_HOME` still picks a home (dev checkouts and tests set it), except when it names upstream
+ * Paseo's default: every process an upstream Paseo daemon starts inherits that value, and following
+ * it would attach Stroll to Paseo's home and daemon. Set `STROLL_HOME` to choose `~/.paseo` on purpose.
+ */
+export function explicitPaseoHome(env: NodeJS.ProcessEnv): string | undefined {
+  const paseoHome = env.PASEO_HOME;
+  return paseoHome && !isUpstreamPaseoDefaultHome(paseoHome) ? paseoHome : undefined;
+}
+
 export function resolvePaseoHome(env: NodeJS.ProcessEnv = process.env): string {
   // Stroll keeps its own home so it can run beside an upstream Paseo install.
-  // PASEO_HOME stays honoured as a fallback for migrating an existing config.
-  const raw = env.STROLL_HOME ?? env.PASEO_HOME ?? "~/.stroll";
+  const raw = env.STROLL_HOME ?? explicitPaseoHome(env) ?? "~/.stroll";
   const resolved = path.resolve(expandHomeDir(raw));
   return resolved;
 }

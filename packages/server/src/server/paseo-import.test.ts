@@ -86,19 +86,16 @@ describe("importPaseoHomeOnFirstRun", () => {
   it("imports once into the default home and then leaves it alone", () => {
     const { homeDir, strollHome } = createHomes();
 
-    expect(importPaseoHomeOnFirstRun({ env: {}, strollHome, homeDir })).not.toBeNull();
+    expect(importPaseoHomeOnFirstRun({ strollHome, homeDir })).not.toBeNull();
     expect(existsSync(path.join(strollHome, "imported-from-paseo.json"))).toBe(true);
-    expect(importPaseoHomeOnFirstRun({ env: {}, strollHome, homeDir })).toBeNull();
+    expect(importPaseoHomeOnFirstRun({ strollHome, homeDir })).toBeNull();
   });
 
-  it("never imports into an explicit home", () => {
-    const { homeDir, strollHome } = createHomes();
+  it("never imports into a home other than the default", () => {
+    const { homeDir } = createHomes();
 
     expect(
-      importPaseoHomeOnFirstRun({ env: { STROLL_HOME: strollHome }, strollHome, homeDir }),
-    ).toBeNull();
-    expect(
-      importPaseoHomeOnFirstRun({ env: { PASEO_HOME: strollHome }, strollHome, homeDir }),
+      importPaseoHomeOnFirstRun({ strollHome: path.join(homeDir, "dev-home"), homeDir }),
     ).toBeNull();
   });
 });
@@ -108,14 +105,20 @@ describe("shouldImportPaseoHome", () => {
     const { paseoHome, strollHome } = createHomes();
     write(path.join(strollHome, "config.json"), {});
 
-    expect(shouldImportPaseoHome({ env: {}, strollHome, paseoHome })).toBe(false);
+    expect(shouldImportPaseoHome({ strollHome, paseoHome, defaultStrollHome: strollHome })).toBe(
+      false,
+    );
   });
 
   it("skips when there is no Paseo setup to read", () => {
     const { homeDir, strollHome } = createHomes();
 
     expect(
-      shouldImportPaseoHome({ env: {}, strollHome, paseoHome: path.join(homeDir, "missing") }),
+      shouldImportPaseoHome({
+        strollHome,
+        paseoHome: path.join(homeDir, "missing"),
+        defaultStrollHome: strollHome,
+      }),
     ).toBe(false);
   });
 });

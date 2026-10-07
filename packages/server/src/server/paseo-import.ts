@@ -36,15 +36,17 @@ export interface PaseoImportResult {
 }
 
 /**
- * Imports only into the default Stroll home, only once, and only when there is a Paseo home to
- * read: an explicit `STROLL_HOME`/`PASEO_HOME` (dev, tests, a second daemon) never triggers it.
+ * Imports only into the default Stroll home (`~/.stroll`), only once, and only when there is a Paseo
+ * home to read. It goes by the resolved path, not by which env var chose it: the desktop app hands
+ * the daemon its home through `PASEO_HOME`, while dev checkouts, tests, and second daemons use other
+ * paths and never import.
  */
 export function shouldImportPaseoHome(input: {
-  env: NodeJS.ProcessEnv;
   strollHome: string;
   paseoHome: string;
+  defaultStrollHome: string;
 }): boolean {
-  if (input.env.STROLL_HOME !== undefined || input.env.PASEO_HOME !== undefined) return false;
+  if (path.resolve(input.strollHome) !== path.resolve(input.defaultStrollHome)) return false;
   if (!existsSync(path.join(input.paseoHome, "config.json"))) return false;
   const alreadySetUp = ["config.json", "agents", MARKER_FILE].some((entry) =>
     existsSync(path.join(input.strollHome, entry)),
@@ -87,12 +89,13 @@ export function importPaseoHome(input: {
 
 /** Runs the import on a daemon's first start in the default home; null when there is nothing to do. */
 export function importPaseoHomeOnFirstRun(input: {
-  env: NodeJS.ProcessEnv;
   strollHome: string;
   homeDir?: string;
 }): PaseoImportResult | null {
-  const paseoHome = path.join(input.homeDir ?? os.homedir(), ".paseo");
-  if (!shouldImportPaseoHome({ env: input.env, strollHome: input.strollHome, paseoHome })) {
+  const homeDir = input.homeDir ?? os.homedir();
+  const paseoHome = path.join(homeDir, ".paseo");
+  const defaultStrollHome = path.join(homeDir, ".stroll");
+  if (!shouldImportPaseoHome({ strollHome: input.strollHome, paseoHome, defaultStrollHome })) {
     return null;
   }
   return importPaseoHome({ strollHome: input.strollHome, paseoHome });
