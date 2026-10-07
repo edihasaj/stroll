@@ -128,6 +128,8 @@ interface ControlledAgentControlsProps {
   isModelLoading?: boolean;
   modelSelectorProviders?: ProviderSelectorProvider[];
   agentProfiles?: AgentProfilePicker | null;
+  /** The profile `selectedModelId`/etc. currently reflect, or `null`/absent for a live agent. */
+  appliedProfileId?: string | null;
   onApplyAgentProfile?: (profileId: string) => void;
   onEditAgentProfiles?: () => void;
   onCreateAgentProfile?: (seed: AgentProfileSeed) => void;
@@ -165,6 +167,8 @@ export interface DraftAgentControlsProps {
   selectedThinkingOptionId: string;
   onSelectThinkingOption: (thinkingOptionId: string) => void;
   onApplyAgentProfile: DraftAgentProfileControls["applyProfile"];
+  /** The profile `selectedModel`/etc. currently reflect, or `null` once a manual pick moves away. */
+  appliedProfileId: string | null;
   features?: AgentFeature[];
   onSetFeature?: (featureId: string, value: unknown) => void;
   onDropdownClose?: () => void;
@@ -219,6 +223,18 @@ function findOptionLabel(
   }
   const selected = options.find((option) => option.id === selectedId);
   return selected?.label ?? fallback;
+}
+
+/** The applied profile's name, when the picker still offers it; `undefined` shows the bare model. */
+function resolveAppliedProfileName(
+  agentProfiles: AgentProfilePicker | null,
+  appliedProfileId: string | null,
+): string | undefined {
+  if (!appliedProfileId) {
+    return undefined;
+  }
+  const row = agentProfiles?.rows.find((entry) => entry.id === appliedProfileId);
+  return row?.name;
 }
 
 function toCommandCenterModes(modeControl: AgentModeControlValue | null) {
@@ -575,6 +591,7 @@ function ControlledAgentControls({
   isModelLoading = false,
   modelSelectorProviders,
   agentProfiles = null,
+  appliedProfileId = null,
   onApplyAgentProfile,
   onEditAgentProfiles,
   onCreateAgentProfile,
@@ -620,6 +637,7 @@ function ControlledAgentControls({
     selectedProviderId,
     t("agentControls.provider.fallback"),
   );
+  const appliedProfileName = resolveAppliedProfileName(agentProfiles, appliedProfileId);
   const formattedThinkingOptions = useMemo(
     () => toThinkingControlOptions(thinkingOptions),
     [thinkingOptions],
@@ -842,6 +860,7 @@ function ControlledAgentControls({
             onRetryModelProvider={onRetryModelProvider}
             isRetryingModelProvider={isRetryingModelProvider}
             agentProfiles={agentProfiles}
+            appliedProfileName={appliedProfileName}
             disabled={disabled}
             isModelLoading={isModelLoading}
             canSelectProvider={canSelectProvider}
@@ -941,6 +960,7 @@ interface DesktopAgentControlsContentProps {
   onRetryModelProvider?: (provider: AgentProvider) => void;
   isRetryingModelProvider: boolean;
   agentProfiles: AgentProfilePicker | null;
+  appliedProfileName?: string;
   disabled: boolean;
   isModelLoading: boolean;
   canSelectProvider: boolean;
@@ -1005,6 +1025,7 @@ function DesktopAgentControlsContent(props: DesktopAgentControlsContentProps) {
     onRetryModelProvider,
     isRetryingModelProvider,
     agentProfiles,
+    appliedProfileName,
     disabled,
     isModelLoading,
     canSelectProvider,
@@ -1049,8 +1070,9 @@ function DesktopAgentControlsContent(props: DesktopAgentControlsContentProps) {
     () => ({
       glyphSize,
       showCaret: presentation.showCarets && !modelHasAdjacentThinking,
+      ...(appliedProfileName ? { profileName: appliedProfileName } : {}),
     }),
-    [glyphSize, presentation.showCarets, modelHasAdjacentThinking],
+    [glyphSize, presentation.showCarets, modelHasAdjacentThinking, appliedProfileName],
   );
   const featuresSheetHeader = useMemo<SheetHeader>(
     () => ({ title: t("agentControls.features.title") }),
@@ -2024,6 +2046,7 @@ export function DraftAgentControls({
   selectedThinkingOptionId,
   onSelectThinkingOption,
   onApplyAgentProfile,
+  appliedProfileId,
   features,
   onSetFeature,
   onDropdownClose,
@@ -2127,6 +2150,7 @@ export function DraftAgentControls({
           onSelectProviderAndModel={onSelectProviderAndModel}
           isModelLoading={isAllModelsLoading}
           agentProfiles={agentProfiles}
+          appliedProfileId={appliedProfileId}
           onApplyAgentProfile={agentProfiles?.applyProfile}
           onEditAgentProfiles={handleEditAgentProfiles}
           onCreateAgentProfile={profileActions.create}

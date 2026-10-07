@@ -1264,8 +1264,13 @@ function buildComposerConfig(input: {
   workspaceDirectory: string | null;
   sourceDirectory: string | null;
   initialSetup?: WorkspaceDraftTabSetup | null;
+  /** Set while the default-route chip is showing for this draft (docs/agent-routes.md): the
+   * route already picks provider/model on creation, so the remembered/default profile would
+   * only pick fallback settings a user never chose. */
+  suppressAutoProfile?: boolean;
 }): Parameters<typeof useAgentInputDraft>[0]["composer"] {
-  const { serverId, workspaceDirectory, sourceDirectory, initialSetup } = input;
+  const { serverId, workspaceDirectory, sourceDirectory, initialSetup, suppressAutoProfile } =
+    input;
   const workingDir = workspaceDirectory || sourceDirectory || undefined;
   return {
     initialServerId: serverId || null,
@@ -1273,6 +1278,7 @@ function buildComposerConfig(input: {
     initialFeatureValues: initialSetup?.featureValues,
     isVisible: true,
     lockedWorkingDir: workingDir,
+    suppressAutoProfile,
   };
 }
 
@@ -2064,6 +2070,7 @@ export function NewWorkspaceScreen({
       workspaceDirectory: workspace?.workspaceDirectory ?? null,
       sourceDirectory: selectedSourceDirectory,
       initialSetup: forkDraftSetup?.setup,
+      suppressAutoProfile: Boolean(defaultRouteId),
     }),
   });
   const composerState = chatDraft.composerState;

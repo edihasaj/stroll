@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Pressable, Text, View, type PressableStateCallbackType } from "react-native";
 import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import type { AgentProvider } from "@getpaseo/protocol/agent-types";
 import type { AgentProfilePicker, AgentProfileSeed } from "@/agent-profiles";
@@ -62,6 +63,42 @@ interface CombinedModelSelectorProps {
   toolbar?: {
     glyphSize: number;
     showCaret: boolean;
+    /**
+     * The remembered/default/just-applied profile this selection still
+     * matches (docs/glossary.md's Agent profile entry). Shown in place of the
+     * bare model label so the trigger reads as "this profile" rather than
+     * just whatever model it currently resolves to.
+     */
+    profileName?: string;
+  };
+}
+
+/**
+ * The trigger text and its accessibility label: the applied profile's name when the toolbar
+ * names one (docs/glossary.md's Agent profile entry), else the bare model label. Kept outside
+ * the component, and reading `toolbar` itself rather than a pre-extracted field, so neither
+ * optional-chaining branch counts against the component's own complexity budget.
+ */
+function resolveTriggerDisplay(input: {
+  t: TFunction;
+  toolbar: CombinedModelSelectorProps["toolbar"];
+  triggerLabel: string;
+  selectedModelLabel: string;
+}): { text: string; accessibilityLabel: string } {
+  const { t, toolbar, triggerLabel, selectedModelLabel } = input;
+  const profileName = toolbar?.profileName;
+  if (profileName) {
+    return {
+      text: profileName,
+      accessibilityLabel: t("modelSelector.selectedProfileAndModel", {
+        profile: profileName,
+        model: selectedModelLabel,
+      }),
+    };
+  }
+  return {
+    text: triggerLabel,
+    accessibilityLabel: t("modelSelector.selectedModel", { model: selectedModelLabel }),
   };
 }
 
@@ -192,6 +229,13 @@ export function CombinedModelSelector({
     [handleOpenChange, onEditProfile],
   );
 
+  const triggerDisplay = resolveTriggerDisplay({
+    t,
+    toolbar,
+    triggerLabel: browser.triggerLabel,
+    selectedModelLabel: browser.selectedModelLabel,
+  });
+
   const selectorBody = isContentReady ? (
     <ModelBrowser
       state={browser}
@@ -245,9 +289,7 @@ export function CombinedModelSelector({
           onPress={handleTriggerPress}
           style={triggerStyle}
           accessibilityRole="button"
-          accessibilityLabel={t("modelSelector.selectedModel", {
-            model: browser.selectedModelLabel,
-          })}
+          accessibilityLabel={triggerDisplay.accessibilityLabel}
           testID="combined-model-selector"
           chevron={toolbar?.showCaret === false ? null : undefined}
         >
@@ -265,7 +307,7 @@ export function CombinedModelSelector({
             numberOfLines={1}
             ellipsizeMode="tail"
           >
-            {browser.triggerLabel}
+            {triggerDisplay.text}
           </Text>
         </ComboboxTrigger>
       )}

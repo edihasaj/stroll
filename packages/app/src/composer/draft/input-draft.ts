@@ -37,6 +37,8 @@ interface AgentInputDraftComposerOptions {
   initialFeatureValues?: Record<string, unknown>;
   isVisible?: boolean;
   lockedWorkingDir?: string;
+  /** Forwarded to `useAgentFormState` — see its doc comment for when to set this. */
+  suppressAutoProfile?: boolean;
 }
 
 interface UseAgentInputDraftInput {
@@ -75,6 +77,7 @@ export function useAgentInputDraft(input: UseAgentInputDraftInput): AgentInputDr
     initialValues: composerOptions?.initialValues,
     isVisible: composerOptions?.isVisible ?? false,
     isCreateFlow: true,
+    suppressAutoProfile: composerOptions?.suppressAutoProfile,
   });
   const draftKey = useMemo(
     () =>

@@ -45,6 +45,7 @@ export function buildDraftAgentControls(input: {
     selectedThinkingOptionId: formState.selectedThinkingOptionId,
     onSelectThinkingOption: formState.setThinkingOptionFromUser,
     onApplyAgentProfile,
+    appliedProfileId: formState.appliedProfileId,
     features,
     onSetFeature,
     onDropdownClose,
