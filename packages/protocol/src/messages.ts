@@ -8,6 +8,13 @@ import {
   AgentRouteSchema,
 } from "./agent-route.js";
 import { AgentHookSummarySchema } from "./agent-hooks.js";
+import { DaemonPeerSchema } from "./daemon-peer.js";
+export {
+  DaemonPeerSchema,
+  resolveDaemonPeer,
+  type DaemonPeer,
+  type ResolvedDaemonPeer,
+} from "./daemon-peer.js";
 export {
   AgentBriefEditSchema,
   AgentBriefSchema,
@@ -235,6 +242,8 @@ export const MutableDaemonConfigSchema = z
     agentRoutes: z.array(AgentRouteSchema).optional(),
     /** A route id new chats use when the client does not pick a model. */
     defaultAgentRoute: z.string().nullable().optional(),
+    /** Other daemons this daemon can dial to spawn agents on another computer. */
+    peers: z.array(DaemonPeerSchema).optional(),
     skills: z.object({ selection: AgentSkillSelectionSchema.optional() }).strict().optional(),
     pluginsEnabled: z.boolean().optional(),
     plugins: z.record(PluginIdSchema, PluginSourceSchema).optional(),
@@ -258,6 +267,7 @@ export const MutableDaemonConfigPatchSchema = z
     agentProfiles: z.array(AgentProfileSchema).optional(),
     agentRoutes: z.array(AgentRouteSchema).optional(),
     defaultAgentRoute: z.string().nullable().optional(),
+    peers: z.array(DaemonPeerSchema).optional(),
     pluginsEnabled: z.boolean().optional(),
     plugins: z.record(PluginIdSchema, PluginSourceSchema).optional(),
   })

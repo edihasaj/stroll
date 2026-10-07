@@ -12,6 +12,7 @@ import type { AgentProviderRuntimeSettingsMap } from "./agent/provider-launch-co
 import { ensurePrivateFile, writePrivateFileAtomicSync } from "./private-files.js";
 import { AgentProfileSchema, AgentSkillSelectionSchema } from "@getpaseo/protocol/agent-profile";
 import { AgentRouteSchema } from "@getpaseo/protocol/agent-route";
+import { DaemonPeerSchema } from "@getpaseo/protocol/daemon-peer";
 import { PluginIdSchema, PluginSourceSchema } from "@getpaseo/protocol/plugin-config";
 import { TerminalProfileSchema } from "@getpaseo/protocol/terminal-profile";
 import { PaseoServicePortAllocationSchema } from "@getpaseo/protocol/paseo-config-schema";
@@ -267,6 +268,7 @@ export const PersistedConfigSchema = z
         agentProfiles: z.array(AgentProfileSchema).optional(),
         agentRoutes: z.array(AgentRouteSchema).optional(),
         defaultAgentRoute: z.string().nullable().optional(),
+        peers: z.array(DaemonPeerSchema).optional(),
         cors: z
           .object({
             allowedOrigins: z.array(z.string()).optional(),

@@ -1,6 +1,7 @@
 # Proposal: subagents on any of your computers
 
-Status: proposed, 2026-10-07. Builds on [agent-routing.md](agent-routing.md) and
+Status: step 1 (peers: config, connection pool, `paseo peer` commands) built — see
+[peers.md](../peers.md). Builds on [agent-routing.md](agent-routing.md) and
 [agent-routes.md](../agent-routes.md).
 
 The app can already start a chat on any computer it is connected to: the new-chat tray picks a

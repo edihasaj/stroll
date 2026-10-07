@@ -40,7 +40,8 @@ function homeOf(options: CommandOptions) {
   return options.daemonTarget.home;
 }
 
-async function applySaved(home: string, options: CommandOptions) {
+/** Applies a persisted config edit to a running daemon, or reports it saved-but-unapplied. */
+export async function applySaved(home: string, options: CommandOptions) {
   const nextCommand = `paseo daemon start --home ${JSON.stringify(home)}`;
   const instance = await readDaemonInstance(home);
   if (!instance?.listen)

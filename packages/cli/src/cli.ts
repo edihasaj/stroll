@@ -2,6 +2,7 @@ import { pairCommand } from "./commands/daemon/pair.js";
 import { Command, Option } from "commander";
 import { createAgentCommand } from "./commands/agent/index.js";
 import { createDaemonCommand } from "./commands/daemon/index.js";
+import { createPeerCommand } from "./commands/peer/index.js";
 import { createPermitCommand } from "./commands/permit/index.js";
 import { createProviderCommand } from "./commands/provider/index.js";
 import { createPluginCommand } from "./commands/plugin/index.js";
@@ -129,6 +130,7 @@ export function createCli(): Command {
 
   // Daemon commands
   program.addCommand(createDaemonCommand());
+  program.addCommand(createPeerCommand());
   program.addCommand(createHubCommand());
 
   // Chat commands

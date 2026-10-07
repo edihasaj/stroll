@@ -6,23 +6,10 @@ import {
 } from "@getpaseo/server/daemon-control";
 import { describeDaemonTarget, type DaemonTarget } from "./daemon-target.js";
 export type { DaemonTarget } from "./daemon-target.js";
-import {
-  buildDaemonWebSocketUrl,
-  buildRelayWebSocketUrl,
-  normalizeHostPort,
-  parseConnectionUri,
-  shouldUseTlsForDefaultHostedRelay,
-} from "@getpaseo/protocol/daemon-endpoints";
-import {
-  parseConnectionOfferFromUrl,
-  type ConnectionOffer,
-} from "@getpaseo/protocol/connection-offer";
-import { parseSshTransportUri } from "@getpaseo/protocol/ssh-transport";
-import { DaemonClient, type WebSocketLike } from "@getpaseo/client/internal/daemon-client";
-import { WebSocket } from "ws";
+import { connectDaemonHost, parsePasswordFromHost } from "@getpaseo/server/host-connection";
+import type { DaemonClient } from "@getpaseo/client/internal/daemon-client";
 import { getOrCreateCliClientId } from "./client-id.js";
 import { resolveCliVersion } from "../version.js";
-import { createSshTunnel } from "../ssh/ssh-tunnel.js";
 
 export interface ConnectOptions {
   target: DaemonTarget;
@@ -36,9 +23,6 @@ export function resolveClientPaseoHome(
   return target.kind === "instance" ? target.home : resolvePaseoHome(env);
 }
 const DEFAULT_TIMEOUT = 15000;
-type TransportTarget =
-  | { type: "tcp"; url: string }
-  | { type: "ipc"; url: string; socketPath: string };
 
 export function getDaemonHost(options: ConnectOptions): string {
   return describeDaemonTarget(options.target);
@@ -73,108 +57,10 @@ function describeConnectionRemedy(code: string, target: DaemonTarget): string {
   return "Check the selected endpoint and credentials. SSH transport does not install or start the daemon.";
 }
 
-export function normalizeDaemonHost(raw: string): string | null {
-  const trimmed = raw.trim();
-  if (!trimmed) {
-    return null;
-  }
-
-  if (trimmed.startsWith("tcp://")) {
-    try {
-      const parsed = parseConnectionUri(trimmed);
-      const endpoint = normalizeHostPort(
-        parsed.isIpv6 ? `[${parsed.host}]:${parsed.port}` : `${parsed.host}:${parsed.port}`,
-      );
-      const query = new URLSearchParams();
-      if (parsed.useTls) {
-        query.set("ssl", "true");
-      }
-      if (parsed.password) {
-        query.set("password", parsed.password);
-      }
-      const queryString = query.toString();
-      const suffix = queryString ? `?${queryString}` : "";
-      return `tcp://${endpoint}${suffix}`;
-    } catch {
-      return null;
-    }
-  }
-
-  if (
-    trimmed.startsWith("unix://") ||
-    trimmed.startsWith("pipe://") ||
-    trimmed.startsWith("\\\\.\\pipe\\")
-  ) {
-    return trimmed.startsWith("\\\\.\\pipe\\") ? `pipe://${trimmed}` : trimmed;
-  }
-
-  if (trimmed.startsWith("/") || trimmed.startsWith("~")) {
-    return `unix://${trimmed}`;
-  }
-
-  // Windows absolute paths (e.g. C:\Users\foo) are filesystem paths, not TCP or IPC targets.
-  if (/^[A-Za-z]:[/\\]/.test(trimmed)) {
-    return null;
-  }
-
-  if (/^\d+$/.test(trimmed)) {
-    return `127.0.0.1:${trimmed}`;
-  }
-
-  return trimmed.includes(":") ? trimmed : null;
-}
-
-function stripIpcPrefix(trimmed: string): string {
-  if (trimmed.startsWith("unix://")) return trimmed.slice("unix://".length).trim();
-  if (trimmed.startsWith("pipe://")) return trimmed.slice("pipe://".length).trim();
-  return trimmed;
-}
-
-export function resolveDaemonTarget(host: string): TransportTarget {
-  const trimmed = normalizeDaemonHost(host);
-  if (!trimmed) {
-    throw new Error(`Invalid daemon target: ${host}`);
-  }
-  if (
-    trimmed.startsWith("unix://") ||
-    trimmed.startsWith("pipe://") ||
-    trimmed.startsWith("\\\\.\\pipe\\")
-  ) {
-    const socketPath = stripIpcPrefix(trimmed);
-    if (!socketPath) {
-      throw new Error("Invalid IPC daemon target: missing socket path");
-    }
-    const isUnixSocket = trimmed.startsWith("unix://");
-    return {
-      type: "ipc",
-      url: isUnixSocket ? `ws+unix://${socketPath}:/ws` : "ws://localhost/ws",
-      socketPath,
-    };
-  }
-
-  if (trimmed.startsWith("tcp://")) {
-    const parsed = parseConnectionUri(trimmed);
-    const endpoint = normalizeHostPort(
-      parsed.isIpv6 ? `[${parsed.host}]:${parsed.port}` : `${parsed.host}:${parsed.port}`,
-    );
-    return {
-      type: "tcp",
-      url: buildDaemonWebSocketUrl(endpoint, { useTls: parsed.useTls }),
-    };
-  }
-
-  return {
-    type: "tcp",
-    url: `ws://${trimmed}/ws`,
-  };
-}
-
+/** Adds the `PASEO_PASSWORD` env fallback on top of the pure URI parsing the server module does. */
 export function resolveDaemonPassword(host: string): string | undefined {
-  const trimmed = host.trim();
-  if (trimmed.startsWith("tcp://")) {
-    const fromUri = parseConnectionUri(trimmed).password;
-    if (fromUri) return fromUri;
-  }
+  const fromUri = parsePasswordFromHost(host);
+  if (fromUri) return fromUri;
   const fromEnv = process.env.PASEO_PASSWORD;
   return fromEnv && fromEnv.length > 0 ? fromEnv : undefined;
 }
@@ -187,113 +73,6 @@ export function resolveDaemonCredential(
   if (password) return { kind: "password", password };
   const token = readLocalCredentialForTarget(home, host);
   return token ? { kind: "localCredential", token } : null;
-}
-
-/**
- * Create a WebSocket factory that works in Node.js
- */
-function createNodeWebSocketFactory() {
-  return (
-    url: string,
-    options?: { headers?: Record<string, string>; protocols?: string[]; socketPath?: string },
-  ): WebSocketLike => {
-    return new WebSocket(url, options?.protocols, {
-      headers: options?.headers,
-      ...(options?.socketPath ? { socketPath: options.socketPath } : {}),
-    }) as unknown as WebSocketLike;
-  };
-}
-
-/**
- * Create and connect a daemon client
- * Returns the connected client or throws if connection fails
- */
-async function tryConnectHost(
-  host: string,
-  credential: ReturnType<typeof resolveDaemonCredential>,
-  home: string,
-  clientId: string,
-  timeout: number,
-  nodeWebSocketFactory: ReturnType<typeof createNodeWebSocketFactory>,
-): Promise<{ client: DaemonClient } | { error: unknown }> {
-  const target = resolveDaemonTarget(host);
-  const client = new DaemonClient({
-    url: target.url,
-    clientId,
-    clientType: "cli",
-    appVersion: resolveCliVersion(),
-    ...(credential?.kind === "password" ? { password: credential.password } : {}),
-    ...(credential?.kind === "localCredential"
-      ? { localCredential: () => readLocalCredentialForTarget(home, host) ?? undefined }
-      : {}),
-    connectTimeoutMs: timeout,
-    webSocketFactory: (
-      url: string,
-      config?: { headers?: Record<string, string>; protocols?: string[] },
-    ) =>
-      nodeWebSocketFactory(url, {
-        headers: config?.headers,
-        protocols: config?.protocols,
-        ...(target.type === "ipc" ? { socketPath: target.socketPath } : {}),
-      }),
-    reconnect: { enabled: false },
-  });
-
-  try {
-    await client.connect();
-    return { client };
-  } catch (error) {
-    await client.close().catch(() => {});
-    return { error };
-  }
-}
-
-async function connectViaRelayOffer(
-  offer: ConnectionOffer,
-  clientId: string,
-  timeout: number,
-  nodeWebSocketFactory: ReturnType<typeof createNodeWebSocketFactory>,
-): Promise<DaemonClient> {
-  const url = buildRelayWebSocketUrl({
-    endpoint: offer.relay.endpoint,
-    serverId: offer.serverId,
-    role: "client",
-    useTls: offer.relay.useTls ?? shouldUseTlsForDefaultHostedRelay(offer.relay.endpoint),
-  });
-
-  const client = new DaemonClient({
-    url,
-    clientId,
-    clientType: "cli",
-    appVersion: resolveCliVersion(),
-    connectTimeoutMs: timeout,
-    webSocketFactory: (
-      target: string,
-      config?: { headers?: Record<string, string>; protocols?: string[] },
-    ) => nodeWebSocketFactory(target, { headers: config?.headers, protocols: config?.protocols }),
-    e2ee: { enabled: true, daemonPublicKeyB64: offer.daemonPublicKeyB64 },
-    reconnect: { enabled: false },
-  });
-
-  try {
-    await client.connect();
-    return client;
-  } catch (error) {
-    await client.close().catch(() => {});
-    const message = error instanceof Error ? error.message : String(error);
-    const lastError = client.lastError ? ` (${client.lastError})` : "";
-    throw new Error(`Failed to connect via relay offer: ${message}${lastError}`, { cause: error });
-  }
-}
-
-function parseHostOfferOrNull(host: string | undefined): ConnectionOffer | null {
-  if (!host) return null;
-  try {
-    return parseConnectionOfferFromUrl(host);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`Invalid pairing offer URL: ${message}`, { cause: error });
-  }
 }
 
 async function connectSelectedDaemon(options: ConnectOptions): Promise<DaemonClient> {
@@ -310,57 +89,20 @@ async function connectSelectedDaemon(options: ConnectOptions): Promise<DaemonCli
         ).listen;
   const home = resolveClientPaseoHome(options.target);
   const clientId = await getOrCreateCliClientId(home);
-  const nodeWebSocketFactory = createNodeWebSocketFactory();
+  const credential = resolveDaemonCredential(explicitHost, home);
 
-  if (explicitHost?.trim().startsWith("ssh://")) {
-    const target = parseSshTransportUri(explicitHost.trim());
-    const tunnel = await createSshTunnel(target);
-    const password = resolveDaemonPassword(explicitHost);
-    const result = await tryConnectHost(
-      tunnel.endpoint,
-      password ? { kind: "password", password } : null,
-      home,
-      clientId,
-      Math.max(1, deadline - Date.now()),
-      nodeWebSocketFactory,
-    );
-    if ("client" in result) {
-      const close = result.client.close.bind(result.client);
-      result.client.close = async () => {
-        try {
-          await close();
-        } finally {
-          tunnel.close();
-        }
-      };
-      return result.client;
-    }
-
-    const failure = tunnel.failureDetail();
-    tunnel.close();
-    if (failure) throw new Error(`SSH connection failed: ${failure}`, { cause: result.error });
-    throw result.error;
-  }
-  const offer = parseHostOfferOrNull(explicitHost);
-  if (offer) {
-    return connectViaRelayOffer(
-      offer,
-      clientId,
-      Math.max(1, deadline - Date.now()),
-      nodeWebSocketFactory,
-    );
-  }
-
-  const result = await tryConnectHost(
-    explicitHost,
-    resolveDaemonCredential(explicitHost, home),
-    home,
+  return connectDaemonHost({
+    host: explicitHost,
     clientId,
-    Math.max(1, deadline - Date.now()),
-    nodeWebSocketFactory,
-  );
-  if ("client" in result) return result.client;
-  throw result.error;
+    clientType: "cli",
+    appVersion: resolveCliVersion(),
+    timeoutMs: Math.max(1, deadline - Date.now()),
+    password: credential?.kind === "password" ? credential.password : undefined,
+    localCredential:
+      credential?.kind === "localCredential"
+        ? () => readLocalCredentialForTarget(home, explicitHost) ?? undefined
+        : undefined,
+  });
 }
 
 export async function connectToDaemon(options: ConnectOptions): Promise<DaemonClient> {

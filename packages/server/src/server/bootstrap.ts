@@ -184,10 +184,12 @@ import type {
   AgentProfile,
   AgentRoute,
   AgentSkillSelection,
+  DaemonPeer,
   FirstAgentContext,
   PluginSource,
   TerminalProfile,
 } from "@getpaseo/protocol/messages";
+import { PeerPool } from "./peers/peer-pool.js";
 import type {
   AgentProviderRuntimeSettingsMap,
   ProviderOverride,
@@ -419,6 +421,7 @@ export interface PaseoDaemonConfig {
   agentProfiles?: AgentProfile[];
   agentRoutes?: AgentRoute[];
   defaultAgentRoute?: string | null;
+  peers?: DaemonPeer[];
   skillSelection?: AgentSkillSelection;
   pluginsEnabled?: boolean;
   plugins?: Record<string, PluginSource>;
@@ -485,6 +488,7 @@ export interface PaseoDaemon {
   serviceProxy: ServiceProxySubsystem;
   scriptRuntimeStore: WorkspaceScriptRuntimeStore;
   browserToolsBroker: BrowserToolsBroker;
+  peerPool: PeerPool;
   start(): Promise<void>;
   stop(): Promise<void>;
   getListenTarget(): ListenTarget | null;
@@ -559,6 +563,27 @@ function initialMetadataGeneration(
   };
 }
 
+/**
+ * These stay `undefined` when absent rather than defaulting to `[]`: an empty terminal-profile
+ * array means "the user removed the built-ins", which is different from "not configured".
+ */
+function resolveOptionalProfileListFields(
+  config: PaseoDaemonConfig,
+): Pick<
+  MutableDaemonConfig,
+  "terminalProfiles" | "agentProfiles" | "agentRoutes" | "defaultAgentRoute" | "peers"
+> {
+  return {
+    ...(config.terminalProfiles !== undefined ? { terminalProfiles: config.terminalProfiles } : {}),
+    ...(config.agentProfiles !== undefined ? { agentProfiles: config.agentProfiles } : {}),
+    ...(config.agentRoutes !== undefined ? { agentRoutes: config.agentRoutes } : {}),
+    ...(config.defaultAgentRoute !== undefined
+      ? { defaultAgentRoute: config.defaultAgentRoute }
+      : {}),
+    ...(config.peers !== undefined ? { peers: config.peers } : {}),
+  };
+}
+
 function createInitialMutableDaemonConfig(config: PaseoDaemonConfig): MutableDaemonConfig {
   const providers = config.providerOverrides ?? {};
 
@@ -585,19 +610,8 @@ function createInitialMutableDaemonConfig(config: PaseoDaemonConfig): MutableDae
     pluginsEnabled: config.pluginsEnabled ?? false,
     plugins: config.plugins ?? {},
     skills: { selection: config.skillSelection },
+    ...resolveOptionalProfileListFields(config),
   };
-
-  if (config.terminalProfiles !== undefined) {
-    initialConfig.terminalProfiles = config.terminalProfiles;
-  }
-
-  if (config.agentProfiles !== undefined) {
-    initialConfig.agentProfiles = config.agentProfiles;
-  }
-  if (config.agentRoutes !== undefined) initialConfig.agentRoutes = config.agentRoutes;
-  if (config.defaultAgentRoute !== undefined) {
-    initialConfig.defaultAgentRoute = config.defaultAgentRoute;
-  }
 
   return initialConfig;
 }
@@ -662,6 +676,15 @@ export async function createPaseoDaemon(
 
   const serverId = getOrCreateServerId(config.paseoHome, { logger });
   const daemonKeyPair = await loadOrCreateDaemonKeyPair(config.paseoHome, logger);
+  // Peers step 1 (docs/peers.md): dials other daemons this one is configured to spawn agents on.
+  // Nothing wires it into agent creation yet — that lands with the `create_agent` `computer`
+  // argument in step 2 of docs/proposals/cross-host-subagents.md.
+  const peerPool = new PeerPool({
+    getPeers: () => daemonConfigStore.get().peers ?? [],
+    clientId: `peer:${serverId}`,
+    appVersion: daemonVersion,
+    logger,
+  });
   const managedProcesses = createBootstrapManagedProcessRegistry(config, logger);
   // Reconcile the helper-process ledger in the background so it never blocks the
   // daemon from coming up; terminating a live leftover can take a few seconds.
@@ -1880,6 +1903,7 @@ export async function createPaseoDaemon(
       await deleteLocalCredential(config.paseoHome);
       unsubscribePluginProviders();
       await pluginRuntime.stopAllPlugins().catch(() => undefined);
+      await peerPool.close().catch(() => undefined);
       await serviceProxy.stopStandalone().catch(() => undefined);
       await agentProviderRuntime.shutdown().catch(() => undefined);
       if (mainStarted) {
@@ -1921,6 +1945,7 @@ export async function createPaseoDaemon(
     await speechService.stop();
     await scheduleService.stop().catch(() => undefined);
     agentRoutingWiring.stop();
+    await peerPool.close().catch(() => undefined);
     await relayRuntime?.stop().catch(() => undefined);
     if (wsServer) {
       await wsServer.close();
@@ -1951,6 +1976,7 @@ export async function createPaseoDaemon(
     serviceProxy,
     scriptRuntimeStore,
     browserToolsBroker,
+    peerPool,
     start,
     stop,
     getListenTarget: () => boundListenTarget,

@@ -190,6 +190,34 @@ describe("DaemonConfigStore", () => {
     expect(loadPersistedConfig(paseoHome).daemon?.agentProfiles).toHaveLength(1);
   });
 
+  test("patch round-trips peers and replaces the whole list rather than merging entries", () => {
+    const paseoHome = mkdtempSync(path.join(tmpdir(), "paseo-daemon-config-store-"));
+    tempDirs.push(paseoHome);
+    const store = new DaemonConfigStore(paseoHome, {
+      relay: { enabled: false },
+      mcp: { injectIntoAgents: false },
+      browserTools: { enabled: false },
+      providers: {},
+      metadataGeneration: { providers: [] },
+      autoArchiveAfterMerge: false,
+      enableTerminalAgentHooks: false,
+      appendSystemPrompt: "",
+      peers: [
+        { id: "studio", name: "Mac Studio", target: "ssh://edi@edis-mac-studio" },
+        { id: "macbook", target: "tcp://100.64.0.12:6767", privacy: "local" },
+      ],
+    });
+
+    store.patch({
+      peers: [{ id: "studio", name: "Mac Studio", target: "ssh://edi@edis-mac-studio" }],
+    });
+
+    expect(store.get().peers).toEqual([
+      { id: "studio", name: "Mac Studio", target: "ssh://edi@edis-mac-studio" },
+    ]);
+    expect(loadPersistedConfig(paseoHome).daemon?.peers).toHaveLength(1);
+  });
+
   test("rolls back config when a field transition fails", () => {
     const paseoHome = mkdtempSync(path.join(tmpdir(), "paseo-daemon-config-store-"));
     tempDirs.push(paseoHome);

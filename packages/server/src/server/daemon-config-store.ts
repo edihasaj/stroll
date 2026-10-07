@@ -32,6 +32,7 @@ interface SupportedMutableConfigPatch {
   agentProfiles?: MutableDaemonConfig["agentProfiles"];
   agentRoutes?: MutableDaemonConfig["agentRoutes"];
   defaultAgentRoute?: MutableDaemonConfig["defaultAgentRoute"];
+  peers?: MutableDaemonConfig["peers"];
   skills?: MutableDaemonConfig["skills"];
   pluginsEnabled?: boolean;
   plugins?: MutableDaemonConfig["plugins"];
@@ -189,6 +190,7 @@ const RELOADABLE_PATHS = [
   "daemon.agentProfiles",
   "daemon.agentRoutes",
   "daemon.defaultAgentRoute",
+  "daemon.peers",
   "app.baseUrl",
   "agents.providers",
   "agents.catalogRefreshTimeoutMs",
@@ -214,6 +216,7 @@ const PERSISTED_TO_MUTABLE_PATH = new Map<string, string>([
   ["daemon.agentProfiles", "agentProfiles"],
   ["daemon.agentRoutes", "agentRoutes"],
   ["daemon.defaultAgentRoute", "defaultAgentRoute"],
+  ["daemon.peers", "peers"],
   ["app.baseUrl", "app.baseUrl"],
   ["agents.providers", "providers"],
   ["agents.catalogRefreshTimeoutMs", "catalogRefreshTimeoutMs"],
@@ -304,6 +307,7 @@ function pickSupportedPatchFields(patch: MutableDaemonConfigPatch): SupportedMut
     ...(patch.terminalProfiles !== undefined ? { terminalProfiles: patch.terminalProfiles } : {}),
     ...(patch.agentProfiles !== undefined ? { agentProfiles: patch.agentProfiles } : {}),
     ...pickAgentRoutePatch(patch),
+    ...(patch.peers !== undefined ? { peers: patch.peers } : {}),
     ...(patch.pluginsEnabled !== undefined ? { pluginsEnabled: patch.pluginsEnabled } : {}),
     ...(patch.plugins !== undefined ? { plugins: patch.plugins } : {}),
   };
@@ -699,5 +703,6 @@ function mergeMutableDaemonPatch(
   if (patch.agentProfiles !== undefined) next.agentProfiles = patch.agentProfiles;
   if (patch.agentRoutes !== undefined) next.agentRoutes = patch.agentRoutes;
   if (patch.defaultAgentRoute !== undefined) next.defaultAgentRoute = patch.defaultAgentRoute;
+  if (patch.peers !== undefined) next.peers = patch.peers;
   return Object.keys(next).length > 0 ? next : undefined;
 }
