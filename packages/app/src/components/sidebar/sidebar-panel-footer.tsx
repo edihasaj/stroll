@@ -5,6 +5,7 @@ import { HostPicker } from "@/components/hosts/host-picker";
 import { useActiveHostSummary } from "@/components/sidebar/use-active-host-summary";
 import { SidebarFooterRows } from "@/components/sidebar/sidebar-footer-rows";
 import { deriveIdentityColorName, identityColor } from "@/styles/identity-colors";
+import { UsageSidebarRoot } from "@/usage";
 
 function sidebarPanelHostOptionTestID(serverId: string): string {
   return `sidebar-panel-host-row-${serverId}`;
@@ -15,7 +16,12 @@ function sidebarPanelHostOptionTestID(serverId: string): string {
  * active host's initial plus its name. Import session, Help, and Settings used to share this row — they moved to the
  * rail's `•••` menu and the rail's own Settings icon respectively, so the footer is only ever
  * the host identity trigger (the same `<HostPicker>` the rail's Chats icon and the old brand row
- * both opened — one menu, converged triggers, per docs/design.md §12).
+ * both opened — one menu, converged triggers, per docs/design.md §12). Keeps the mobile sidebar's
+ * `sidebar-hosts-trigger`/`sidebar-footer`/`sidebar-footer-bottom-line` ids — the two footers are
+ * siblings in the same sense as `sidebar-settings` (`left-sidebar.tsx`'s `SidebarFooter`): only
+ * one of the two ever mounts for a given breakpoint. Needs its own `<UsageSidebarRoot>` — Mobile's
+ * `SidebarFooter` carries one, but this tree is a separate branch under `SidebarPanel`, so without
+ * one here `UsageSidebarItem`'s `useOpenSidebarUsage()` throws the moment the Usage row is visible.
  */
 export function SidebarPanelFooter({
   onAddHost,
@@ -39,51 +45,53 @@ export function SidebarPanelFooter({
   );
 
   return (
-    <>
-      <SidebarFooterRows />
-      <View style={styles.footer}>
-        <HostPicker
-          hosts={hosts}
-          value=""
-          onSelect={handleSelect}
-          open={isOpen}
-          onOpenChange={setIsOpen}
-          anchorRef={triggerRef}
-          includeAddHost
-          onAddHost={onAddHost}
-          showActiveConnection
-          onOpenHostSettings={onOpenHostSettings}
-          searchable
-          desktopPlacement="top-start"
-          desktopMinWidth={240}
-          addHostTestID="sidebar-panel-host-add"
-          hostOptionTestID={sidebarPanelHostOptionTestID}
-        >
-          <Pressable
-            ref={triggerRef}
-            style={triggerStyle}
-            onPress={handleOpen}
-            testID="sidebar-panel-footer-identity"
-            nativeID="sidebar-panel-footer-identity"
-            accessible
-            accessibilityRole="button"
-            accessibilityLabel={label}
+    <UsageSidebarRoot>
+      <View testID="sidebar-footer">
+        <SidebarFooterRows />
+        <View style={styles.footer} testID="sidebar-footer-bottom-line">
+          <HostPicker
+            hosts={hosts}
+            value=""
+            onSelect={handleSelect}
+            open={isOpen}
+            onOpenChange={setIsOpen}
+            anchorRef={triggerRef}
+            includeAddHost
+            onAddHost={onAddHost}
+            showActiveConnection
+            onOpenHostSettings={onOpenHostSettings}
+            searchable
+            desktopPlacement="top-start"
+            desktopMinWidth={240}
+            addHostTestID="sidebar-panel-host-add"
+            hostOptionTestID={sidebarPanelHostOptionTestID}
           >
-            <View
-              style={[
-                styles.avatar,
-                { backgroundColor: identityColor(deriveIdentityColorName(serverId ?? label)) },
-              ]}
+            <Pressable
+              ref={triggerRef}
+              style={triggerStyle}
+              onPress={handleOpen}
+              testID="sidebar-hosts-trigger"
+              nativeID="sidebar-hosts-trigger"
+              accessible
+              accessibilityRole="button"
+              accessibilityLabel={label}
             >
-              <Text style={styles.initial}>{label.charAt(0).toUpperCase()}</Text>
-            </View>
-            <Text style={styles.label} numberOfLines={1}>
-              {label}
-            </Text>
-          </Pressable>
-        </HostPicker>
+              <View
+                style={[
+                  styles.avatar,
+                  { backgroundColor: identityColor(deriveIdentityColorName(serverId ?? label)) },
+                ]}
+              >
+                <Text style={styles.initial}>{label.charAt(0).toUpperCase()}</Text>
+              </View>
+              <Text style={styles.label} numberOfLines={1}>
+                {label}
+              </Text>
+            </Pressable>
+          </HostPicker>
+        </View>
       </View>
-    </>
+    </UsageSidebarRoot>
   );
 }
 
