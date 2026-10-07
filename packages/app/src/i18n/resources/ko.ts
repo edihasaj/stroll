@@ -1761,6 +1761,7 @@ export const ko: TranslationResources = {
     title: "프로바이더 선택",
     selectModel: "모델 선택",
     selectedModel: "모델 선택 ({{model}})",
+    selectedProfileAndModel: "모델 선택 ({{profile}} · {{model}})",
     loading: "불러오는 중...",
     loadingShort: "불러오는 중",
     loadingSelector: "모델 선택기 불러오는 중...",
@@ -2772,6 +2773,10 @@ export const ko: TranslationResources = {
         removeConfirmMessage: '"{{name}}"을(를) 제거할까요?',
         moveUp: "위로 이동",
         moveDown: "아래로 이동",
+        default: {
+          label: "새 채팅의 기본 프로필",
+          none: "없음",
+        },
       },
       daemon: {
         rename: {

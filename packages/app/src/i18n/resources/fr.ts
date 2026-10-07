@@ -1801,6 +1801,7 @@ export const fr: TranslationResources = {
     title: "Sélectionnez le fournisseur",
     selectModel: "Sélectionnez le modèle",
     selectedModel: "Sélectionnez le modèle ({{model}})",
+    selectedProfileAndModel: "Sélectionnez le modèle ({{profile}} · {{model}})",
     loading: "Chargement...",
     loadingShort: "Chargement",
     loadingSelector: "Chargement du sélecteur de modèle...",
@@ -2827,6 +2828,10 @@ export const fr: TranslationResources = {
         removeConfirmMessage: "Supprimer « {{name}} » ?",
         moveUp: "Déplacer vers le haut",
         moveDown: "Déplacer vers le bas",
+        default: {
+          label: "Profil par défaut pour les nouvelles discussions",
+          none: "Aucun",
+        },
       },
       daemon: {
         rename: {

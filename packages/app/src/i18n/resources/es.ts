@@ -1797,6 +1797,7 @@ export const es: TranslationResources = {
     title: "Seleccionar proveedor",
     selectModel: "Seleccionar modelo",
     selectedModel: "Seleccionar modelo ({{model}})",
+    selectedProfileAndModel: "Seleccionar modelo ({{profile}} · {{model}})",
     loading: "Cargando...",
     loadingShort: "Cargando",
     loadingSelector: "Cargando selector de modelo...",
@@ -2818,6 +2819,10 @@ export const es: TranslationResources = {
         removeConfirmMessage: '¿Eliminar "{{name}}"?',
         moveUp: "Mover hacia arriba",
         moveDown: "Mover hacia abajo",
+        default: {
+          label: "Perfil predeterminado para chats nuevos",
+          none: "Ninguno",
+        },
       },
       daemon: {
         rename: {

@@ -11,6 +11,10 @@ export interface UseAgentProfilesResult {
   isSupported: boolean;
   /** Writes the whole list; there is no per-profile RPC. */
   saveProfiles: (next: AgentProfile[]) => Promise<void>;
+  /** `null` until the daemon config has arrived, or when there is no default. */
+  defaultProfileId: string | null;
+  /** `null` clears the default; profiles themselves stay config.json-only. */
+  setDefaultProfile: (profileId: string | null) => Promise<void>;
 }
 
 export function useAgentProfiles(serverId: string | null): UseAgentProfilesResult {
@@ -26,9 +30,18 @@ export function useAgentProfiles(serverId: string | null): UseAgentProfilesResul
     [patchConfig],
   );
 
+  const setDefaultProfile = useCallback(
+    async (profileId: string | null) => {
+      await patchConfig({ defaultAgentProfile: profileId });
+    },
+    [patchConfig],
+  );
+
   return {
     profiles: config ? (config.agentProfiles ?? []) : null,
     isSupported,
     saveProfiles,
+    defaultProfileId: config ? (config.defaultAgentProfile ?? null) : null,
+    setDefaultProfile,
   };
 }

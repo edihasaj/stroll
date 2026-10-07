@@ -1768,6 +1768,7 @@ export const ja: TranslationResources = {
     title: "プロバイダーを選択",
     selectModel: "モデルを選択",
     selectedModel: "モデルを選択（{{model}}）",
+    selectedProfileAndModel: "モデルを選択（{{profile}} · {{model}}）",
     loading: "読み込み中...",
     loadingShort: "読み込み中",
     loadingSelector: "モデルセレクターを読み込み中...",
@@ -2788,6 +2789,10 @@ export const ja: TranslationResources = {
         removeConfirmMessage: '"{{name}}"を削除しますか？',
         moveUp: "上に移動",
         moveDown: "下に移動",
+        default: {
+          label: "新しいチャットのデフォルトプロファイル",
+          none: "なし",
+        },
       },
       daemon: {
         rename: {

@@ -1751,6 +1751,7 @@ export const ar: TranslationResources = {
     title: "حدد المزود",
     selectModel: "حدد النموذج",
     selectedModel: "اختر الموديل ({{model}})",
+    selectedProfileAndModel: "اختر الموديل ({{profile}} · {{model}})",
     loading: "تحميل...",
     loadingShort: "تحميل",
     loadingSelector: "جارٍ تحميل محدد النموذج...",
@@ -2760,6 +2761,10 @@ export const ar: TranslationResources = {
         removeConfirmMessage: 'إزالة "{{name}}"؟',
         moveUp: "نقل لأعلى",
         moveDown: "نقل لأسفل",
+        default: {
+          label: "الملف الافتراضي للمحادثات الجديدة",
+          none: "بلا",
+        },
       },
       daemon: {
         rename: {

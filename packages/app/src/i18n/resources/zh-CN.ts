@@ -1734,6 +1734,7 @@ export const zhCN: TranslationResources = {
     title: "选择 provider",
     selectModel: "选择模型",
     selectedModel: "选择模型（{{model}}）",
+    selectedProfileAndModel: "选择模型（{{profile}} · {{model}}）",
     loading: "正在加载...",
     loadingShort: "正在加载",
     loadingSelector: "正在加载模型选择器...",
@@ -2733,6 +2734,10 @@ export const zhCN: TranslationResources = {
         removeConfirmMessage: "移除「{{name}}」？",
         moveUp: "上移",
         moveDown: "下移",
+        default: {
+          label: "新聊天的默认配置",
+          none: "无",
+        },
       },
       daemon: {
         rename: {

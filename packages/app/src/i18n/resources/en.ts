@@ -1776,6 +1776,7 @@ export const en = {
     title: "Select provider",
     selectModel: "Select model",
     selectedModel: "Select model ({{model}})",
+    selectedProfileAndModel: "Select model ({{profile}} · {{model}})",
     loading: "Loading...",
     loadingShort: "Loading",
     loadingSelector: "Loading model selector...",
@@ -2888,6 +2889,10 @@ export const en = {
         removeConfirmMessage: 'Remove "{{name}}"?',
         moveUp: "Move up",
         moveDown: "Move down",
+        default: {
+          label: "Default profile for new chats",
+          none: "None",
+        },
       },
       daemon: {
         rename: {

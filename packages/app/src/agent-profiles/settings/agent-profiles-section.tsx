@@ -5,6 +5,11 @@ import { Plus } from "lucide-react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import type { AgentProfile } from "@getpaseo/protocol/messages";
 import { Button } from "@/components/ui/button";
+import {
+  SelectField,
+  type SelectFieldDisplay,
+  type SelectFieldOption,
+} from "@/components/ui/select-field";
 import { useProvidersSnapshot } from "@/hooks/use-providers-snapshot";
 import { useHostRuntimeIsConnected } from "@/runtime/host-runtime";
 import { SettingsSection } from "@/components/settings/headings/settings-section";
@@ -21,6 +26,7 @@ import { AgentProfileRow } from "./agent-profile-row";
 const ThemedPlus = withUnistyles(Plus);
 const mutedColorMapping = (theme: Theme) => ({ color: theme.colors.foregroundMuted });
 const addIcon = <ThemedPlus size={ICON_SIZE.sm} uniProps={mutedColorMapping} />;
+const NO_DEFAULT_PROFILE_VALUE = "__none__";
 
 interface EditTarget {
   mode: "create" | "edit";
@@ -30,10 +36,38 @@ interface EditTarget {
 export function AgentProfilesSection({ serverId }: { serverId: string }): ReactElement {
   const { t } = useTranslation();
   const isConnected = useHostRuntimeIsConnected(serverId);
-  const { profiles, isSupported, saveProfiles } = useAgentProfiles(serverId);
+  const { profiles, isSupported, saveProfiles, defaultProfileId, setDefaultProfile } =
+    useAgentProfiles(serverId);
   const { entries } = useProvidersSnapshot(serverId, { cwd: null });
   const providerAccounts = useProviderAccounts(serverId);
   const [editTarget, setEditTarget] = useState<EditTarget | null>(null);
+
+  const defaultProfileOptions = useMemo<SelectFieldOption<string>[]>(
+    () => [
+      {
+        id: NO_DEFAULT_PROFILE_VALUE,
+        value: NO_DEFAULT_PROFILE_VALUE,
+        label: t("settings.host.agentProfiles.default.none"),
+      },
+      ...(profiles ?? []).map((profile) => ({
+        id: profile.id,
+        value: profile.id,
+        label: profile.name,
+      })),
+    ],
+    [profiles, t],
+  );
+  const defaultProfileValue = defaultProfileId ?? NO_DEFAULT_PROFILE_VALUE;
+  const defaultProfileDisplay = useMemo<SelectFieldDisplay | null>(() => {
+    const option = defaultProfileOptions.find((entry) => entry.value === defaultProfileValue);
+    return option ? { label: option.label } : null;
+  }, [defaultProfileOptions, defaultProfileValue]);
+  const handleChangeDefaultProfile = useCallback(
+    (value: string) => {
+      void setDefaultProfile(value === NO_DEFAULT_PROFILE_VALUE ? null : value);
+    },
+    [setDefaultProfile],
+  );
 
   const handleAddOpen = useCallback(() => setEditTarget({ mode: "create" }), []);
   const handleEditClose = useCallback(() => setEditTarget(null), []);
@@ -163,7 +197,22 @@ export function AgentProfilesSection({ serverId }: { serverId: string }): ReactE
         trailing={addButton}
         testID="agent-profiles-section"
       >
-        <View style={settingsStyles.card} testID="agent-profiles-card">
+        <View
+          style={[settingsStyles.card, styles.defaultCard]}
+          testID="agent-profiles-default-card"
+        >
+          <SelectField
+            label={t("settings.host.agentProfiles.default.label")}
+            value={defaultProfileValue}
+            selectedDisplay={defaultProfileDisplay}
+            options={defaultProfileOptions}
+            onChange={handleChangeDefaultProfile}
+            placeholder={t("settings.host.agentProfiles.default.none")}
+            emptyText={t("settings.host.agentProfiles.default.none")}
+            testID="agent-profiles-default-select"
+          />
+        </View>
+        <View style={[settingsStyles.card, styles.profilesCard]} testID="agent-profiles-card">
           {profiles && profiles.length > 0 ? (
             profiles.map((profile, index) => (
               <AgentProfileRow
@@ -208,6 +257,12 @@ export function AgentProfilesSection({ serverId }: { serverId: string }): ReactE
 }
 
 const styles = StyleSheet.create((theme) => ({
+  defaultCard: {
+    padding: theme.spacing[3],
+  },
+  profilesCard: {
+    marginTop: theme.spacing[3],
+  },
   emptyCard: {
     paddingVertical: theme.spacing[6],
     paddingHorizontal: theme.spacing[4],

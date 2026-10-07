@@ -1780,6 +1780,7 @@ export const ru: TranslationResources = {
     title: "Выберите провайдера",
     selectModel: "Выберите модель",
     selectedModel: "Выберите модель ({{model}})",
+    selectedProfileAndModel: "Выберите модель ({{profile}} · {{model}})",
     loading: "Загрузка...",
     loadingShort: "Загрузка",
     loadingSelector: "Загрузка выбора модели...",
@@ -2809,6 +2810,10 @@ export const ru: TranslationResources = {
         removeConfirmMessage: "Удалить «{{name}}»?",
         moveUp: "Переместить вверх",
         moveDown: "Переместить вниз",
+        default: {
+          label: "Профиль по умолчанию для новых чатов",
+          none: "Нет",
+        },
       },
       daemon: {
         rename: {

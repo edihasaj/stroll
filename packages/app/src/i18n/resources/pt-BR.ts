@@ -1782,6 +1782,7 @@ export const ptBR: TranslationResources = {
     title: "Selecionar provedor",
     selectModel: "Selecionar modelo",
     selectedModel: "Selecionar modelo ({{model}})",
+    selectedProfileAndModel: "Selecionar modelo ({{profile}} · {{model}})",
     loading: "Carregando...",
     loadingShort: "Carregando",
     loadingSelector: "Carregando seletor de modelos...",
@@ -2800,6 +2801,10 @@ export const ptBR: TranslationResources = {
         removeConfirmMessage: 'Remover "{{name}}"?',
         moveUp: "Mover para cima",
         moveDown: "Mover para baixo",
+        default: {
+          label: "Perfil padrão para novos chats",
+          none: "Nenhum",
+        },
       },
       daemon: {
         rename: {
