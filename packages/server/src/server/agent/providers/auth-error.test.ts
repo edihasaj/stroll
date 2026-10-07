@@ -40,7 +40,7 @@ describe("buildProviderAuthRecoveryGuidance", () => {
   it("distinguishes the credential from unrelated logins", () => {
     const guidance = buildProviderAuthRecoveryGuidance({ provider: "codex" });
     expect(guidance).toContain("codex login");
-    expect(guidance).toMatch(/not your Paseo, Git forge, or cloud CLI login/);
+    expect(guidance).toMatch(/not your Stroll, Git forge, or cloud CLI login/);
   });
 
   it("falls back to the provider id when the runtime is unknown", () => {

@@ -57,8 +57,8 @@ describe("OpenCode terminal agent hooks", () => {
       dispose();
 
       expect(commands).toEqual([
-        ["paseo", "hooks", "opencode", "session.status.busy"],
-        ["paseo", "hooks", "opencode", "session.status.idle"],
+        ["stroll", "hooks", "opencode", "session.status.busy"],
+        ["stroll", "hooks", "opencode", "session.status.idle"],
       ]);
     },
   );
@@ -80,11 +80,11 @@ describe("OpenCode terminal agent hooks", () => {
 
     expect(plugin.id).toBe("paseo-terminal-activity");
     expect(commands).toEqual([
-      ["paseo", "hooks", "opencode", "session.status.busy"],
-      ["paseo", "hooks", "opencode", "permission.asked"],
-      ["paseo", "hooks", "opencode", "permission.replied"],
-      ["paseo", "hooks", "opencode", "session.status.retry"],
-      ["paseo", "hooks", "opencode", "session.status.idle"],
+      ["stroll", "hooks", "opencode", "session.status.busy"],
+      ["stroll", "hooks", "opencode", "permission.asked"],
+      ["stroll", "hooks", "opencode", "permission.replied"],
+      ["stroll", "hooks", "opencode", "session.status.retry"],
+      ["stroll", "hooks", "opencode", "session.status.idle"],
     ]);
   });
 
@@ -102,8 +102,8 @@ describe("OpenCode terminal agent hooks", () => {
     dispose();
 
     expect(commands).toEqual([
-      ["paseo", "hooks", "opencode", "permission.asked"],
-      ["paseo", "hooks", "opencode", "permission.replied"],
+      ["stroll", "hooks", "opencode", "permission.asked"],
+      ["stroll", "hooks", "opencode", "permission.replied"],
     ]);
   });
 
@@ -122,13 +122,13 @@ describe("OpenCode terminal agent hooks", () => {
       event: { type: "session.status", properties: { status: { type: "idle" } } },
     });
     await Promise.resolve();
-    expect(commands).toEqual([["paseo", "hooks", "opencode", "session.status.busy"]]);
+    expect(commands).toEqual([["stroll", "hooks", "opencode", "session.status.busy"]]);
 
     finishFirstHook();
     await Promise.all([working, idle]);
     expect(commands).toEqual([
-      ["paseo", "hooks", "opencode", "session.status.busy"],
-      ["paseo", "hooks", "opencode", "session.status.idle"],
+      ["stroll", "hooks", "opencode", "session.status.busy"],
+      ["stroll", "hooks", "opencode", "session.status.idle"],
     ]);
   });
 

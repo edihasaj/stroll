@@ -321,7 +321,7 @@ function AddHostModalContent({ visible, onClose, onCancel, onSaved }: AddHostMod
   const [isSaving, setIsSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [host, setHost] = useState("");
-  const [port, setPort] = useState("6767");
+  const [port, setPort] = useState("6867");
   const [useTls, setUseTls] = useState(false);
   const [password, setPassword] = useState("");
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
@@ -579,7 +579,7 @@ function AddHostModalContent({ visible, onClose, onCancel, onSaved }: AddHostMod
             initialValue={port}
             resetKey={`direct-port-${inputResetKey}`}
             onChangeText={setPort}
-            placeholder="6767"
+            placeholder="6867"
             placeholderTextColor={theme.colors.foregroundMuted}
             style={styles.input}
             autoCapitalize="none"
@@ -670,7 +670,7 @@ function AddHostModalContent({ visible, onClose, onCancel, onSaved }: AddHostMod
             initialValue={advancedUri}
             resetKey={`direct-host-uri-${inputResetKey}`}
             onChangeText={handleChangeAdvancedUri}
-            placeholder="tcp://localhost:6767?ssl=true"
+            placeholder="tcp://localhost:6867?ssl=true"
             placeholderTextColor={theme.colors.foregroundMuted}
             style={styles.input}
             autoCapitalize="none"

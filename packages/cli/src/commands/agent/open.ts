@@ -26,7 +26,7 @@ const openAgentSchema: OutputSchema<OpenAgentResult> = {
 
 export function addOpenOptions(command: Command): Command {
   return command
-    .description("Open an existing agent in Paseo Desktop")
+    .description("Open an existing agent in Stroll Desktop")
     .argument("<agent-id>", "Existing agent ID")
     .option("--server <server-id>", "Server ID (defaults to the local daemon)");
 }
@@ -64,7 +64,7 @@ async function resolveAgentTarget(
       const error: CommandError = {
         code: "AGENT_NOT_FOUND",
         message: `Agent not found: ${agentId}`,
-        details: 'Use "paseo ls" to list available agents',
+        details: 'Use "stroll ls" to list available agents',
       };
       throw error;
     }

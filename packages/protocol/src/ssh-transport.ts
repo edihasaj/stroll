@@ -1,4 +1,6 @@
-export const DEFAULT_SSH_DAEMON_PORT = 6767;
+// Stroll's daemon default, so an SSH target reaches Stroll rather than an upstream Paseo daemon
+// on the same machine (6767).
+export const DEFAULT_SSH_DAEMON_PORT = 6867;
 
 export interface SshTransportTarget {
   host: string;

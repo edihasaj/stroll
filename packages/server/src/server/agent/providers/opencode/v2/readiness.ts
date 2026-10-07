@@ -50,7 +50,7 @@ async function waitForPlugins(input: PluginReadinessInput): Promise<void> {
         const bridge = plugins.data.find((plugin) => plugin.id === "paseo");
         if (requireBridge && bridge?.state.status === "active") return;
         if (requireBridge && bridge?.state.status === "failed")
-          throw new Error(`OpenCode Paseo tool bridge plugin failed: ${bridge.state.error}`);
+          throw new Error(`OpenCode Stroll tool bridge plugin failed: ${bridge.state.error}`);
       } catch (error) {
         lifetime.throwIfAborted();
         if (!requestTimeout.aborted) throw error;

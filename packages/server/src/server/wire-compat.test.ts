@@ -625,7 +625,7 @@ test("setup progress is adapted per socket without changing the canonical snapsh
         ...message.payload,
         status: "failed",
         error:
-          "Workspace setup is blocked pending approval of code from a fork pull request. Update Paseo to review and run setup.",
+          "Workspace setup is blocked pending approval of code from a fork pull request. Update Stroll to review and run setup.",
       },
     },
   ]);
@@ -638,7 +638,7 @@ test("setup progress is adapted per socket without changing the canonical snapsh
       payload: {
         ...message.payload,
         status: "failed",
-        error: expect.stringContaining("Update Paseo"),
+        error: expect.stringContaining("Update Stroll"),
         subscriptionId: expect.any(String),
       },
     },

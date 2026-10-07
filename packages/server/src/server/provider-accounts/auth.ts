@@ -223,7 +223,7 @@ function createCodexLoginStarter(logger: Logger): ProviderLoginStarter {
       await client.request(
         "initialize",
         {
-          clientInfo: { name: "paseo", title: "Paseo", version: "0.5.1" },
+          clientInfo: { name: "stroll", title: "Stroll", version: "0.5.1" },
           capabilities: { experimentalApi: true, requestAttestation: false },
         },
         AUTH_REQUEST_TIMEOUT_MS,

@@ -38,7 +38,7 @@ extraResources:
 publish:
   provider: github
   owner: edihasaj
-  repo: paseo
+  repo: stroll
 mac:
   artifactName: "Stroll-${version}-${arch}.${ext}"
   minimumSystemVersion: "13.0.0"

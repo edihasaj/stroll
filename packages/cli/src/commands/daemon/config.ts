@@ -42,7 +42,7 @@ function homeOf(options: CommandOptions) {
 
 /** Applies a persisted config edit to a running daemon, or reports it saved-but-unapplied. */
 export async function applySaved(home: string, options: CommandOptions) {
-  const nextCommand = `paseo daemon start --home ${JSON.stringify(home)}`;
+  const nextCommand = `stroll daemon start --home ${JSON.stringify(home)}`;
   const instance = await readDaemonInstance(home);
   if (!instance?.listen)
     return result({
@@ -59,7 +59,7 @@ export async function applySaved(home: string, options: CommandOptions) {
       action: "saved",
       applied: false,
       message: "Saved; not applied to a running daemon",
-      nextCommand: `paseo daemon reload --home ${JSON.stringify(home)}`,
+      nextCommand: `stroll daemon reload --home ${JSON.stringify(home)}`,
     });
   }
   try {

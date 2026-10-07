@@ -16,9 +16,9 @@ if (process.platform !== "linux") {
 const daemon = await startTestDaemon();
 
 // runPaseoCli sets HOME to the daemon's home, where the CLI looks for
-// ~/Applications/Paseo.AppImage on Linux. The fake app records its launch.
+// ~/Applications/Stroll.AppImage on Linux. The fake app records its launch.
 const launchRecord = join(daemon.paseoHome, "desktop-launches.txt");
-const fakeDesktop = join(daemon.paseoHome, "Applications", "Paseo.AppImage");
+const fakeDesktop = join(daemon.paseoHome, "Applications", "Stroll.AppImage");
 await mkdir(join(daemon.paseoHome, "Applications"), { recursive: true });
 await writeFile(fakeDesktop, `#!/bin/sh\necho "$@" >> "${launchRecord}"\n`);
 await chmod(fakeDesktop, 0o755);

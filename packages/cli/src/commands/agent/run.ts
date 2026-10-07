@@ -355,7 +355,7 @@ function validateRunWorkspaceOptions(options: AgentRunOptions): void {
     throw {
       code: "INVALID_OPTIONS",
       message: "Worktree options require --new-workspace worktree",
-      details: "Usage: paseo run --new-workspace worktree [worktree options] <prompt>",
+      details: "Usage: stroll run --new-workspace worktree [worktree options] <prompt>",
     } satisfies CommandError;
   }
 
@@ -394,7 +394,7 @@ function validateRunOptions(prompt: string, options: AgentRunOptions, outputSche
     throw {
       code: "MISSING_PROMPT",
       message: "A prompt is required",
-      details: "Usage: paseo agent run [options] <prompt>",
+      details: "Usage: stroll agent run [options] <prompt>",
     } satisfies CommandError;
   }
 
@@ -644,7 +644,7 @@ export async function runRunCommand(
         code: "INVALID_THINKING_OPTION",
         message: "--thinking cannot be empty",
         details:
-          'Provide a thinking option ID. Use "paseo provider models <provider> --thinking" to list valid IDs.',
+          'Provide a thinking option ID. Use "stroll provider models <provider> --thinking" to list valid IDs.',
       };
       throw error;
     }

@@ -34,7 +34,7 @@ export async function connectScheduleClient(
     throw {
       code: "DAEMON_NOT_RUNNING",
       message: `Cannot connect to daemon at ${resolvedHost}: ${message}`,
-      details: "Start the daemon with: paseo daemon start",
+      details: "Start the daemon with: stroll daemon start",
     } satisfies CommandError;
   }
 }
@@ -128,7 +128,7 @@ function resolveScheduleTarget(args: {
     if (!currentAgentId) {
       throw {
         code: "INVALID_TARGET",
-        message: "--target self requires running inside a Paseo agent",
+        message: "--target self requires running inside a Stroll agent",
       } satisfies CommandError;
     }
     return { type: "self", agentId: currentAgentId };

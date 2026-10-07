@@ -3204,7 +3204,7 @@ export class AgentManager {
       }
       current.pendingReplacement = false;
       current.lifecycle = "error";
-      current.lastError = `Paseo stopped the unresponsive runtime but could not restore its session: ${message}`;
+      current.lastError = `Stroll stopped the unresponsive runtime but could not restore its session: ${message}`;
       current.attention = {
         requiresAttention: true,
         attentionReason: "error",

@@ -146,7 +146,7 @@ try {
       assert.notStrictEqual(result.exitCode, 0, "stop should fail for an unknown ID");
       const { error } = JSON.parse(result.stderr);
       assert.strictEqual(error.code, "AGENT_NOT_FOUND", result.stderr);
-      assert.match(error.details, /paseo ls/);
+      assert.match(error.details, /stroll ls/);
     } finally {
       await daemon.stop();
     }

@@ -94,7 +94,7 @@ async function queueMessage(
     const error: CommandError = {
       code: "AGENT_NOT_FOUND",
       message: `No agent found matching: ${agentIdArg}`,
-      details: "Use `paseo ls` to list available agents",
+      details: "Use `stroll ls` to list available agents",
     };
     throw error;
   }
@@ -187,7 +187,7 @@ async function resolvePromptInput(options: {
       code: "MISSING_PROMPT",
       message: "A prompt is required",
       details:
-        "Usage: paseo agent send [options] <id> [prompt] | --prompt <text> | --prompt-file <path>",
+        "Usage: stroll agent send [options] <id> [prompt] | --prompt <text> | --prompt-file <path>",
     };
     throw error;
   }
@@ -239,7 +239,7 @@ export async function runSendCommand(
     const error: CommandError = {
       code: "MISSING_AGENT_ID",
       message: "Agent ID is required",
-      details: "Usage: paseo agent send [options] <id> [prompt]",
+      details: "Usage: stroll agent send [options] <id> [prompt]",
     };
     throw error;
   }

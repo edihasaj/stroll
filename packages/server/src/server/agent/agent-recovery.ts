@@ -15,7 +15,7 @@ function isInterrupted(record: StoredAgentRecord): boolean {
 }
 
 function recoveryFailureMessage(reason: string): string {
-  return `Paseo could not resume this agent after the daemon restart: ${reason}`;
+  return `Stroll could not resume this agent after the daemon restart: ${reason}`;
 }
 
 async function recordRecoveryFailure(input: {

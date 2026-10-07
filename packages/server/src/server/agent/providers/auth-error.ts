@@ -59,7 +59,7 @@ export function buildProviderAuthRecoveryGuidance(options: {
   const steps =
     PROVIDER_LOGIN_STEPS[options.provider] ?? `re-run the ${label} login flow in a terminal`;
   return [
-    `${label} credentials are no longer valid. This is ${label}'s own authentication, not your Paseo, Git forge, or cloud CLI login.`,
+    `${label} credentials are no longer valid. This is ${label}'s own authentication, not your Stroll, Git forge, or cloud CLI login.`,
     `To recover, ${steps}, then send another message here — this agent restarts its ${label} process on the next turn, so it will pick up the refreshed credentials.`,
   ].join("\n\n");
 }

@@ -108,7 +108,7 @@ test("marks an unrecoverable interrupted agent as an attention error without ret
     requiresAttention: true,
     attentionReason: "error",
     lastError:
-      "Paseo could not resume this agent after the daemon restart: conversation no longer exists",
+      "Stroll could not resume this agent after the daemon restart: conversation no longer exists",
   });
 });
 
@@ -132,6 +132,6 @@ test("marks an interrupted agent without a persistence handle as unrecoverable",
     requiresAttention: true,
     attentionReason: "error",
     lastError:
-      "Paseo could not resume this agent after the daemon restart: the codex conversation is not resumable on this daemon",
+      "Stroll could not resume this agent after the daemon restart: the codex conversation is not resumable on this daemon",
   });
 });

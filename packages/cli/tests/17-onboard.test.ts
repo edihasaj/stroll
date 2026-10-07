@@ -27,7 +27,7 @@ try {
   ]);
   assert.strictEqual(configured.exitCode, 0, configured.stderr);
 
-  console.log("Test 1: `paseo` runs blocking onboarding without implicit relay pairing");
+  console.log("Test 1: `stroll` runs blocking onboarding without implicit relay pairing");
   const onboard = await $`PASEO_HOME=${paseoHome} PASEO_PAIRING_QR=0 npx stroll`.nothrow();
 
   assert.strictEqual(
@@ -45,13 +45,13 @@ try {
     onboard.stdout.includes("CLI quick reference"),
     "onboard output should include CLI quick reference",
   );
-  assert(onboard.stdout.includes("paseo --help"), "onboard output should include --help shortcut");
-  assert(onboard.stdout.includes("paseo ls"), "onboard output should include ls shortcut");
+  assert(onboard.stdout.includes("stroll --help"), "onboard output should include --help shortcut");
+  assert(onboard.stdout.includes("stroll ls"), "onboard output should include ls shortcut");
   assert(
-    onboard.stdout.includes(`paseo run --home ${JSON.stringify(paseoHome)} "your prompt"`),
+    onboard.stdout.includes(`stroll run --home ${JSON.stringify(paseoHome)} "your prompt"`),
     "onboard output should include a run shortcut for the selected home",
   );
-  assert(onboard.stdout.includes("paseo status"), "onboard output should include status shortcut");
+  assert(onboard.stdout.includes("stroll status"), "onboard output should include status shortcut");
   assert(
     onboard.stdout.includes(join(paseoHome, "daemon.log")),
     "onboard output should include daemon log path",

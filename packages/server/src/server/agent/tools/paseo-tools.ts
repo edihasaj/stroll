@@ -191,13 +191,32 @@ export interface PaseoToolHostDependencies {
   enableVoiceTools?: boolean;
   voiceOnly?: boolean;
   /** Dials other daemons this one is configured to spawn agents on (docs/peers.md). */
-  peerPool: Pick<PeerPool, "list" | "get" | "connect" | "test">;
+  peerPool?: Pick<PeerPool, "list" | "get" | "connect" | "test">;
   /** Tracks subagents created on a peer, so follow-up tool calls can find them (docs/peers.md). */
-  remoteSubagentRegistry: Pick<RemoteSubagentRegistry, "get" | "add">;
-  remoteSubagentWatches: Pick<RemoteSubagentWatchManager, "arm">;
+  remoteSubagentRegistry?: Pick<RemoteSubagentRegistry, "get" | "add">;
+  remoteSubagentWatches?: Pick<RemoteSubagentWatchManager, "arm">;
   /** This daemon's own server id, stamped on a remote child's parent-computer label. */
-  serverId: string;
+  serverId?: string;
   logger: Logger;
+}
+
+interface RemoteSubagentHostDeps {
+  peerPool: Pick<PeerPool, "list" | "get" | "connect" | "test">;
+  registry: Pick<RemoteSubagentRegistry, "get" | "add">;
+  watches: Pick<RemoteSubagentWatchManager, "arm">;
+  serverId: string;
+}
+
+/**
+ * The daemon bootstrap wires peers in; a catalog built without them (tests, other hosts) keeps
+ * every tool local and refuses `computer`.
+ */
+function resolveRemoteSubagentHostDeps(
+  options: PaseoToolHostDependencies,
+): RemoteSubagentHostDeps | null {
+  const { peerPool, remoteSubagentRegistry, remoteSubagentWatches, serverId } = options;
+  if (!peerPool || !remoteSubagentRegistry || !remoteSubagentWatches || !serverId) return null;
+  return { peerPool, registry: remoteSubagentRegistry, watches: remoteSubagentWatches, serverId };
 }
 
 /** Sniffs `create_agent`'s `computer` straight off the raw args, before the normal (local-only) resolver runs. */
@@ -900,7 +919,7 @@ export function createPaseoToolCatalog(options: PaseoToolHostDependencies): Pase
     ): Promise<PaseoToolResult> {
       const tool = tools.get(name);
       if (!tool) {
-        throw new Error(`Paseo tool not found: ${name}`);
+        throw new Error(`Stroll tool not found: ${name}`);
       }
       return tool.handler(await parseToolInput(tool, input), context);
     },
@@ -989,9 +1008,11 @@ export function createPaseoToolCatalog(options: PaseoToolHostDependencies): Pase
     }
   };
 
+  const remote = resolveRemoteSubagentHostDeps(options);
+
   /** Arms the finish watch for a remote child, bound to this catalog's agentManager/agentStorage. */
   const armRemoteSubagentWatch = (record: RemoteSubagentRecord): void => {
-    options.remoteSubagentWatches.arm(record, { agentManager, agentStorage });
+    remote?.watches.arm(record, { agentManager, agentStorage });
   };
 
   const resolveInheritedProviderConfig = (
@@ -1268,7 +1289,7 @@ export function createPaseoToolCatalog(options: PaseoToolHostDependencies): Pase
           .string()
           .min(1)
           .optional()
-          .describe("Optional worktree slug/path label. Omit to let Paseo generate one."),
+          .describe("Optional worktree slug/path label. Omit to let Stroll generate one."),
         branchName: z
           .string()
           .min(1)
@@ -1281,21 +1302,21 @@ export function createPaseoToolCatalog(options: PaseoToolHostDependencies): Pase
           .describe("Optional base branch. Defaults to the repository default branch."),
       })
       .strict()
-      .describe("Create a new branch in a new Paseo worktree."),
+      .describe("Create a new branch in a new Stroll worktree."),
     z
       .object({
         kind: z.literal("checkout-branch"),
         branch: z.string().min(1).describe("Existing branch to check out."),
       })
       .strict()
-      .describe("Check out an existing branch in a new Paseo worktree."),
+      .describe("Check out an existing branch in a new Stroll worktree."),
     z
       .object({
         kind: z.literal("checkout-pr"),
         githubPrNumber: z.number().int().positive().describe("GitHub pull request number."),
       })
       .strict()
-      .describe("Check out a GitHub pull request in a new Paseo worktree."),
+      .describe("Check out a GitHub pull request in a new Stroll worktree."),
   ]);
   const AgentWorkspaceInputSchema = z.discriminatedUnion("kind", [
     z
@@ -1608,7 +1629,7 @@ export function createPaseoToolCatalog(options: PaseoToolHostDependencies): Pase
     {
       title: "Create workspace",
       description:
-        "Create a workspace using an existing local checkout or a new Paseo-managed worktree.",
+        "Create a workspace using an existing local checkout or a new Stroll-managed worktree.",
       inputSchema: {
         isolation: z.enum(["local", "worktree"]),
         path: z
@@ -1820,12 +1841,17 @@ export function createPaseoToolCatalog(options: PaseoToolHostDependencies): Pase
     async (args: unknown) => {
       const computer = readComputerArg(args);
       if (computer !== undefined) {
+        if (!remote) {
+          throw new Error(
+            "create_agent `computer` needs peers, and this session has none (docs/peers.md).",
+          );
+        }
         const result = await createRemoteSubagent(
           {
-            peerPool: options.peerPool,
-            registry: options.remoteSubagentRegistry,
+            peerPool: remote.peerPool,
+            registry: remote.registry,
             armWatch: armRemoteSubagentWatch,
-            serverId: options.serverId,
+            serverId: remote.serverId,
             logger: childLogger,
           },
           {
@@ -2319,13 +2345,13 @@ export function createPaseoToolCatalog(options: PaseoToolHostDependencies): Pase
       background = Boolean(callerAgentId),
       notifyOnFinish = Boolean(callerAgentId),
     }) => {
-      const remoteRecord = await options.remoteSubagentRegistry.get(agentId);
-      if (remoteRecord) {
+      const remoteRecord = await remote?.registry.get(agentId);
+      if (remote && remoteRecord) {
         const result = await sendRemoteAgentPrompt(
           {
-            peerPool: options.peerPool,
+            peerPool: remote.peerPool,
             armWatch: armRemoteSubagentWatch,
-            saveRecord: (record) => options.remoteSubagentRegistry.add(record),
+            saveRecord: (record) => remote.registry.add(record),
             logger: childLogger,
           },
           remoteRecord,
@@ -2425,9 +2451,9 @@ export function createPaseoToolCatalog(options: PaseoToolHostDependencies): Pase
       },
     },
     async ({ agentId }) => {
-      const remoteRecord = await options.remoteSubagentRegistry.get(agentId);
-      if (remoteRecord) {
-        const result = await getRemoteAgentStatus({ peerPool: options.peerPool }, remoteRecord);
+      const remoteRecord = await remote?.registry.get(agentId);
+      if (remote && remoteRecord) {
+        const result = await getRemoteAgentStatus({ peerPool: remote.peerPool }, remoteRecord);
         return { content: [], structuredContent: ensureValidJson(result) };
       }
 
@@ -2538,9 +2564,9 @@ export function createPaseoToolCatalog(options: PaseoToolHostDependencies): Pase
       },
     },
     async ({ agentId }) => {
-      const remoteRecord = await options.remoteSubagentRegistry.get(agentId);
-      if (remoteRecord) {
-        const result = await cancelRemoteAgent({ peerPool: options.peerPool }, remoteRecord);
+      const remoteRecord = await remote?.registry.get(agentId);
+      if (remote && remoteRecord) {
+        const result = await cancelRemoteAgent({ peerPool: remote.peerPool }, remoteRecord);
         return { content: [], structuredContent: ensureValidJson(result) };
       }
 
@@ -2569,9 +2595,9 @@ export function createPaseoToolCatalog(options: PaseoToolHostDependencies): Pase
       },
     },
     async ({ agentId }) => {
-      const remoteRecord = await options.remoteSubagentRegistry.get(agentId);
-      if (remoteRecord) {
-        const result = await archiveRemoteAgent({ peerPool: options.peerPool }, remoteRecord);
+      const remoteRecord = await remote?.registry.get(agentId);
+      if (remote && remoteRecord) {
+        const result = await archiveRemoteAgent({ peerPool: remote.peerPool }, remoteRecord);
         return { content: [], structuredContent: ensureValidJson(result) };
       }
 
@@ -2742,7 +2768,7 @@ export function createPaseoToolCatalog(options: PaseoToolHostDependencies): Pase
     {
       title: "Start workspace script",
       description:
-        "Start one configured workspace script through Paseo's managed workspace-script launcher.",
+        "Start one configured workspace script through Stroll's managed workspace-script launcher.",
       inputSchema: {
         workspaceId: z.string().describe("Workspace ID containing the configured script."),
         scriptName: z.string().min(1).describe("Configured paseo.json script name to start."),
@@ -3471,12 +3497,14 @@ export function createPaseoToolCatalog(options: PaseoToolHostDependencies): Pase
       },
     },
     async ({ test = false }) => {
-      const result = await buildListComputersResult({
-        peerPool: options.peerPool,
-        serverId: options.serverId,
-        test,
-        logger: childLogger,
-      });
+      const result = remote
+        ? await buildListComputersResult({
+            peerPool: remote.peerPool,
+            serverId: remote.serverId,
+            test,
+            logger: childLogger,
+          })
+        : { thisComputer: { serverId: options.serverId ?? "", hostname: null }, peers: [] };
       return {
         content: [],
         structuredContent: ensureValidJson(result),
@@ -3676,10 +3704,10 @@ export function createPaseoToolCatalog(options: PaseoToolHostDependencies): Pase
       },
     },
     async ({ agentId, requestId, response }) => {
-      const remoteRecord = await options.remoteSubagentRegistry.get(agentId);
-      if (remoteRecord) {
+      const remoteRecord = await remote?.registry.get(agentId);
+      if (remote && remoteRecord) {
         const result = await respondToRemoteAgentPermission(
-          { peerPool: options.peerPool },
+          { peerPool: remote.peerPool },
           remoteRecord,
           requestId,
           response,
