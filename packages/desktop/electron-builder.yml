@@ -45,6 +45,8 @@ mac:
   category: public.app-category.developer-tools
   icon: assets/icon.icns
   hardenedRuntime: true
+  # Signs by certificate hash; see scripts/sign-mac.js.
+  sign: ./scripts/sign-mac.js
   notarize: true
   entitlements: build/entitlements.mac.plist
   entitlementsInherit: build/entitlements.mac.inherit.plist
