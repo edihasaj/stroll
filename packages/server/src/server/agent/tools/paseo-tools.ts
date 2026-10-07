@@ -121,6 +121,21 @@ import type {
 } from "./types.js";
 import type { ProviderPaseoToolsPolicy } from "@getpaseo/protocol/provider-config";
 import { isPaseoToolEnabled } from "../paseo-tool-policy.js";
+import type { PeerPool } from "../../peers/peer-pool.js";
+import type {
+  RemoteSubagentRecord,
+  RemoteSubagentRegistry,
+} from "../../peers/remote-subagent-registry.js";
+import type { RemoteSubagentWatchManager } from "../../peers/remote-subagent-watch.js";
+import { createRemoteSubagent } from "../../peers/remote-subagents.js";
+import {
+  archiveRemoteAgent,
+  cancelRemoteAgent,
+  getRemoteAgentStatus,
+  respondToRemoteAgentPermission,
+  sendRemoteAgentPrompt,
+} from "../../peers/remote-subagent-followups.js";
+import { buildListComputersResult } from "../../peers/list-computers.js";
 
 export interface PaseoToolHostDependencies {
   agentManager: AgentManager;
@@ -175,7 +190,23 @@ export interface PaseoToolHostDependencies {
   resolveCallerContext?: (callerAgentId: string) => VoiceCallerContext | null;
   enableVoiceTools?: boolean;
   voiceOnly?: boolean;
+  /** Dials other daemons this one is configured to spawn agents on (docs/peers.md). */
+  peerPool: Pick<PeerPool, "list" | "get" | "connect" | "test">;
+  /** Tracks subagents created on a peer, so follow-up tool calls can find them (docs/peers.md). */
+  remoteSubagentRegistry: Pick<RemoteSubagentRegistry, "get" | "add">;
+  remoteSubagentWatches: Pick<RemoteSubagentWatchManager, "arm">;
+  /** This daemon's own server id, stamped on a remote child's parent-computer label. */
+  serverId: string;
   logger: Logger;
+}
+
+/** Sniffs `create_agent`'s `computer` straight off the raw args, before the normal (local-only) resolver runs. */
+function readComputerArg(args: unknown): string | undefined {
+  if (!args || typeof args !== "object") {
+    return undefined;
+  }
+  const computer = (args as Record<string, unknown>).computer;
+  return typeof computer === "string" && computer.trim().length > 0 ? computer : undefined;
 }
 
 function parseTimestamp(value: string | null | undefined): number {
@@ -958,6 +989,11 @@ export function createPaseoToolCatalog(options: PaseoToolHostDependencies): Pase
     }
   };
 
+  /** Arms the finish watch for a remote child, bound to this catalog's agentManager/agentStorage. */
+  const armRemoteSubagentWatch = (record: RemoteSubagentRecord): void => {
+    options.remoteSubagentWatches.arm(record, { agentManager, agentStorage });
+  };
+
   const resolveInheritedProviderConfig = (
     selectedProvider: string,
   ): Pick<AgentSessionConfig, "providerOptions" | "accountProfileId"> | undefined => {
@@ -1336,6 +1372,20 @@ export function createPaseoToolCatalog(options: PaseoToolHostDependencies): Pase
       .trim()
       .min(1, "initialPrompt is required")
       .describe("Required first task to run immediately after creation."),
+    computer: z
+      .string()
+      .optional()
+      .describe(
+        "Peer id from list_computers. Runs the agent on that computer's daemon; omit to run it " +
+          "here. Not yet combinable with workspaceId or a worktree.",
+      ),
+    cwd: z
+      .string()
+      .optional()
+      .describe(
+        "Working directory on the target `computer`; ignored without `computer` (use workspaceId " +
+          "or workspace for local placement). Defaults to your own cwd.",
+      ),
   };
   const legacyCreateAgentPlacementFields = {
     relationship: AgentRelationshipInputSchema.describe(
@@ -1759,6 +1809,7 @@ export function createPaseoToolCatalog(options: PaseoToolHostDependencies): Pase
         status: AgentStatusEnum,
         cwd: z.string(),
         workspaceId: z.string().optional(),
+        computer: z.string().optional(),
         currentModeId: z.string().nullable(),
         availableModes: z.array(ProviderModeSchema),
         lastMessage: z.string().nullable().optional(),
@@ -1767,6 +1818,26 @@ export function createPaseoToolCatalog(options: PaseoToolHostDependencies): Pase
       },
     },
     async (args: unknown) => {
+      const computer = readComputerArg(args);
+      if (computer !== undefined) {
+        const result = await createRemoteSubagent(
+          {
+            peerPool: options.peerPool,
+            registry: options.remoteSubagentRegistry,
+            armWatch: armRemoteSubagentWatch,
+            serverId: options.serverId,
+            logger: childLogger,
+          },
+          {
+            callerAgentId,
+            callerRouteContext: resolveCallerRouteContext(),
+            callerCwd: resolveCallerAgent()?.cwd,
+          },
+          args,
+        );
+        return { content: [], structuredContent: ensureValidJson(result) };
+      }
+
       const resolvedArgs = await resolveCreateAgentToolArgs(args);
       const { parsedArgs, worktree } = resolvedArgs;
       let requestedBackground: boolean;
@@ -2248,6 +2319,21 @@ export function createPaseoToolCatalog(options: PaseoToolHostDependencies): Pase
       background = Boolean(callerAgentId),
       notifyOnFinish = Boolean(callerAgentId),
     }) => {
+      const remoteRecord = await options.remoteSubagentRegistry.get(agentId);
+      if (remoteRecord) {
+        const result = await sendRemoteAgentPrompt(
+          {
+            peerPool: options.peerPool,
+            armWatch: armRemoteSubagentWatch,
+            saveRecord: (record) => options.remoteSubagentRegistry.add(record),
+            logger: childLogger,
+          },
+          remoteRecord,
+          { prompt, sessionMode, background, notifyOnFinish },
+        );
+        return { content: [], structuredContent: ensureValidJson(result) };
+      }
+
       function armFinishNotification(): boolean {
         if (!callerAgentId || !notifyOnFinish) {
           return false;
@@ -2339,6 +2425,12 @@ export function createPaseoToolCatalog(options: PaseoToolHostDependencies): Pase
       },
     },
     async ({ agentId }) => {
+      const remoteRecord = await options.remoteSubagentRegistry.get(agentId);
+      if (remoteRecord) {
+        const result = await getRemoteAgentStatus({ peerPool: options.peerPool }, remoteRecord);
+        return { content: [], structuredContent: ensureValidJson(result) };
+      }
+
       const snapshot = agentManager.getAgent(agentId);
       if (snapshot) {
         const structuredSnapshot = await serializeSnapshotWithMetadata(
@@ -2446,6 +2538,12 @@ export function createPaseoToolCatalog(options: PaseoToolHostDependencies): Pase
       },
     },
     async ({ agentId }) => {
+      const remoteRecord = await options.remoteSubagentRegistry.get(agentId);
+      if (remoteRecord) {
+        const result = await cancelRemoteAgent({ peerPool: options.peerPool }, remoteRecord);
+        return { content: [], structuredContent: ensureValidJson(result) };
+      }
+
       const { cancelled } = await cancelAgentRunCommand(
         { agentManager, logger: childLogger },
         agentId,
@@ -2471,6 +2569,12 @@ export function createPaseoToolCatalog(options: PaseoToolHostDependencies): Pase
       },
     },
     async ({ agentId }) => {
+      const remoteRecord = await options.remoteSubagentRegistry.get(agentId);
+      if (remoteRecord) {
+        const result = await archiveRemoteAgent({ peerPool: options.peerPool }, remoteRecord);
+        return { content: [], structuredContent: ensureValidJson(result) };
+      }
+
       await archiveAgentCommand(
         {
           agentManager,
@@ -3331,6 +3435,56 @@ export function createPaseoToolCatalog(options: PaseoToolHostDependencies): Pase
   );
 
   registerTool(
+    "list_computers",
+    {
+      title: "List computers",
+      description:
+        "List this computer and every computer it peers with (docs/peers.md). Pass a peer's `id` " +
+        "as create_agent's `computer` to run a subagent there. Pass `test: true` to also dial each " +
+        "peer and report whether it is reachable right now.",
+      inputSchema: {
+        test: z
+          .boolean()
+          .optional()
+          .default(false)
+          .describe("Dial each peer and report reachability."),
+      },
+      outputSchema: {
+        thisComputer: z.object({
+          serverId: z.string(),
+          hostname: z.string().nullable(),
+        }),
+        peers: z.array(
+          z.object({
+            id: z.string(),
+            name: z.string(),
+            privacy: AgentRoutePrivacySchema,
+            test: z
+              .object({
+                reachable: z.boolean(),
+                latencyMs: z.number().optional(),
+                error: z.string().optional(),
+              })
+              .optional(),
+          }),
+        ),
+      },
+    },
+    async ({ test = false }) => {
+      const result = await buildListComputersResult({
+        peerPool: options.peerPool,
+        serverId: options.serverId,
+        test,
+        logger: childLogger,
+      });
+      return {
+        content: [],
+        structuredContent: ensureValidJson(result),
+      };
+    },
+  );
+
+  registerTool(
     "inspect_provider",
     {
       title: "Inspect provider",
@@ -3522,6 +3676,17 @@ export function createPaseoToolCatalog(options: PaseoToolHostDependencies): Pase
       },
     },
     async ({ agentId, requestId, response }) => {
+      const remoteRecord = await options.remoteSubagentRegistry.get(agentId);
+      if (remoteRecord) {
+        const result = await respondToRemoteAgentPermission(
+          { peerPool: options.peerPool },
+          remoteRecord,
+          requestId,
+          response,
+        );
+        return { content: [], structuredContent: ensureValidJson(result) };
+      }
+
       await respondToAgentPermission({
         agentManager,
         agentId,

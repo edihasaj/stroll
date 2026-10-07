@@ -437,20 +437,23 @@ export interface SetupFinishNotificationParams {
   logger: Logger;
 }
 
-type FinishNotificationReason = "finished" | "errored" | "needs permission" | "was closed";
+export type FinishNotificationReason = "finished" | "errored" | "needs permission" | "was closed";
 
 const FINISH_NOTIFICATION_MESSAGE_LIMIT = 4000;
 
-interface FinishNotificationBodyInput {
+export interface FinishNotificationBodyInput {
   childAgentId: string;
   title: string;
   reason: FinishNotificationReason;
   lastAssistantMessage: string | null;
   permissionRequest?: AgentPermissionRequest;
+  /** Peer name, when the child runs on another computer (docs/peers.md). */
+  computerName?: string;
 }
 
-function formatFinishNotificationBody(params: FinishNotificationBodyInput): string {
-  const statusLine = `Agent ${params.childAgentId} (${params.title}) ${params.reason}.`;
+export function formatFinishNotificationBody(params: FinishNotificationBodyInput): string {
+  const location = params.computerName ? ` on ${params.computerName}` : "";
+  const statusLine = `Agent ${params.childAgentId} (${params.title})${location} ${params.reason}.`;
   const sections = [statusLine];
   if (params.reason === "needs permission" && params.permissionRequest) {
     sections.push(

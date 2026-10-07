@@ -1,7 +1,8 @@
 # Proposal: subagents on any of your computers
 
-Status: step 1 (peers: config, connection pool, `paseo peer` commands) built — see
-[peers.md](../peers.md). Builds on [agent-routing.md](agent-routing.md) and
+Status: step 1 (peers: config, connection pool, `paseo peer` commands) and step 2 (`create_agent`
+`computer`, `list_computers`, the remote-child watch and notifications, follow-up tool routing)
+built — see [peers.md](../peers.md). Builds on [agent-routing.md](agent-routing.md) and
 [agent-routes.md](../agent-routes.md).
 
 The app can already start a chat on any computer it is connected to: the new-chat tray picks a
@@ -39,15 +40,15 @@ Every computer that runs agents runs a Stroll daemon. A daemon that should spawn
 
 `create_agent` gains `computer`, a peer id. Omitted, the agent runs locally as today.
 
-1. The daemon dials the peer and checks it the way preflight checks a route entry.
-2. It resolves the workspace on the peer: the same absolute path when it exists there, or a new
-   worktree of the same repository when the call asks for one. Otherwise the call fails and names
-   the missing path.
-3. It creates the agent on the peer with the same `route`, `provider`, and `settings` arguments. The
+1. The daemon dials the peer and checks the cwd exists there: the same absolute path, resolved
+   against the caller's own cwd when it's relative. A worktree, or an existing `workspaceId`, is
+   refused for now — see [peers.md](../peers.md) for the exact error.
+2. It creates the agent on the peer with the same `route`, `provider`, and `settings` arguments. The
    peer resolves routes and profiles from its own config, because each computer knows which models
    it can reach.
-4. The child gets two labels, `stroll.parent.computer` (the calling daemon's server id) and
-   `paseo.parent-agent-id`, so every client can place it under its parent.
+3. The child gets two labels, `stroll.parent.computer` (the calling daemon's server id) and
+   `stroll.parent.agent` (the calling agent's id) — not `paseo.parent-agent-id`, which would make
+   the peer treat the child as the child of an agent it has no record of.
 
 The calling daemon keeps a small record of the remote child (peer id and agent id) and watches its
 status on the peer. When the child finishes, fails, or asks for permission, the parent gets the same

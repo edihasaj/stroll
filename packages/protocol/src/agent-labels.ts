@@ -1,6 +1,15 @@
 export const PARENT_AGENT_ID_LABEL = "paseo.parent-agent-id";
 const OPEN_AGENT_TAB_LABEL_PREFIX = "paseo.open-agent-tab.";
 
+/**
+ * Stamped on a subagent created on another computer's daemon (docs/peers.md). The child's own
+ * daemon has no record of the parent agent, so these carry the parent's *server* id and agent id
+ * separately instead of reusing {@link PARENT_AGENT_ID_LABEL} — that label means "this id is a
+ * local agent on this same daemon," which would be wrong for a cross-host parent.
+ */
+export const PARENT_COMPUTER_LABEL = "stroll.parent.computer";
+export const PARENT_COMPUTER_AGENT_LABEL = "stroll.parent.agent";
+
 export function getOpenAgentTabLabel(clientId: string): string {
   return `${OPEN_AGENT_TAB_LABEL_PREFIX}${clientId}`;
 }

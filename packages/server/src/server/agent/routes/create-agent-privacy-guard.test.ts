@@ -57,4 +57,33 @@ describe("checkCreateAgentPrivacyGuard", () => {
       ),
     ).toBeNull();
   });
+
+  it("allows a cloud-routed caller to target a cloud peer", () => {
+    expect(
+      checkCreateAgentPrivacyGuard(
+        { routeId: "planner", privacy: "cloud" },
+        { kind: "peer", peerId: "spark-a", peerName: "Spark A", privacy: "cloud" },
+      ),
+    ).toBeNull();
+  });
+
+  it("allows a local-routed caller to target a local peer", () => {
+    expect(
+      checkCreateAgentPrivacyGuard(
+        { routeId: "worker", privacy: "local" },
+        { kind: "peer", peerId: "studio", peerName: "Mac Studio", privacy: "local" },
+      ),
+    ).toBeNull();
+  });
+
+  it("rejects a non-local peer from a local-routed caller, naming the peer", () => {
+    const message = checkCreateAgentPrivacyGuard(
+      { routeId: "worker", privacy: "local" },
+      { kind: "peer", peerId: "spark-a", peerName: "Spark A", privacy: "cloud" },
+    );
+    expect(message).toBe(
+      "This agent runs on the local route `worker`, so its subagents must run on a local route " +
+        'too. Computer "Spark A" (spark-a) is not local — pass a local computer (see list_computers).',
+    );
+  });
 });

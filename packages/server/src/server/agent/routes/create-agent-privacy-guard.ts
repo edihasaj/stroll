@@ -9,12 +9,14 @@ export interface CreateAgentPrivacyGuardCaller {
 /** What `create_agent` resolved to run the new agent on (see `CreateAgentProviderResolution`). */
 export type CreateAgentPrivacyGuardTarget =
   | { kind: "provider" }
-  | { kind: "route"; routeId: string; privacy: AgentRoutePrivacy };
+  | { kind: "route"; routeId: string; privacy: AgentRoutePrivacy }
+  | { kind: "peer"; peerId: string; peerName: string; privacy: AgentRoutePrivacy };
 
 /**
  * A thread on a local route must stay local, so its subagents must too (docs/agent-routes.md): an
- * agent routed on a local route can only spawn subagents on another local route. Returns the
- * rejection message, or null when the call is allowed.
+ * agent routed on a local route can only spawn subagents on another local route. The same rule
+ * extends to peers (docs/peers.md): a local-routed agent can only spawn on a peer marked
+ * `privacy: "local"`. Returns the rejection message, or null when the call is allowed.
  */
 export function checkCreateAgentPrivacyGuard(
   caller: CreateAgentPrivacyGuardCaller | null,
@@ -28,6 +30,15 @@ export function checkCreateAgentPrivacyGuard(
     "local route too.";
   if (target.kind === "provider") {
     return `${base} Pass \`route\` with a local route (see list_profiles).`;
+  }
+  if (target.kind === "peer") {
+    if (target.privacy === "local") {
+      return null;
+    }
+    return (
+      `${base} Computer "${target.peerName}" (${target.peerId}) is not local — ` +
+      "pass a local computer (see list_computers)."
+    );
   }
   if (target.privacy === "local") {
     return null;

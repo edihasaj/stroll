@@ -190,6 +190,8 @@ import type {
   TerminalProfile,
 } from "@getpaseo/protocol/messages";
 import { PeerPool } from "./peers/peer-pool.js";
+import { RemoteSubagentRegistry } from "./peers/remote-subagent-registry.js";
+import { RemoteSubagentWatchManager } from "./peers/remote-subagent-watch.js";
 import type {
   AgentProviderRuntimeSettingsMap,
   ProviderOverride,
@@ -677,14 +679,24 @@ export async function createPaseoDaemon(
   const serverId = getOrCreateServerId(config.paseoHome, { logger });
   const daemonKeyPair = await loadOrCreateDaemonKeyPair(config.paseoHome, logger);
   // Peers step 1 (docs/peers.md): dials other daemons this one is configured to spawn agents on.
-  // Nothing wires it into agent creation yet — that lands with the `create_agent` `computer`
-  // argument in step 2 of docs/proposals/cross-host-subagents.md.
+  // Step 2 (docs/proposals/cross-host-subagents.md) wires it into the `create_agent` `computer`
+  // argument and the two records below, via `createAgentToolHostDependencies` further down.
   const peerPool = new PeerPool({
     getPeers: () => daemonConfigStore.get().peers ?? [],
     clientId: `peer:${serverId}`,
     appVersion: daemonVersion,
     logger,
   });
+  // Tracks subagents this daemon created on a peer, and watches each one until it finishes so the
+  // creating agent gets the same notification a local subagent would.
+  const remoteSubagentRegistry = new RemoteSubagentRegistry(
+    path.join(config.paseoHome, "remote-subagents.json"),
+  );
+  const remoteSubagentWatches = new RemoteSubagentWatchManager(
+    peerPool,
+    remoteSubagentRegistry,
+    logger,
+  );
   const managedProcesses = createBootstrapManagedProcessRegistry(config, logger);
   // Reconcile the helper-process ledger in the background so it never blocks the
   // daemon from coming up; terminating a live leftover can take a few seconds.
@@ -1547,6 +1559,10 @@ export async function createPaseoDaemon(
     resolveSpeakHandler: (agentId) => wsServer?.resolveVoiceSpeakHandler(agentId) ?? null,
     resolveCallerContext: (agentId) => wsServer?.resolveVoiceCallerContext(agentId) ?? null,
     agentRouteCreation: agentRoutingWiring.routeService,
+    peerPool,
+    remoteSubagentRegistry,
+    remoteSubagentWatches,
+    serverId,
     logger,
   });
   const createAgentToolCatalog = (runtime: PaseoToolRuntimeContext) =>
@@ -1853,6 +1869,11 @@ export async function createPaseoDaemon(
               agentStorage,
               logger,
             });
+            // Re-arm the finish watch for every remote subagent still unfinished across a restart
+            // (docs/peers.md); best-effort, so a bad record can't block the daemon from starting.
+            await remoteSubagentWatches.rearmAll({ agentManager, agentStorage }).catch((error) => {
+              logger.warn({ err: error }, "Failed to re-arm remote subagent watches");
+            });
             pluginRuntime.bindPaseoSessionHost(wsServer);
             await pluginRuntime.start();
             providerSnapshotManager.settlePluginProviders();
@@ -1927,6 +1948,8 @@ export async function createPaseoDaemon(
     scriptHealthMonitor.stop();
     // Stop delivering queued prompts before agents close, so shutdown never starts a turn.
     stopAgentQueueDrain();
+    // Stop watching remote subagents before agents close, so shutdown can't steer a closing parent.
+    remoteSubagentWatches.stopAll();
     // Freeze both ingress and registration before taking the agent closure snapshot.
     wsServer?.prepareForShutdown();
     agentManager.prepareForShutdown();
