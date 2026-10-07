@@ -260,7 +260,11 @@ export function CombinedModelSelector({
               />
             </View>
           ) : null}
-          <Text style={styles.triggerText} numberOfLines={1} ellipsizeMode="tail">
+          <Text
+            style={toolbar ? styles.toolbarTriggerText : styles.triggerText}
+            numberOfLines={1}
+            ellipsizeMode="tail"
+          >
             {browser.triggerLabel}
           </Text>
         </ComboboxTrigger>
@@ -326,6 +330,15 @@ const styles = StyleSheet.create((theme) => ({
     flexShrink: 1,
     color: theme.colors.foregroundMuted,
     fontSize: theme.fontSize.base,
+    fontWeight: theme.fontWeight.normal,
+  },
+  // In the composer toolbar the model reads at the same size as the mode and effort triggers
+  // beside it (`AgentControlTrigger`'s `toolbarValue`, docs/design.md §16).
+  toolbarTriggerText: {
+    minWidth: 0,
+    flexShrink: 1,
+    color: theme.colors.foregroundMuted,
+    fontSize: theme.fontSize.sm,
     fontWeight: theme.fontWeight.normal,
   },
   customTriggerWrapper: {

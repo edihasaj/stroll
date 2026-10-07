@@ -74,16 +74,28 @@ function ContextStripEntry({ item }: { item: ContextStripItem }): ReactElement {
  * read-only labels otherwise — see docs/design.md §16. */
 export function ChatContextStrip({ items, testID }: ChatContextStripProps): ReactElement {
   return (
-    <View style={styles.strip} testID={testID}>
-      {items.map((item) => (
-        <ContextStripEntry key={item.key} item={item} />
-      ))}
+    <View style={styles.frame}>
+      <View style={styles.strip} testID={testID}>
+        {items.map((item) => (
+          <ContextStripEntry key={item.key} item={item} />
+        ))}
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create((theme) => ({
+  // The composer card's own horizontal geometry (`inputAreaContainer` and `inputAreaContent` in
+  // composer/index.tsx): inset `spacing[4]`, capped at the content width, centred. A strip any wider
+  // than the card shows its square bottom corners beside the card's overlapping top edge.
+  frame: {
+    width: "100%",
+    alignItems: "center",
+    paddingHorizontal: theme.spacing[4],
+  },
   strip: {
+    width: "100%",
+    maxWidth: theme.contentMaxWidth,
     backgroundColor: theme.colors.surfaceComposerStrip,
     borderTopLeftRadius: theme.borderRadius["2xl"],
     borderTopRightRadius: theme.borderRadius["2xl"],
