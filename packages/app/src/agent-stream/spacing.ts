@@ -34,7 +34,10 @@ export function getAssistantBlockSpacing(params: {
 
 const isUserMessageItem = (item?: StreamItem | null) => item?.kind === "user_message";
 const isToolSequenceItem = (item?: StreamItem | null) =>
-  item?.kind === "tool_call" || item?.kind === "thought" || item?.kind === "todo_list";
+  item?.kind === "tool_call" ||
+  item?.kind === "thought" ||
+  item?.kind === "todo_list" ||
+  item?.kind === "turn_fold";
 
 export function getGapBetweenStreamItems(
   item: StreamItem | null,

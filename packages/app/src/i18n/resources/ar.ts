@@ -250,6 +250,13 @@ export const ar: TranslationResources = {
     turnFooter: {
       working: "Working...",
     },
+    turnFold: {
+      workedFor: "عمل لمدة {{duration}}",
+      steps_one: "{{count}} خطوة",
+      steps_other: "{{count}} خطوات",
+      show: "إظهار العمل",
+      hide: "إخفاء العمل",
+    },
     permission: {
       rejectedPlan: "خطة مرفوضة",
       approvedPlan: "خطة معتمدة",

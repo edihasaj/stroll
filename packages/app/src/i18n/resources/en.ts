@@ -246,6 +246,13 @@ export const en = {
     turnFooter: {
       working: "Working...",
     },
+    turnFold: {
+      workedFor: "Worked for {{duration}}",
+      steps_one: "{{count}} step",
+      steps_other: "{{count}} steps",
+      show: "Show work",
+      hide: "Hide work",
+    },
     permission: {
       rejectedPlan: "Rejected plan",
       approvedPlan: "Approved plan",

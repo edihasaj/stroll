@@ -252,6 +252,13 @@ export const ja: TranslationResources = {
     turnFooter: {
       working: "Working...",
     },
+    turnFold: {
+      workedFor: "{{duration}} 作業しました",
+      steps_one: "{{count}} ステップ",
+      steps_other: "{{count}} ステップ",
+      show: "作業を表示",
+      hide: "作業を隠す",
+    },
     permission: {
       rejectedPlan: "却下されたプラン",
       approvedPlan: "承認されたプラン",

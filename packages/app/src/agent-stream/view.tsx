@@ -112,6 +112,8 @@ import type { Theme } from "@/styles/theme";
 import { recordRenderProfileReasons } from "@/utils/render-profiler";
 import { useRetainedPanelActive } from "@/components/retained-panel";
 import { useStreamHistoryWindow } from "./use-stream-history-window";
+import { createTurnFolder } from "./turn-fold";
+import { TurnFoldRow } from "./turn-fold-row";
 import { PluginTimelineItemView, useInstalledTimelineTransform } from "@/plugins/timeline";
 
 function renderLiveAuxiliaryNode(input: {
@@ -407,6 +409,9 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
     const [expandedInlineToolCallIds, setExpandedInlineToolCallIds] = useState<Set<string>>(
       new Set(),
     );
+    const [expandedTurnFoldIds, setExpandedTurnFoldIds] = useState<ReadonlySet<string>>(
+      () => new Set(),
+    );
     const [expandedToolCallGroupIds, setExpandedToolCallGroupIds] = useState<Set<string>>(
       new Set(),
     );
@@ -590,6 +595,28 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
         isTurnActive,
       ],
     );
+    // Codex-style finished turns: the work folds behind "Worked for …" above the final answer.
+    // The Detailed tool-call level keeps every row visible.
+    const foldTurns = useMemo(() => createTurnFolder(), []);
+    const foldedStream = useMemo(
+      () =>
+        toolCallDetailLevel === "detailed"
+          ? { tail: presentation.tail, head: presentation.head }
+          : foldTurns({
+              tail: presentation.tail,
+              head: presentation.head,
+              isTurnActive,
+              expandedFoldIds: expandedTurnFoldIds,
+            }),
+      [
+        expandedTurnFoldIds,
+        foldTurns,
+        isTurnActive,
+        presentation.head,
+        presentation.tail,
+        toolCallDetailLevel,
+      ],
+    );
     const {
       start: historyWindowStart,
       hasLocalHistory,
@@ -597,7 +624,7 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
       loadOlder,
     } = useStreamHistoryWindow({
       agentId,
-      items: presentation.tail,
+      items: foldedStream.tail,
       loadRemoteOlder,
     });
     const isLoadingOlder = remoteIsLoadingOlder;
@@ -608,8 +635,8 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
       return buildAgentStreamRenderModel({
         isTurnActive,
         activeTurnStartedAt: effectiveTurnPresentation.startedAt,
-        tail: presentation.tail,
-        head: presentation.head,
+        tail: foldedStream.tail,
+        head: foldedStream.head,
         platform: isWeb ? "web" : "native",
         isMobileBreakpoint: isMobile,
         historyStart: historyWindowStart,
@@ -617,8 +644,8 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
     }, [
       isMobile,
       isTurnActive,
-      presentation.head,
-      presentation.tail,
+      foldedStream.head,
+      foldedStream.tail,
       effectiveTurnPresentation.startedAt,
       historyWindowStart,
     ]);
@@ -725,6 +752,18 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
       },
       [streamRenderStrategy],
     );
+
+    const setTurnFoldExpanded = useCallback((foldId: string, expanded: boolean) => {
+      setExpandedTurnFoldIds((previous) => {
+        const next = new Set(previous);
+        if (expanded) {
+          next.add(foldId);
+        } else {
+          next.delete(foldId);
+        }
+        return next;
+      });
+    }, []);
 
     const setToolCallGroupExpanded = useCallback((groupId: string, expanded: boolean) => {
       setExpandedToolCallGroupIds((previous) => {
@@ -995,6 +1034,9 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
               <PluginTimelineItemView agentId={agentId} item={item} serverId={resolvedServerId} />
             );
 
+          case "turn_fold":
+            return <TurnFoldRow item={item} onExpandedChange={setTurnFoldExpanded} />;
+
           default:
             return null;
         }
@@ -1006,6 +1048,7 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
         renderThoughtItem,
         renderToolCallItem,
         resolvedServerId,
+        setTurnFoldExpanded,
       ],
     );
 

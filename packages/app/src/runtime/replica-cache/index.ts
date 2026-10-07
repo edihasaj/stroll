@@ -504,6 +504,9 @@ function serializeTimelineItem(item: StreamItem): StoredTimelineItem | null {
         version: item.version,
         data: item.data,
       };
+    case "turn_fold":
+      // Display-only: folds are rebuilt from the cached rows they stand for.
+      return null;
   }
 }
 

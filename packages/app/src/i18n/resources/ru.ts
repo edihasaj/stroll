@@ -252,6 +252,13 @@ export const ru: TranslationResources = {
     turnFooter: {
       working: "Working...",
     },
+    turnFold: {
+      workedFor: "Работа заняла {{duration}}",
+      steps_one: "{{count}} шаг",
+      steps_other: "Шагов: {{count}}",
+      show: "Показать работу",
+      hide: "Скрыть работу",
+    },
     permission: {
       rejectedPlan: "Отклонённый план",
       approvedPlan: "Одобренный план",

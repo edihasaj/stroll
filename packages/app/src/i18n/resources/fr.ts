@@ -254,6 +254,13 @@ export const fr: TranslationResources = {
     turnFooter: {
       working: "Working...",
     },
+    turnFold: {
+      workedFor: "A travaillé {{duration}}",
+      steps_one: "{{count}} étape",
+      steps_other: "{{count}} étapes",
+      show: "Afficher le travail",
+      hide: "Masquer le travail",
+    },
     permission: {
       rejectedPlan: "Plan refusé",
       approvedPlan: "Plan approuvé",

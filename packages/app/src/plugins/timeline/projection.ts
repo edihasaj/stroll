@@ -75,6 +75,7 @@ function sourceTimelineItem(item: StreamItem): AgentTimelineItem | null {
         ...(item.preTokens !== undefined ? { preTokens: item.preTokens } : {}),
       };
     case "plugin":
+    case "turn_fold":
       return null;
   }
 }

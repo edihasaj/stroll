@@ -250,6 +250,13 @@ export const zhCN: TranslationResources = {
     turnFooter: {
       working: "Working...",
     },
+    turnFold: {
+      workedFor: "工作了 {{duration}}",
+      steps_one: "{{count}} 个步骤",
+      steps_other: "{{count}} 个步骤",
+      show: "显示工作过程",
+      hide: "隐藏工作过程",
+    },
     permission: {
       rejectedPlan: "已拒绝的计划",
       approvedPlan: "已批准的计划",

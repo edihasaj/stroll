@@ -250,6 +250,13 @@ export const ko: TranslationResources = {
     turnFooter: {
       working: "Working...",
     },
+    turnFold: {
+      workedFor: "{{duration}} 동안 작업함",
+      steps_one: "{{count}}단계",
+      steps_other: "{{count}}단계",
+      show: "작업 보기",
+      hide: "작업 숨기기",
+    },
     permission: {
       rejectedPlan: "거부된 계획",
       approvedPlan: "승인된 계획",

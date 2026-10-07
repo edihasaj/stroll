@@ -85,7 +85,27 @@ export type StreamItem =
   | TodoListItem
   | NotificationItem
   | CompactionItem
-  | PluginTimelineStreamItem;
+  | PluginTimelineStreamItem
+  | TurnFoldItem;
+
+/**
+ * Display-only row that stands in for a finished turn's work: the tool calls, thoughts, and
+ * in-between messages before the final answer ("Worked for 1m 50s"). Built by
+ * `agent-stream/turn-fold.ts` after presentation; it never reaches the cache or the daemon.
+ */
+export interface TurnFoldItem {
+  kind: "turn_fold";
+  id: string;
+  turnId?: string;
+  /** Always absent: a fold row has no timeline position of its own. */
+  timelineCursor?: TimelinePosition;
+  timestamp: Date;
+  /** User message to final answer, when the turn starts with a user message. */
+  durationMs: number | null;
+  /** Rows folded into this one. */
+  foldedCount: number;
+  expanded: boolean;
+}
 
 export type UserMessageImageAttachment = AttachmentMetadata;
 

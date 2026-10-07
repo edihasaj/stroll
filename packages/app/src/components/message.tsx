@@ -737,6 +737,9 @@ export const UserMessage = memo(function UserMessage({
   );
 });
 
+/** Copy and fork stay visible under an answer; hovering brings them to full strength. */
+const IDLE_ACTIONS_OPACITY = 0.55;
+
 interface AssistantTurnFooterProps {
   getContent: () => string;
   completedAt?: Date;
@@ -813,29 +816,31 @@ export const AssistantTurnFooter = memo(function AssistantTurnFooter({
     };
   }, []);
 
+  const { t } = useTranslation();
   const durationLabel = useMemo(
     () =>
       durationMs !== undefined && durationMs !== null
-        ? `Worked for ${formatDuration(durationMs)}`
+        ? t("agentStream.turnFold.workedFor", { duration: formatDuration(durationMs) })
         : "",
-    [durationMs],
+    [durationMs, t],
   );
   const timestampLabel = useMemo(
     () => (completedAt ? formatMessageTimestamp(completedAt) : ""),
     [completedAt],
   );
 
-  const primaryLabel = durationLabel || timestampLabel;
+  // The time the turn ended leads; the duration is one hover away. A finished turn's work already
+  // reads "Worked for …" on the fold row above its answer (agent-stream/turn-fold-row.tsx).
+  const primaryLabel = timestampLabel || durationLabel;
   const canSwap = Boolean(durationLabel && timestampLabel);
-  const showTimestamp = canSwap && (isWeb ? isHovered : pressedReveal);
+  const showDuration = canSwap && (isWeb ? isHovered : pressedReveal);
 
-  // MS1: copy / fork / timestamp are hover-revealed on web, always visible on native/touch —
-  // docs/hover.md's canonical `isHovered || isNative` (no separate compact case here: this row
-  // only ever renders on desktop web or native, never a touch-web layout).
+  // Codex keeps copy and fork in view under an answer, so they are always shown here, quieter
+  // until the row is hovered (docs/hover.md's `isHovered || isNative` sets full strength).
   const showActions = isHovered || isNative;
-  const actionsOpacity = useSharedValue(showActions ? 1 : 0);
+  const actionsOpacity = useSharedValue(showActions ? 1 : IDLE_ACTIONS_OPACITY);
   useEffect(() => {
-    const target = showActions ? 1 : 0;
+    const target = showActions ? 1 : IDLE_ACTIONS_OPACITY;
     actionsOpacity.value = reducedMotion
       ? target
       : withTiming(target, { duration: MOTION_DURATION.fast, easing: MOTION_EASING.standard });
@@ -873,7 +878,7 @@ export const AssistantTurnFooter = memo(function AssistantTurnFooter({
       onPointerEnter={handlePointerEnter}
       onPointerLeave={handlePointerLeave}
     >
-      <Animated.View style={actionsRowStyle} pointerEvents={showActions ? "auto" : "none"}>
+      <Animated.View style={actionsRowStyle}>
         <TurnCopyButton
           getContent={getContent}
           containerStyle={assistantTurnFooterStylesheet.copyButton}
@@ -891,10 +896,10 @@ export const AssistantTurnFooter = memo(function AssistantTurnFooter({
               {/* Sizer reserves space for whichever label is longer so the
                   container width is stable across hover transitions. */}
               <Text style={assistantTurnFooterStylesheet.labelSizer} aria-hidden>
-                {primaryLabel.length >= timestampLabel.length ? primaryLabel : timestampLabel}
+                {primaryLabel.length >= durationLabel.length ? primaryLabel : durationLabel}
               </Text>
               <Text style={assistantTurnFooterStylesheet.labelOverlay}>
-                {showTimestamp ? timestampLabel : primaryLabel}
+                {showDuration ? durationLabel : primaryLabel}
               </Text>
             </View>
           </Pressable>
