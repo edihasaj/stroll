@@ -100,8 +100,10 @@ buildNpmPackage {
     # App workspace deps not covered by build:server
     npm run build --workspace=@getpaseo/expo-two-way-audio
 
-    # Expo web export for the Electron renderer
-    ( cd packages/app && PASEO_WEB_PLATFORM=electron npx expo export --platform web )
+    # Expo web export for the Electron renderer. The generated WebSocket validator
+    # (protocol dist, ~13 MB) outgrows the default V8 heap, which Node sizes from RAM:
+    # about 1.75 GB on a 7 GB macOS runner. One Metro worker with a 4 GB heap fits.
+    ( cd packages/app && NODE_OPTIONS="--max-old-space-size=4096" PASEO_WEB_PLATFORM=electron npx expo export --platform web --max-workers 1 )
 
     # Desktop main process
     npm run build:main --workspace=@getpaseo/desktop
