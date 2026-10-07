@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { CreateAgentPreferencesService } from "./service";
 import {
   applyAgentProfilePreferences,
+  clearLastAgentProfile,
   mergeCreateAgentSelectionPreferences,
   mergeProviderPreferences,
   parseFormPreferences,
@@ -168,6 +169,8 @@ describe("create agent preferences", () => {
         modeId: "approval-test",
         thinkingOptionId: "",
         featureValues: {},
+        profileId: "profile_mock",
+        accountProfileId: undefined,
       }),
     ).toEqual({
       provider: "mock",
@@ -175,7 +178,55 @@ describe("create agent preferences", () => {
         pi: { model: "anthropic/sonnet" },
         mock: { model: "one-minute-stream", mode: "approval-test", featureValues: {} },
       },
+      lastAgentProfile: { id: "profile_mock", accountProfileId: null },
     });
+  });
+
+  it("remembers the applied profile's account alongside its id", () => {
+    expect(
+      applyAgentProfilePreferences({
+        preferences: {},
+        previousProvider: null,
+        previousProviderModeIds: [],
+        provider: "codex",
+        modelId: "gpt-5.5",
+        modeId: "",
+        thinkingOptionId: "",
+        featureValues: {},
+        profileId: "profile_work",
+        accountProfileId: "pac_0123456789abcdef",
+      }),
+    ).toEqual({
+      provider: "codex",
+      providerPreferences: {
+        codex: { model: "gpt-5.5", featureValues: {} },
+      },
+      lastAgentProfile: { id: "profile_work", accountProfileId: "pac_0123456789abcdef" },
+    });
+  });
+
+  it("clears a remembered profile", () => {
+    expect(
+      clearLastAgentProfile({
+        provider: "codex",
+        lastAgentProfile: { id: "profile_work", accountProfileId: null },
+      }),
+    ).toEqual({ provider: "codex" });
+  });
+
+  it("leaves preferences untouched when there is no remembered profile to clear", () => {
+    const preferences = { provider: "codex" };
+    expect(clearLastAgentProfile(preferences)).toBe(preferences);
+  });
+
+  it("parses a remembered profile with an explicit system account", () => {
+    expect(
+      parseFormPreferences({ lastAgentProfile: { id: "profile_work", accountProfileId: null } }),
+    ).toEqual({ lastAgentProfile: { id: "profile_work", accountProfileId: null } });
+  });
+
+  it("rejects a remembered profile missing an id as invalid stored preferences", () => {
+    expect(parseFormPreferences({ lastAgentProfile: { accountProfileId: null } })).toEqual({});
   });
 
   it("loads invalid stored preferences as empty preferences", () => {

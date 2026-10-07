@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef } from "react";
+import type { AgentProfile } from "@getpaseo/protocol/messages";
 import type { AgentProviderDefinition } from "@getpaseo/protocol/provider-manifest";
 import type {
   AgentMode,
@@ -13,7 +14,12 @@ import {
 } from "@/provider-selection/provider-selection";
 import { filterSelectableModels } from "@/provider-selection/model-catalog";
 import { OptimisticFormPreferences } from "@/create-agent-preferences/optimistic-preferences";
-import { applyAgentProfilePreferences } from "@/create-agent-preferences/preferences";
+import {
+  applyAgentProfilePreferences,
+  clearLastAgentProfile,
+} from "@/create-agent-preferences/preferences";
+import { materializeAgentProfile } from "@/agent-profiles";
+import { useDaemonConfig } from "./use-daemon-config";
 import { useProvidersSnapshot } from "./use-providers-snapshot";
 import {
   useFormPreferences,
@@ -46,6 +52,12 @@ export interface UseAgentFormStateOptions {
   initialValues?: FormInitialValues;
   isVisible?: boolean;
   isCreateFlow?: boolean;
+  /**
+   * Skip the remembered/host-default profile for this draft. Set when
+   * something more explicit already decides what runs — the default-route
+   * chip's own request field, in particular, outranks both (docs/agent-routes.md).
+   */
+  suppressAutoProfile?: boolean;
 }
 
 export interface UseAgentFormStateResult {
@@ -77,6 +89,12 @@ export interface UseAgentFormStateResult {
   refetchProviderModelsIfStale: () => void;
   setProviderAndModelFromUser: (provider: AgentProvider, modelId: string) => void;
   applyProfileFromUser: (profile: MaterializedAgentProfile) => void;
+  /**
+   * The profile whose values `selectedProvider`/`selectedModel`/etc. currently
+   * reflect — remembered, host-default, or just applied by the user — or
+   * `null` once a manual provider/model change moves away from it.
+   */
+  appliedProfileId: string | null;
   clearProviderSelectionFromUser: () => void;
   workingDirIsEmpty: boolean;
   persistFormPreferences: () => Promise<void>;
@@ -120,6 +138,32 @@ function buildProviderModelsByProvider(
   return map;
 }
 
+const EMPTY_AGENT_PROFILES: readonly AgentProfile[] = [];
+
+/**
+ * A remembered or host-default profile only auto-applies while its provider
+ * is one the host currently offers (docs/agent-routes.md's `provider_unavailable`
+ * preflight reason is the same idea applied to a single profile rather than a
+ * route's entries): an unreachable or disabled provider would otherwise land
+ * a draft on a dead end instead of today's plain preference fallback.
+ */
+function findAutoApplicableAgentProfile(input: {
+  profiles: readonly AgentProfile[];
+  profileId: string | null | undefined;
+  selectableProviderDefinitionMap: Map<AgentProvider, AgentProviderDefinition>;
+}): AgentProfile | null {
+  if (!input.profileId) {
+    return null;
+  }
+  const profile = input.profiles.find((entry) => entry.id === input.profileId);
+  if (!profile) {
+    return null;
+  }
+  return input.selectableProviderDefinitionMap.has(profile.provider as AgentProvider)
+    ? profile
+    : null;
+}
+
 async function persistProviderPreferences(input: {
   provider: AgentProvider;
   formState: FormState;
@@ -147,7 +191,14 @@ async function persistProviderPreferences(input: {
 }
 
 export function useAgentFormState(options: UseAgentFormStateOptions): UseAgentFormStateResult {
-  const { serverId, initialValues, workingDir, isVisible = true, isCreateFlow = true } = options;
+  const {
+    serverId,
+    initialValues,
+    workingDir,
+    isVisible = true,
+    isCreateFlow = true,
+    suppressAutoProfile = false,
+  } = options;
 
   const { preferences, isLoading: isPreferencesLoading, updatePreferences } = useFormPreferences();
   const preferenceOverlayRef = useRef(new OptimisticFormPreferences(preferences));
@@ -173,17 +224,24 @@ export function useAgentFormState(options: UseAgentFormStateOptions): UseAgentFo
     [updatePreferences],
   );
 
-  const [{ form: formState, userModified, resolution }, dispatch] = useReducer(resolveAgentForm, {
-    form: {
-      provider: null,
-      accountProfileId: undefined,
-      modeId: "",
-      model: "",
-      thinkingOptionId: "",
+  const [{ form: formState, userModified, resolution, appliedProfileId }, dispatch] = useReducer(
+    resolveAgentForm,
+    {
+      form: {
+        provider: null,
+        accountProfileId: undefined,
+        modeId: "",
+        model: "",
+        thinkingOptionId: "",
+      },
+      userModified: INITIAL_USER_MODIFIED,
+      resolution: INITIAL_AGENT_FORM_RESOLUTION,
+      appliedProfileId: null,
     },
-    userModified: INITIAL_USER_MODIFIED,
-    resolution: INITIAL_AGENT_FORM_RESOLUTION,
-  });
+  );
+
+  const { config: daemonConfig, isLoading: isDaemonConfigLoading } = useDaemonConfig(serverId);
+  const hostAgentProfiles = daemonConfig?.agentProfiles ?? EMPTY_AGENT_PROFILES;
 
   const {
     entries: snapshotEntries,
@@ -258,6 +316,32 @@ export function useAgentFormState(options: UseAgentFormStateOptions): UseAgentFo
     resolution.status === "pending" || snapshotIsLoading || selectedProviderIsLoading;
   const isAllModelsLoading = isModelSelectionLoading;
 
+  const rememberedAgentProfileId = preferences.lastAgentProfile?.id;
+  const hostDefaultAgentProfileId = daemonConfig?.defaultAgentProfile;
+  const preferredAgentProfile = useMemo(() => {
+    if (suppressAutoProfile) {
+      return null;
+    }
+    const remembered = findAutoApplicableAgentProfile({
+      profiles: hostAgentProfiles,
+      profileId: rememberedAgentProfileId,
+      selectableProviderDefinitionMap,
+    });
+    const hostDefault = findAutoApplicableAgentProfile({
+      profiles: hostAgentProfiles,
+      profileId: hostDefaultAgentProfileId,
+      selectableProviderDefinitionMap,
+    });
+    const candidate = remembered ?? hostDefault;
+    return candidate ? materializeAgentProfile(candidate) : null;
+  }, [
+    suppressAutoProfile,
+    hostAgentProfiles,
+    rememberedAgentProfileId,
+    hostDefaultAgentProfileId,
+    selectableProviderDefinitionMap,
+  ]);
+
   useEffect(() => {
     dispatch({
       type: "INPUTS_CHANGED",
@@ -270,6 +354,8 @@ export function useAgentFormState(options: UseAgentFormStateOptions): UseAgentFo
       preferences,
       providerModelsByProvider: snapshotProviderModelsByProvider,
       allowedProviderMap: snapshotResolvableProviderDefinitionMap,
+      preferredProfile: preferredAgentProfile,
+      isAgentProfilesLoading: isDaemonConfigLoading,
     });
   }, [
     serverId,
@@ -281,6 +367,8 @@ export function useAgentFormState(options: UseAgentFormStateOptions): UseAgentFo
     preferences,
     snapshotProviderModelsByProvider,
     snapshotResolvableProviderDefinitionMap,
+    preferredAgentProfile,
+    isDaemonConfigLoading,
   ]);
 
   const setProviderAndModelFromUser = useCallback(
@@ -293,6 +381,7 @@ export function useAgentFormState(options: UseAgentFormStateOptions): UseAgentFo
       const providerPrefs = preferenceOverlayRef.current.current().providerPreferences?.[provider];
       const normalizedModelId = normalizeSelectedModelId(modelId);
       const nextModelId = normalizedModelId || resolveDefaultModelId(providerModels);
+      const wasAppliedFromProfile = appliedProfileId !== null;
 
       dispatch({
         type: "SET_PROVIDER_AND_MODEL_FROM_USER",
@@ -302,22 +391,32 @@ export function useAgentFormState(options: UseAgentFormStateOptions): UseAgentFo
         providerModels,
         providerPrefs,
       });
-      void updateCurrentPreferences((current) =>
-        mergeSelectedComposerPreferences({
+      void updateCurrentPreferences((current) => {
+        const withSelection = mergeSelectedComposerPreferences({
           preferences: current,
           provider,
           updates: {
             model: nextModelId || undefined,
           },
-        }),
-      );
+        });
+        return wasAppliedFromProfile ? clearLastAgentProfile(withSelection) : withSelection;
+      });
     },
-    [allProviderModels, selectableProviderDefinitionMap, updateCurrentPreferences],
+    [
+      allProviderModels,
+      appliedProfileId,
+      selectableProviderDefinitionMap,
+      updateCurrentPreferences,
+    ],
   );
 
   const clearProviderSelectionFromUser = useCallback(() => {
+    const wasAppliedFromProfile = appliedProfileId !== null;
     dispatch({ type: "CLEAR_PROVIDER_SELECTION_FROM_USER" });
-  }, []);
+    if (wasAppliedFromProfile) {
+      void updateCurrentPreferences((current) => clearLastAgentProfile(current));
+    }
+  }, [appliedProfileId, updateCurrentPreferences]);
 
   const applyProfileFromUser = useCallback(
     (profile: MaterializedAgentProfile) => {
@@ -332,6 +431,7 @@ export function useAgentFormState(options: UseAgentFormStateOptions): UseAgentFo
       const providerPrefs = preferenceOverlayRef.current.current().providerPreferences?.[provider];
       const action = {
         type: "APPLY_PROFILE_FROM_USER" as const,
+        profileId: profile.id,
         provider,
         accountProfileId: profile.accountProfileId,
         modelId: profile.modelId,
@@ -341,7 +441,10 @@ export function useAgentFormState(options: UseAgentFormStateOptions): UseAgentFo
         providerModels,
         providerPrefs,
       };
-      const nextState = resolveAgentForm({ form: formState, userModified, resolution }, action);
+      const nextState = resolveAgentForm(
+        { form: formState, userModified, resolution, appliedProfileId },
+        action,
+      );
       const previousProviderModeIds = previousProvider
         ? (providerDefinitionMap.get(previousProvider)?.modes.map((mode) => mode.id) ?? [])
         : [];
@@ -358,6 +461,8 @@ export function useAgentFormState(options: UseAgentFormStateOptions): UseAgentFo
           modeId,
           thinkingOptionId,
           featureValues: profile.featureValues,
+          profileId: profile.id,
+          accountProfileId: profile.accountProfileId,
         });
       }).catch((error) => {
         console.warn("[useAgentFormState] persist profile preference failed", error);
@@ -365,6 +470,7 @@ export function useAgentFormState(options: UseAgentFormStateOptions): UseAgentFo
     },
     [
       allProviderModels,
+      appliedProfileId,
       formState,
       providerDefinitionMap,
       resolution,
@@ -403,6 +509,7 @@ export function useAgentFormState(options: UseAgentFormStateOptions): UseAgentFo
       const providerPrefs = provider
         ? preferenceOverlayRef.current.current().providerPreferences?.[provider]
         : undefined;
+      const wasAppliedFromProfile = appliedProfileId !== null;
       dispatch({
         type: "SET_MODEL_FROM_USER",
         modelId,
@@ -412,18 +519,19 @@ export function useAgentFormState(options: UseAgentFormStateOptions): UseAgentFo
       if (provider) {
         const normalizedModelId = normalizeSelectedModelId(modelId);
         const nextModelId = normalizedModelId || resolveDefaultModelId(availableModels);
-        void updateCurrentPreferences((current) =>
-          mergeSelectedComposerPreferences({
+        void updateCurrentPreferences((current) => {
+          const withSelection = mergeSelectedComposerPreferences({
             preferences: current,
             provider,
             updates: {
               model: nextModelId || undefined,
             },
-          }),
-        );
+          });
+          return wasAppliedFromProfile ? clearLastAgentProfile(withSelection) : withSelection;
+        });
       }
     },
-    [availableModels, formState.provider, updateCurrentPreferences],
+    [appliedProfileId, availableModels, formState.provider, updateCurrentPreferences],
   );
 
   const setThinkingOptionFromUser = useCallback(
@@ -514,6 +622,7 @@ export function useAgentFormState(options: UseAgentFormStateOptions): UseAgentFo
       refetchProviderModelsIfStale,
       setProviderAndModelFromUser,
       applyProfileFromUser,
+      appliedProfileId,
       clearProviderSelectionFromUser,
       workingDirIsEmpty,
       persistFormPreferences,
@@ -547,6 +656,7 @@ export function useAgentFormState(options: UseAgentFormStateOptions): UseAgentFo
       refetchProviderModelsIfStale,
       setProviderAndModelFromUser,
       applyProfileFromUser,
+      appliedProfileId,
       clearProviderSelectionFromUser,
       workingDirIsEmpty,
       persistFormPreferences,

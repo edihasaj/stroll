@@ -7,6 +7,7 @@ import type { AgentConfigApply, AgentProfile } from "@getpaseo/protocol/messages
  * every consumer would otherwise re-derive the same trim-and-drop rules.
  */
 export interface MaterializedAgentProfile {
+  id: string;
   provider: string;
   /** Undefined follows the host default; null explicitly selects the system account. */
   accountProfileId: string | null | undefined;
@@ -23,6 +24,7 @@ function trimmed(value: string | undefined): string {
 
 export function materializeAgentProfile(profile: AgentProfile): MaterializedAgentProfile {
   return {
+    id: profile.id,
     provider: trimmed(profile.provider),
     accountProfileId: profile.accountProfileId,
     modelId: trimmed(profile.model),

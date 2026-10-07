@@ -12,12 +12,24 @@ export interface ProviderPreferences {
 
 export type LaunchTarget = { kind: "chat" } | { kind: "terminal"; profileId: string };
 
+/**
+ * The most recently applied agent profile, remembered so the next draft starts
+ * on it without a selection. `accountProfileId` mirrors the profile's own field
+ * at apply time; re-applying reads the host's current profile by `id`, so this
+ * is informational rather than the source of truth for the account.
+ */
+export interface LastAgentProfile {
+  id: string;
+  accountProfileId?: string | null;
+}
+
 export interface FormPreferences {
   provider?: string;
   providerPreferences?: Record<string, ProviderPreferences>;
   favoriteModels?: Array<{ provider: string; modelId: string }>;
   isolation?: "local" | "worktree";
   launchTarget?: LaunchTarget;
+  lastAgentProfile?: LastAgentProfile;
 }
 
 const providerPreferencesSchema: z.ZodType<ProviderPreferences> = z.strictObject({
@@ -31,6 +43,11 @@ const launchTargetSchema: z.ZodType<LaunchTarget> = z.discriminatedUnion("kind",
   z.strictObject({ kind: z.literal("chat") }),
   z.strictObject({ kind: z.literal("terminal"), profileId: z.string() }),
 ]);
+
+const lastAgentProfileSchema: z.ZodType<LastAgentProfile> = z.strictObject({
+  id: z.string(),
+  accountProfileId: z.string().nullable().optional(),
+});
 
 export const FormPreferencesSchema = z.strictObject({
   provider: z.string().optional(),
@@ -50,6 +67,7 @@ export const FormPreferencesSchema = z.strictObject({
   // What the New workspace composer submits to: the chat agent (default) or a
   // terminal profile. See `@/new-workspace-launch` for resolution/fallback.
   launchTarget: launchTargetSchema.optional(),
+  lastAgentProfile: lastAgentProfileSchema.optional(),
 }) satisfies z.ZodType<FormPreferences>;
 
 const LegacyProviderPreferencesSchema = z.strictObject({
@@ -193,6 +211,8 @@ export function applyAgentProfilePreferences(args: {
   modeId: string;
   thinkingOptionId: string;
   featureValues: Record<string, unknown>;
+  profileId: string;
+  accountProfileId: string | null | undefined;
 }): FormPreferences {
   let next = args.preferences;
   if (args.previousProvider) {
@@ -206,7 +226,7 @@ export function applyAgentProfilePreferences(args: {
     }
   }
 
-  return mergeProviderPreferences({
+  const withProviderUpdates = mergeProviderPreferences({
     preferences: next,
     provider: args.provider,
     updates: {
@@ -218,4 +238,23 @@ export function applyAgentProfilePreferences(args: {
       featureValues: args.featureValues,
     },
   });
+
+  return {
+    ...withProviderUpdates,
+    lastAgentProfile: { id: args.profileId, accountProfileId: args.accountProfileId ?? null },
+  };
+}
+
+/**
+ * The user picking a provider or model by hand means the draft's selection no
+ * longer is the remembered profile — drop the marker so the next new draft
+ * falls back to the host default profile or plain preferences instead.
+ */
+export function clearLastAgentProfile(preferences: FormPreferences): FormPreferences {
+  if (!preferences.lastAgentProfile) {
+    return preferences;
+  }
+  const next = { ...preferences };
+  delete next.lastAgentProfile;
+  return next;
 }

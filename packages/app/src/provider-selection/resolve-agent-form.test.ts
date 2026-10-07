@@ -16,6 +16,7 @@ import {
   type UserModifiedFields,
 } from "./resolve-agent-form";
 import { buildProviderDefinitions } from "@/utils/provider-definitions";
+import type { MaterializedAgentProfile } from "@/agent-profiles";
 import type { AgentProviderDefinition } from "@getpaseo/protocol/provider-manifest";
 import type {
   AgentModelDefinition,
@@ -87,6 +88,7 @@ function makeState(
   overrides: Partial<AgentFormReducerState["form"]> = {},
   modified: Partial<UserModifiedFields> = {},
   resolution: AgentFormResolutionState = PENDING_AGENT_FORM_RESOLUTION,
+  appliedProfileId: string | null = null,
 ): AgentFormReducerState {
   return {
     form: {
@@ -100,6 +102,7 @@ function makeState(
     },
     userModified: { ...INITIAL_USER_MODIFIED, ...modified },
     resolution,
+    appliedProfileId,
   };
 }
 
@@ -987,7 +990,110 @@ describe("resolveAgentForm", () => {
     });
   });
 
+  describe("preferred profile (remembered or host default)", () => {
+    const preferredCodexProfile: MaterializedAgentProfile = {
+      id: "profile_codex",
+      provider: "codex",
+      accountProfileId: "pac_0123456789abcdef",
+      modelId: "gpt-5.3-codex",
+      modeId: "full-access",
+      thinkingOptionId: "low",
+      featureValues: {},
+    };
+
+    it("starts a brand-new draft on the remembered/default profile", () => {
+      const next = resolveAgentForm(makeState(), {
+        type: "COMPLETE_RESOLUTION",
+        initialValues: undefined,
+        preferences: null,
+        providerModelsByProvider: makeProviderModelsByProvider([["codex", CODEX_MODELS]]),
+        allowedProviderMap: codexProviderMap,
+        preferredProfile: preferredCodexProfile,
+      });
+
+      expect(next.form).toMatchObject({
+        provider: "codex",
+        accountProfileId: "pac_0123456789abcdef",
+        model: "gpt-5.3-codex",
+        modeId: "full-access",
+        thinkingOptionId: "low",
+      });
+      expect(next.appliedProfileId).toBe("profile_codex");
+      expect(next.userModified.provider).toBe(true);
+    });
+
+    it("lets an explicit initial value outrank the remembered/default profile", () => {
+      const next = resolveAgentForm(makeState(), {
+        type: "COMPLETE_RESOLUTION",
+        initialValues: { provider: "claude" },
+        preferences: null,
+        providerModelsByProvider: makeProviderModelsByProvider([]),
+        allowedProviderMap: bothProviderMap,
+        preferredProfile: preferredCodexProfile,
+      });
+
+      expect(next.form.provider).toBe("claude");
+      expect(next.appliedProfileId).toBeNull();
+    });
+
+    it("does not apply the remembered/default profile once the user already picked a provider", () => {
+      const state = makeState({ provider: "claude" }, { provider: true });
+      const next = resolveAgentForm(state, {
+        type: "COMPLETE_RESOLUTION",
+        initialValues: undefined,
+        preferences: null,
+        providerModelsByProvider: makeProviderModelsByProvider([]),
+        allowedProviderMap: bothProviderMap,
+        preferredProfile: preferredCodexProfile,
+      });
+
+      expect(next.form.provider).toBe("claude");
+      expect(next.appliedProfileId).toBeNull();
+    });
+
+    it("falls back to the provider's current default model when the profile's own model is stale", () => {
+      const next = resolveAgentForm(makeState(), {
+        type: "COMPLETE_RESOLUTION",
+        initialValues: undefined,
+        preferences: null,
+        providerModelsByProvider: makeProviderModelsByProvider([["codex", CODEX_MODELS]]),
+        allowedProviderMap: codexProviderMap,
+        preferredProfile: { ...preferredCodexProfile, modelId: "retired-model" },
+      });
+
+      expect(next.form.model).toBe("gpt-5.3-codex");
+      expect(next.appliedProfileId).toBe("profile_codex");
+    });
+
+    it("falls back to plain preferences when nothing is remembered and there is no host default", () => {
+      const next = resolveAgentForm(makeState(), {
+        type: "COMPLETE_RESOLUTION",
+        initialValues: undefined,
+        preferences: { provider: "claude" },
+        providerModelsByProvider: makeProviderModelsByProvider([]),
+        allowedProviderMap: bothProviderMap,
+        preferredProfile: null,
+      });
+
+      expect(next.form.provider).toBe("claude");
+      expect(next.appliedProfileId).toBeNull();
+    });
+  });
+
   describe("SET_PROVIDER_AND_MODEL_FROM_USER", () => {
+    it("clears the applied profile, because a manual pick no longer is that profile", () => {
+      const state = makeState({}, {}, PENDING_AGENT_FORM_RESOLUTION, "profile_codex");
+      const next = resolveAgentForm(state, {
+        type: "SET_PROVIDER_AND_MODEL_FROM_USER",
+        provider: "claude",
+        modelId: "claude-opus-4",
+        providerDef: TEST_CLAUDE_DEFINITION,
+        providerModels: [{ provider: "claude", id: "claude-opus-4", label: "Claude Opus 4" }],
+      });
+
+      expect(next.appliedProfileId).toBeNull();
+    });
+
     it("sets provider, model, and default mode; marks both modified", () => {
       const state = makeState();
       const next = resolveAgentForm(state, {
@@ -1062,6 +1168,7 @@ describe("resolveAgentForm", () => {
     it("drops a stale saved mode for a modeless profile provider", () => {
       const next = resolveAgentForm(makeState({ provider: "codex", modeId: "full-access" }), {
         type: "APPLY_PROFILE_FROM_USER",
+        profileId: "profile_pi",
         provider: "pi",
         modelId: "anthropic/sonnet",
         modeId: "",
@@ -1076,11 +1183,13 @@ describe("resolveAgentForm", () => {
         model: "anthropic/sonnet",
         modeId: "",
       });
+      expect(next.appliedProfileId).toBe("profile_pi");
     });
 
     it("restores thinking for the selected model when the profile omits it", () => {
       const next = resolveAgentForm(makeState(), {
         type: "APPLY_PROFILE_FROM_USER",
+        profileId: "profile_codex",
         provider: "codex",
         modelId: "gpt-5.3-codex",
         modeId: "full-access",
@@ -1095,6 +1204,23 @@ describe("resolveAgentForm", () => {
   });
 
   describe("SET_MODEL_FROM_USER", () => {
+    it("clears the applied profile, because a manual pick no longer is that profile", () => {
+      const state = makeState(
+        { provider: "codex", model: "gpt-5.3-codex" },
+        {},
+        PENDING_AGENT_FORM_RESOLUTION,
+        "profile_codex",
+      );
+      const next = resolveAgentForm(state, {
+        type: "SET_MODEL_FROM_USER",
+        modelId: "gpt-5.4-codex",
+        availableModels: CODEX_MODELS,
+        providerPrefs: undefined,
+      });
+
+      expect(next.appliedProfileId).toBeNull();
+    });
+
     it("updates model and resets thinking to model default when thinking is not user-modified", () => {
       const state = makeState({ provider: "codex", model: "", thinkingOptionId: "" });
       const next = resolveAgentForm(state, {
@@ -1204,6 +1330,7 @@ describe("resolveAgentForm", () => {
     it("applies an account pinned by an agent profile", () => {
       const next = resolveAgentForm(makeState(), {
         type: "APPLY_PROFILE_FROM_USER",
+        profileId: "profile_codex",
         provider: "codex",
         accountProfileId: "pac_0123456789abcdef",
         modelId: "gpt-5.3-codex",

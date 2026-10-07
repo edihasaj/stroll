@@ -28,6 +28,7 @@ describe("materializeAgentProfile", () => {
         }),
       ),
     ).toEqual({
+      id: "ui-work",
       provider: "claude",
       accountProfileId: "pac_0123456789abcdef",
       modelId: "claude-opus-5",
@@ -39,6 +40,7 @@ describe("materializeAgentProfile", () => {
 
   it("treats omitted and blank fields the same", () => {
     expect(materializeAgentProfile(profile({ model: "   ", modeId: "" }))).toEqual({
+      id: "ui-work",
       provider: "claude",
       accountProfileId: undefined,
       modelId: "",
@@ -58,6 +60,10 @@ describe("materializeAgentProfile", () => {
     expect(
       materializeAgentProfile(profile({ accountProfileId: null })).accountProfileId,
     ).toBeNull();
+  });
+
+  it("carries the profile id so the caller can remember which profile was applied", () => {
+    expect(materializeAgentProfile(profile({ id: "profile_review" })).id).toBe("profile_review");
   });
 });
 

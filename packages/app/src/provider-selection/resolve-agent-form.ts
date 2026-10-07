@@ -9,6 +9,7 @@ import {
   type FormPreferences,
   type ProviderPreferences,
 } from "@/hooks/use-form-preferences";
+import type { MaterializedAgentProfile } from "@/agent-profiles";
 import { findModelByReference } from "./model-catalog";
 
 export interface FormInitialValues {
@@ -43,6 +44,13 @@ export interface AgentFormReducerState {
   form: FormState;
   userModified: UserModifiedFields;
   resolution: AgentFormResolutionState;
+  /**
+   * The agent profile whose values are currently reflected in `form`, so the
+   * composer can show its name instead of the bare model label. `null` once
+   * the user changes provider or model by hand, because the selection no
+   * longer is that profile.
+   */
+  appliedProfileId: string | null;
   inputs?: {
     serverId: string | null;
     initialValues: FormInitialValues | undefined;
@@ -80,6 +88,18 @@ interface AgentFormInputs {
   preferences: FormPreferences | null;
   providerModelsByProvider: ProviderModelsByProvider;
   allowedProviderMap: Map<AgentProvider, AgentProviderDefinition>;
+  /**
+   * The remembered or host-default profile this draft should start on, already
+   * narrowed to a provider the host currently offers. `undefined` behaves like
+   * `null` (nothing to apply) for callers that predate this precedence layer.
+   */
+  preferredProfile?: MaterializedAgentProfile | null;
+  /**
+   * True while the data `preferredProfile` depends on (host agent profiles,
+   * `defaultAgentProfile`) is still loading, so resolution waits rather than
+   * completing without it and missing the profile permanently for this draft.
+   */
+  isAgentProfilesLoading?: boolean;
 }
 
 export type AgentFormAction =
@@ -91,6 +111,7 @@ export type AgentFormAction =
       preferences: FormPreferences | null;
       providerModelsByProvider: ProviderModelsByProvider;
       allowedProviderMap: Map<AgentProvider, AgentProviderDefinition>;
+      preferredProfile?: MaterializedAgentProfile | null;
     }
   | {
       type: "SET_PROVIDER_AND_MODEL_FROM_USER";
@@ -102,6 +123,7 @@ export type AgentFormAction =
     }
   | {
       type: "APPLY_PROFILE_FROM_USER";
+      profileId: string;
       provider: AgentProvider;
       accountProfileId?: string | null;
       modelId: string;
@@ -528,6 +550,105 @@ function pickNextThinkingOptionForTarget(input: {
   });
 }
 
+interface ProfileApplicationFields {
+  modelId: string;
+  modeId: string;
+  thinkingOptionId: string;
+}
+
+/**
+ * The model/mode/thinking a profile resolves to against one provider's current
+ * catalog: the profile's own value when it names one and the provider still
+ * offers it, else the provider's remembered preference, else its default.
+ * Shared by an explicit user apply and the automatic remembered/default-profile
+ * resolution below, so both pick the same values from the same profile.
+ */
+function resolveProfileApplicationFields(input: {
+  modelId: string;
+  modeId: string;
+  thinkingOptionId: string;
+  providerDef: AgentProviderDefinition | undefined;
+  providerModels: AgentModelDefinition[] | null;
+  providerPrefs?: ProviderPrefs | undefined;
+}): ProfileApplicationFields {
+  const preferredModelId = input.modelId || input.providerPrefs?.model || "";
+  const normalizedModelId = resolveCanonicalModelId(input.providerModels, preferredModelId);
+  const nextModelId = normalizedModelId || resolveDefaultModelId(input.providerModels);
+  const availableModeIds = new Set(input.providerDef?.modes.map((mode) => mode.id) ?? []);
+  const preferredModeId = input.modeId || input.providerPrefs?.mode || "";
+  const defaultModeId = input.providerDef?.defaultModeId ?? "";
+  let nextModeId = "";
+  if (availableModeIds.has(preferredModeId)) {
+    nextModeId = preferredModeId;
+  } else if (availableModeIds.has(defaultModeId)) {
+    nextModeId = defaultModeId;
+  }
+  const nextThinkingOptionId =
+    input.thinkingOptionId ||
+    pickNextThinkingOptionForProvider({
+      providerModels: input.providerModels,
+      providerPrefs: input.providerPrefs,
+      modelId: nextModelId,
+    });
+  return { modelId: nextModelId, modeId: nextModeId, thinkingOptionId: nextThinkingOptionId };
+}
+
+/**
+ * The remembered/default profile only starts a brand-new draft: the user
+ * hasn't touched the provider yet, and nothing more explicit (a fork, a
+ * continuation, the default-route chip's own request field) already named
+ * one for this draft.
+ */
+function canAutoApplyPreferredProfile(
+  state: AgentFormReducerState,
+  action: CompleteResolutionAction,
+): boolean {
+  return (
+    action.preferredProfile !== null &&
+    action.preferredProfile !== undefined &&
+    !state.userModified.provider &&
+    !action.initialValues?.provider
+  );
+}
+
+function applyPreferredProfile(
+  state: AgentFormReducerState,
+  resolved: FormState,
+  profile: MaterializedAgentProfile,
+  action: CompleteResolutionAction,
+): AgentFormReducerState {
+  const provider = profile.provider as AgentProvider;
+  const fields = resolveProfileApplicationFields({
+    modelId: profile.modelId,
+    modeId: profile.modeId,
+    thinkingOptionId: profile.thinkingOptionId,
+    providerDef: action.allowedProviderMap.get(provider),
+    providerModels: action.providerModelsByProvider.get(provider) ?? null,
+    providerPrefs: action.preferences?.providerPreferences?.[provider],
+  });
+  return {
+    ...state,
+    resolution: { status: "completed" } as const,
+    form: {
+      ...resolved,
+      provider,
+      accountProfileId: profile.accountProfileId,
+      model: fields.modelId,
+      modeId: fields.modeId,
+      thinkingOptionId: fields.thinkingOptionId,
+    },
+    userModified: {
+      ...state.userModified,
+      provider: true,
+      accountProfileId: true,
+      model: true,
+      modeId: true,
+      thinkingOptionId: true,
+    },
+    appliedProfileId: profile.id,
+  };
+}
+
 function completeResolution(
   state: AgentFormReducerState,
   action: CompleteResolutionAction,
@@ -543,40 +664,27 @@ function completeResolution(
     state.form,
     action.allowedProviderMap,
   );
+
+  if (canAutoApplyPreferredProfile(state, action) && action.preferredProfile) {
+    return applyPreferredProfile(state, resolved, action.preferredProfile, action);
+  }
+
   const nextState = { ...state, resolution: { status: "completed" } as const };
   if (!hasFormStateChanged(state.form, resolved)) return nextState;
   return { ...nextState, form: resolved };
 }
 
 function applyProfile(state: AgentFormReducerState, action: ApplyProfileAction) {
-  const preferredModelId = action.modelId || action.providerPrefs?.model || "";
-  const normalizedModelId = resolveCanonicalModelId(action.providerModels, preferredModelId);
-  const nextModelId = normalizedModelId || resolveDefaultModelId(action.providerModels);
-  const availableModeIds = new Set(action.providerDef?.modes.map((mode) => mode.id) ?? []);
-  const preferredModeId = action.modeId || action.providerPrefs?.mode || "";
-  const defaultModeId = action.providerDef?.defaultModeId ?? "";
-  let nextModeId = "";
-  if (availableModeIds.has(preferredModeId)) {
-    nextModeId = preferredModeId;
-  } else if (availableModeIds.has(defaultModeId)) {
-    nextModeId = defaultModeId;
-  }
-  const nextThinkingOptionId =
-    action.thinkingOptionId ||
-    pickNextThinkingOptionForProvider({
-      providerModels: action.providerModels,
-      providerPrefs: action.providerPrefs,
-      modelId: nextModelId,
-    });
+  const fields = resolveProfileApplicationFields(action);
   return {
     ...state,
     form: {
       ...state.form,
       provider: action.provider,
       accountProfileId: action.accountProfileId,
-      model: nextModelId,
-      modeId: nextModeId,
-      thinkingOptionId: nextThinkingOptionId,
+      model: fields.modelId,
+      modeId: fields.modeId,
+      thinkingOptionId: fields.thinkingOptionId,
     },
     userModified: {
       ...state.userModified,
@@ -586,6 +694,7 @@ function applyProfile(state: AgentFormReducerState, action: ApplyProfileAction) 
       modeId: true,
       thinkingOptionId: true,
     },
+    appliedProfileId: action.profileId,
   };
 }
 
@@ -616,7 +725,13 @@ function receiveInputs(
       inputs: { serverId: action.serverId, initialValues: initial, active },
     };
   }
-  if (!active || action.isPreferencesLoading || !action.serverId || !action.hasSnapshot)
+  if (
+    !active ||
+    action.isPreferencesLoading ||
+    action.isAgentProfilesLoading ||
+    !action.serverId ||
+    !action.hasSnapshot
+  )
     return next;
   return completeResolution(next, { ...action, type: "COMPLETE_RESOLUTION" });
 }
@@ -668,6 +783,8 @@ export function resolveAgentForm(
           thinkingOptionId: nextThinkingOptionId,
         },
         userModified: { ...state.userModified, provider: true, model: true },
+        // A manual provider/model pick is no longer the remembered/default profile.
+        appliedProfileId: null,
       };
     }
 
@@ -708,6 +825,8 @@ export function resolveAgentForm(
           thinkingOptionId: nextThinkingOptionId,
         },
         userModified: { ...state.userModified, model: true },
+        // A manual model pick is no longer the remembered/default profile.
+        appliedProfileId: null,
       };
     }
 
@@ -730,6 +849,7 @@ export function resolveAgentForm(
           modeId: true,
           thinkingOptionId: true,
         },
+        appliedProfileId: null,
       };
 
     case "SET_THINKING_OPTION_FROM_USER":
@@ -744,6 +864,7 @@ export function resolveAgentForm(
         ...state,
         userModified: INITIAL_USER_MODIFIED,
         resolution: INITIAL_AGENT_FORM_RESOLUTION,
+        appliedProfileId: null,
       };
     default:
       throw new Error("unreachable");

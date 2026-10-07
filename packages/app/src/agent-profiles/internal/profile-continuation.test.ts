@@ -4,6 +4,7 @@ import { requiresProfileContinuation } from "./profile-continuation";
 
 function profile(overrides: Partial<MaterializedAgentProfile> = {}): MaterializedAgentProfile {
   return {
+    id: "profile_codex",
     provider: "codex",
     accountProfileId: undefined,
     modelId: "gpt-5.4",
