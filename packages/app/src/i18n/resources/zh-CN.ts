@@ -331,7 +331,7 @@ export const zhCN: TranslationResources = {
     unavailable: "连接到这个 Host 以管理路由",
     unsupported: "此 Host 运行的 Daemon 尚不支持 Agent 路由",
     emptyState: "还没有路由",
-    configNote: "目前路由需在 $PASEO_HOME/config.json 中编辑",
+    configNote: "目前路由需在 ~/.stroll/config.json 中编辑",
     description: {
       label: "描述",
       placeholder: "这个路由是做什么的?",

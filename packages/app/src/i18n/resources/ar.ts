@@ -331,7 +331,7 @@ export const ar: TranslationResources = {
     unavailable: "اتصل بهذا المضيف لإدارة المسارات",
     unsupported: "هذا المضيف يشغّل نسخة من الخادم الخلفي لا تدعم مسارات الوكيل بعد",
     emptyState: "لا توجد مسارات حتى الآن",
-    configNote: "لا يزال تحرير المسارات يتم حاليًا في $PASEO_HOME/config.json",
+    configNote: "لا يزال تحرير المسارات يتم حاليًا في ~/.stroll/config.json",
     description: {
       label: "الوصف",
       placeholder: "ما الغرض من هذا المسار؟",

@@ -337,7 +337,7 @@ export const fr: TranslationResources = {
     unavailable: "Connectez-vous à cet hôte pour gérer les routes",
     unsupported: "Cet hôte exécute un démon qui ne prend pas encore en charge les routes d'agents",
     emptyState: "Aucune route pour le moment",
-    configNote: "Les routes sont pour l'instant modifiées dans $PASEO_HOME/config.json",
+    configNote: "Les routes sont pour l'instant modifiées dans ~/.stroll/config.json",
     description: {
       label: "Description",
       placeholder: "À quoi sert cette route ?",

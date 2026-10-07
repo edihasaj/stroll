@@ -336,7 +336,7 @@ export const es: TranslationResources = {
     unavailable: "Conéctate a este host para gestionar las rutas",
     unsupported: "Este host ejecuta un daemon que aún no admite rutas de agentes",
     emptyState: "Todavía no hay rutas",
-    configNote: "Las rutas se editan por ahora en $PASEO_HOME/config.json",
+    configNote: "Las rutas se editan por ahora en ~/.stroll/config.json",
     description: {
       label: "Descripción",
       placeholder: "¿Para qué sirve esta ruta?",

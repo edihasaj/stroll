@@ -456,7 +456,7 @@ Providers that can accept native tool definitions should set `supportsNativePase
 
 ## Storage
 
-`$PASEO_HOME` defaults to `~/.paseo`. The most important files:
+`$PASEO_HOME` defaults to `~/.stroll`. The most important files:
 
 ```
 $PASEO_HOME/

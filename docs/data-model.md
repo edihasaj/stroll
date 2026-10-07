@@ -32,7 +32,7 @@ checkout from `mainRepoRoot`, then restores the relative path from `worktreeRoot
 
 Paseo uses **file-based JSON persistence** instead of a traditional database. All data is validated at runtime with Zod schemas. Most stores write atomically (write to temp file, then rename); a few still use plain `writeFile` — see each section. There is no schema-versioning/migration framework — schemas rely on optional fields with defaults for forward compatibility, with a small amount of inline normalization in `persisted-config.ts` for legacy provider/speech entries.
 
-All server-side stores live under `$PASEO_HOME` (defaults to `~/.paseo`).
+All server-side stores live under `$PASEO_HOME` (defaults to `~/.stroll`).
 
 ## Store Surface Rules
 

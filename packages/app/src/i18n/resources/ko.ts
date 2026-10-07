@@ -332,7 +332,7 @@ export const ko: TranslationResources = {
     unavailable: "경로를 관리하려면 이 호스트에 연결하세요",
     unsupported: "이 호스트의 데몬은 아직 에이전트 경로를 지원하지 않습니다",
     emptyState: "아직 경로가 없습니다",
-    configNote: "경로는 현재 $PASEO_HOME/config.json에서 편집합니다",
+    configNote: "경로는 현재 ~/.stroll/config.json에서 편집합니다",
     description: {
       label: "설명",
       placeholder: "이 경로는 무엇에 사용되나요?",

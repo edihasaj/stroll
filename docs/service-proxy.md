@@ -45,7 +45,7 @@ when their owning terminal exits; inferred scripts never run automatically.
 
 ## Configuration
 
-Add a `serviceProxy` block under `daemon` in `~/.paseo/config.json`:
+Add a `serviceProxy` block under `daemon` in `~/.stroll/config.json`:
 
 ```json
 {

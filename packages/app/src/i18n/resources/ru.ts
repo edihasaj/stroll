@@ -335,7 +335,7 @@ export const ru: TranslationResources = {
     unavailable: "Подключитесь к этому хосту, чтобы управлять маршрутами",
     unsupported: "Демон на этом хосте пока не поддерживает маршруты агентов",
     emptyState: "Маршрутов пока нет",
-    configNote: "Маршруты пока редактируются в $PASEO_HOME/config.json",
+    configNote: "Маршруты пока редактируются в ~/.stroll/config.json",
     description: {
       label: "Описание",
       placeholder: "Для чего нужен этот маршрут?",

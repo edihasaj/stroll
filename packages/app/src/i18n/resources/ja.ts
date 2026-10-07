@@ -336,7 +336,7 @@ export const ja: TranslationResources = {
     unavailable: "ルートを管理するにはこのホストに接続してください",
     unsupported: "このホストのデーモンはまだエージェントルートに対応していません",
     emptyState: "ルートはまだありません",
-    configNote: "ルートは今のところ $PASEO_HOME/config.json で編集します",
+    configNote: "ルートは今のところ ~/.stroll/config.json で編集します",
     description: {
       label: "説明",
       placeholder: "このルートの用途は?",

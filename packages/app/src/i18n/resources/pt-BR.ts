@@ -335,7 +335,7 @@ export const ptBR: TranslationResources = {
     unavailable: "Conecte-se a este host para gerenciar as rotas",
     unsupported: "Este host executa um daemon que ainda não suporta rotas de agentes",
     emptyState: "Ainda não há rotas",
-    configNote: "As rotas ainda são editadas em $PASEO_HOME/config.json",
+    configNote: "As rotas ainda são editadas em ~/.stroll/config.json",
     description: {
       label: "Descrição",
       placeholder: "Para que serve esta rota?",

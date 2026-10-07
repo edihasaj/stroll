@@ -328,7 +328,7 @@ export const en = {
     unavailable: "Connect to this host to manage routes",
     unsupported: "This host runs a daemon that does not support agent routes yet",
     emptyState: "No routes yet",
-    configNote: "Routes are edited in $PASEO_HOME/config.json for now",
+    configNote: "Routes are edited in ~/.stroll/config.json for now",
     description: {
       label: "Description",
       placeholder: "What is this route for?",
