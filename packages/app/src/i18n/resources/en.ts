@@ -260,6 +260,14 @@ export const en = {
     messageCapped: "This message was capped ({{bytes}} bytes).",
     turnFooter: {
       working: "Working...",
+      thinking: "Thinking",
+      running: "Running {{command}}",
+      reading: "Reading {{file}}",
+      editing: "Editing {{file}}",
+      searching: "Searching for {{query}}",
+      fetching: "Fetching {{host}}",
+      subagent: "Running a subagent",
+      tool: "Using {{tool}}",
     },
     turnFold: {
       workedFor: "Worked for {{duration}}",

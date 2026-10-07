@@ -268,6 +268,14 @@ export const fr: TranslationResources = {
     messageCapped: "Ce message a été tronqué ({{bytes}} octets).",
     turnFooter: {
       working: "Working...",
+      thinking: "Réflexion",
+      running: "Exécution de {{command}}",
+      reading: "Lecture de {{file}}",
+      editing: "Modification de {{file}}",
+      searching: "Recherche de {{query}}",
+      fetching: "Récupération de {{host}}",
+      subagent: "Sous-agent en cours",
+      tool: "Utilisation de {{tool}}",
     },
     turnFold: {
       workedFor: "A travaillé {{duration}}",

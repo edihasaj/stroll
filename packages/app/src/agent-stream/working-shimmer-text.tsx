@@ -103,6 +103,8 @@ const webShimmerStyles = StyleSheet.create((theme) => {
     frame: {
       position: "relative",
       overflow: "hidden",
+      flexShrink: 1,
+      minWidth: 0,
     },
     label: {
       color: theme.colors.foreground,

@@ -264,6 +264,14 @@ export const zhCN: TranslationResources = {
     messageCapped: "此消息已被截断（{{bytes}} 字节）。",
     turnFooter: {
       working: "Working...",
+      thinking: "思考中",
+      running: "正在运行 {{command}}",
+      reading: "正在读取 {{file}}",
+      editing: "正在编辑 {{file}}",
+      searching: "正在搜索 {{query}}",
+      fetching: "正在获取 {{host}}",
+      subagent: "正在运行子智能体",
+      tool: "正在使用 {{tool}}",
     },
     turnFold: {
       workedFor: "工作了 {{duration}}",

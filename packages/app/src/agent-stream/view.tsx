@@ -112,6 +112,7 @@ import type { Theme } from "@/styles/theme";
 import { recordRenderProfileReasons } from "@/utils/render-profiler";
 import { useRetainedPanelActive } from "@/components/retained-panel";
 import { useStreamHistoryWindow } from "./use-stream-history-window";
+import { resolveLiveActivity } from "./live-activity";
 import { createTurnFolder } from "./turn-fold";
 import { TurnFoldRow } from "./turn-fold-row";
 import { PluginTimelineItemView, useInstalledTimelineTransform } from "@/plugins/timeline";
@@ -1087,12 +1088,24 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
         }),
       [client, pendingPermissionItems],
     );
+    // The newest item of the running turn names the step the live footer shows (Codex's
+    // "Running npm test"); a finished turn shows its timing footer instead.
+    const liveActivity = useMemo(
+      () =>
+        isTurnActive
+          ? resolveLiveActivity(
+              presentation.head.length > 0 ? presentation.head : presentation.tail,
+            )
+          : null,
+      [isTurnActive, presentation.head, presentation.tail],
+    );
     const turnFooterNode = useMemo(
       () =>
         isTurnActive || bottomTurnFooterHost ? (
           <TurnFooter
             isRunning={isTurnActive}
             inFlightTurnStartedAt={baseRenderModel.turnTiming.runningStartedAt}
+            activity={liveActivity}
             host={bottomTurnFooterHost}
             strategy={streamRenderStrategy}
             supportsTimelineCursor={supportsAgentForkContextCursor}
@@ -1105,6 +1118,7 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
         handleForkInFlightTurn,
         readOnly,
         isTurnActive,
+        liveActivity,
         baseRenderModel.turnTiming.runningStartedAt,
         bottomTurnFooterHost,
         streamRenderStrategy,

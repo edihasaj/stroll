@@ -265,6 +265,14 @@ export const ptBR: TranslationResources = {
     messageCapped: "Esta mensagem foi truncada ({{bytes}} bytes).",
     turnFooter: {
       working: "Working...",
+      thinking: "Pensando",
+      running: "Executando {{command}}",
+      reading: "Lendo {{file}}",
+      editing: "Editando {{file}}",
+      searching: "Buscando {{query}}",
+      fetching: "Buscando {{host}}",
+      subagent: "Executando um subagente",
+      tool: "Usando {{tool}}",
     },
     turnFold: {
       workedFor: "Trabalhou por {{duration}}",

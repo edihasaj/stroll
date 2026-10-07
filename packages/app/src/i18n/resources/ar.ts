@@ -264,6 +264,14 @@ export const ar: TranslationResources = {
     messageCapped: "تم اقتطاع هذه الرسالة ({{bytes}} بايت).",
     turnFooter: {
       working: "Working...",
+      thinking: "يفكّر",
+      running: "يشغّل {{command}}",
+      reading: "يقرأ {{file}}",
+      editing: "يحرّر {{file}}",
+      searching: "يبحث عن {{query}}",
+      fetching: "يجلب {{host}}",
+      subagent: "يشغّل وكيلًا فرعيًا",
+      tool: "يستخدم {{tool}}",
     },
     turnFold: {
       workedFor: "عمل لمدة {{duration}}",

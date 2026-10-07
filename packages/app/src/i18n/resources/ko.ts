@@ -264,6 +264,14 @@ export const ko: TranslationResources = {
     messageCapped: "이 메시지는 길이 제한으로 잘렸습니다({{bytes}}바이트).",
     turnFooter: {
       working: "Working...",
+      thinking: "생각 중",
+      running: "{{command}} 실행 중",
+      reading: "{{file}} 읽는 중",
+      editing: "{{file}} 편집 중",
+      searching: "{{query}} 검색 중",
+      fetching: "{{host}}에서 가져오는 중",
+      subagent: "하위 에이전트 실행 중",
+      tool: "{{tool}} 사용 중",
     },
     turnFold: {
       workedFor: "{{duration}} 동안 작업함",

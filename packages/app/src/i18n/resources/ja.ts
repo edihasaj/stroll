@@ -266,6 +266,14 @@ export const ja: TranslationResources = {
     messageCapped: "このメッセージは上限で切り詰められました（{{bytes}}バイト）。",
     turnFooter: {
       working: "Working...",
+      thinking: "考え中",
+      running: "{{command}} を実行中",
+      reading: "{{file}} を読み込み中",
+      editing: "{{file}} を編集中",
+      searching: "{{query}} を検索中",
+      fetching: "{{host}} から取得中",
+      subagent: "サブエージェントを実行中",
+      tool: "{{tool}} を使用中",
     },
     turnFold: {
       workedFor: "{{duration}} 作業しました",

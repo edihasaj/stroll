@@ -266,6 +266,14 @@ export const ru: TranslationResources = {
     messageCapped: "Это сообщение было обрезано ({{bytes}} байт).",
     turnFooter: {
       working: "Working...",
+      thinking: "Думает",
+      running: "Выполняется {{command}}",
+      reading: "Чтение {{file}}",
+      editing: "Правка {{file}}",
+      searching: "Поиск: {{query}}",
+      fetching: "Загрузка {{host}}",
+      subagent: "Работает субагент",
+      tool: "Использует {{tool}}",
     },
     turnFold: {
       workedFor: "Работа заняла {{duration}}",

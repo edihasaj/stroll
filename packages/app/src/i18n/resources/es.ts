@@ -266,6 +266,14 @@ export const es: TranslationResources = {
     messageCapped: "Este mensaje fue truncado ({{bytes}} bytes).",
     turnFooter: {
       working: "Working...",
+      thinking: "Pensando",
+      running: "Ejecutando {{command}}",
+      reading: "Leyendo {{file}}",
+      editing: "Editando {{file}}",
+      searching: "Buscando {{query}}",
+      fetching: "Obteniendo {{host}}",
+      subagent: "Ejecutando un subagente",
+      tool: "Usando {{tool}}",
     },
     turnFold: {
       workedFor: "Trabajó durante {{duration}}",

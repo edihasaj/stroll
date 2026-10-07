@@ -1,6 +1,7 @@
 import React, { memo, useCallback, useMemo, type ReactNode } from "react";
 import { Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { StyleSheet } from "react-native-unistyles";
 import { SPACING } from "@/styles/theme";
 import type { TurnTiming } from "@/timeline/turn-time";
@@ -15,6 +16,7 @@ import type { TurnFooterHost } from "./layout";
 import { AssistantForkMenu } from "@/components/assistant-fork-menu";
 import { useRetainedPanelActive } from "@/components/retained-panel";
 import { WorkingShimmerText } from "./working-shimmer-text";
+import type { LiveActivity } from "./live-activity";
 
 export const TURN_FOOTER_BOTTOM_SPACING = SPACING[8];
 
@@ -38,6 +40,7 @@ export type InFlightTurnForkHandler = (target: AssistantForkTarget) => Promise<v
 export const TurnFooter = memo(function TurnFooter({
   isRunning,
   inFlightTurnStartedAt,
+  activity = null,
   host,
   strategy,
   supportsTimelineCursor,
@@ -46,6 +49,8 @@ export const TurnFooter = memo(function TurnFooter({
 }: {
   isRunning: boolean;
   inFlightTurnStartedAt: Date | null;
+  /** The running turn's current step; null shows the plain "Working" label. */
+  activity?: LiveActivity | null;
   host: TurnFooterHost | null;
   strategy: TurnContentStrategy;
   supportsTimelineCursor: boolean;
@@ -57,6 +62,7 @@ export const TurnFooter = memo(function TurnFooter({
       <TurnFooterRow>
         <RunningTurnFooter
           inFlightTurnStartedAt={inFlightTurnStartedAt}
+          activity={activity}
           onForkInFlightTurn={onForkInFlightTurn}
         />
       </TurnFooterRow>
@@ -106,11 +112,38 @@ export const CompletedTurnFooterRow = memo(function CompletedTurnFooterRow({
   );
 });
 
+function formatLiveActivity(t: TFunction, activity: LiveActivity | null): string {
+  switch (activity?.kind) {
+    case "thinking":
+      return t("agentStream.turnFooter.thinking");
+    case "running":
+      return t("agentStream.turnFooter.running", { command: activity.command });
+    case "reading":
+      return t("agentStream.turnFooter.reading", { file: activity.file });
+    case "editing":
+      return t("agentStream.turnFooter.editing", { file: activity.file });
+    case "searching":
+      return activity.query
+        ? t("agentStream.turnFooter.searching", { query: activity.query })
+        : t("agentStream.turnFooter.working");
+    case "fetching":
+      return t("agentStream.turnFooter.fetching", { host: activity.host });
+    case "subagent":
+      return t("agentStream.turnFooter.subagent");
+    case "tool":
+      return t("agentStream.turnFooter.tool", { tool: activity.name });
+    default:
+      return t("agentStream.turnFooter.working");
+  }
+}
+
 const WorkingIndicator = memo(function WorkingIndicator({
   inFlightTurnStartedAt = null,
+  activity,
   onForkInFlightTurn,
 }: {
   inFlightTurnStartedAt?: Date | null;
+  activity: LiveActivity | null;
   onForkInFlightTurn?: InFlightTurnForkHandler;
 }) {
   const { t } = useTranslation();
@@ -124,7 +157,7 @@ const WorkingIndicator = memo(function WorkingIndicator({
       {inFlightTurnStartedAt ? (
         <View style={stylesheet.workingStatus}>
           <WorkingShimmerText style={stylesheet.workingLabel}>
-            {t("agentStream.turnFooter.working")}
+            {formatLiveActivity(t, activity)}
           </WorkingShimmerText>
           <Text style={stylesheet.workingDot}>·</Text>
           <LiveElapsed
@@ -141,15 +174,18 @@ const WorkingIndicator = memo(function WorkingIndicator({
 
 function RunningTurnFooter({
   inFlightTurnStartedAt,
+  activity,
   onForkInFlightTurn,
 }: {
   inFlightTurnStartedAt: Date | null;
+  activity: LiveActivity | null;
   onForkInFlightTurn?: InFlightTurnForkHandler;
 }) {
   return (
     <View style={stylesheet.turnFooterSlot} testID="turn-working-indicator">
       <WorkingIndicator
         inFlightTurnStartedAt={inFlightTurnStartedAt}
+        activity={activity}
         onForkInFlightTurn={onForkInFlightTurn}
       />
     </View>
@@ -238,6 +274,8 @@ const stylesheet = StyleSheet.create((theme) => ({
   workingStatus: {
     flexDirection: "row",
     alignItems: "center",
+    flexShrink: 1,
+    minWidth: 0,
     gap: theme.spacing[1.5],
   },
   // 13px, pinned literal matching the Codex reference live footer (docs/design.md §16).
