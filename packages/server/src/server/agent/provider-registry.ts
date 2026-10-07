@@ -469,6 +469,8 @@ export function wrapSessionProvider(provider: AgentProvider, inner: AgentSession
     interrupt: () => inner.interrupt(),
     forceInterrupt: inner.forceInterrupt?.bind(inner),
     getGoal: inner.getGoal?.bind(inner),
+    listHooks: inner.listHooks?.bind(inner),
+    trustHooks: inner.trustHooks?.bind(inner),
     close: () => inner.close(),
     listCommands: inner.listCommands?.bind(inner),
     setModel: inner.setModel?.bind(inner),

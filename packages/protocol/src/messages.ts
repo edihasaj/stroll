@@ -7,6 +7,7 @@ import {
   AgentRouteEventSchema,
   AgentRouteSchema,
 } from "./agent-route.js";
+import { AgentHookSummarySchema } from "./agent-hooks.js";
 export {
   AgentBriefEditSchema,
   AgentBriefSchema,
@@ -2102,6 +2103,20 @@ export const AgentBriefUpdateRequestMessageSchema = z.object({
   requestId: z.string(),
 });
 
+export const AgentHooksListRequestMessageSchema = z.object({
+  type: z.literal("agent.hooks.list.request"),
+  agentId: z.string(),
+  requestId: z.string(),
+});
+
+export const AgentHooksTrustRequestMessageSchema = z.object({
+  type: z.literal("agent.hooks.trust.request"),
+  agentId: z.string(),
+  /** Slot keys from `agent.hooks.list.response` to trust at their current content. */
+  keys: z.array(z.string()),
+  requestId: z.string(),
+});
+
 export const AgentRoutePreflightRequestMessageSchema = z.object({
   type: z.literal("agent.route.preflight.request"),
   routeId: z.string(),
@@ -3516,6 +3531,8 @@ export const SessionInboundMessageSchema = z.discriminatedUnion("type", [
   AgentForkContextRequestMessageSchema,
   AgentBriefGetRequestMessageSchema,
   AgentBriefUpdateRequestMessageSchema,
+  AgentHooksListRequestMessageSchema,
+  AgentHooksTrustRequestMessageSchema,
   AgentRoutePreflightRequestMessageSchema,
   AgentRouteContinueRequestMessageSchema,
   AgentRouteSwitchBackRequestMessageSchema,
@@ -3912,6 +3929,9 @@ export const ServerInfoStatusPayloadSchema = z
         // COMPAT(agentRoutes): added in Stroll 0.11, remove gate after 2027-04-06. Routes, the brief,
         // and the route RPCs (agent.brief.*, agent.route.*).
         agentRoutes: z.boolean().optional(),
+        // COMPAT(agentHooks): added in Stroll 0.11, remove gate after 2027-04-07. Hook review
+        // (agent.hooks.list / agent.hooks.trust) for harnesses with a hooks API (Codex).
+        agentHooks: z.boolean().optional(),
         // COMPAT(agentForkContextCursor): added in v0.1.108, remove gate after 2027-01-14.
         agentForkContextCursor: z.boolean().optional(),
         // COMPAT(providerSubagents): added in v0.1.107, remove gate after 2027-01-12.
@@ -5237,6 +5257,28 @@ export const AgentBriefGetResponseMessageSchema = z.object({
     /** The packet the next profile would receive if the thread failed over now. */
     handoffPreview: z.string().nullable(),
     events: z.array(AgentRouteEventSchema),
+    error: z.string().nullable(),
+  }),
+});
+
+export const AgentHooksListResponseMessageSchema = z.object({
+  type: z.literal("agent.hooks.list.response"),
+  payload: z.object({
+    requestId: z.string(),
+    agentId: z.string(),
+    /** False when the agent's harness has no hooks API; the list is then empty. */
+    supported: z.boolean(),
+    hooks: z.array(AgentHookSummarySchema),
+    error: z.string().nullable(),
+  }),
+});
+
+export const AgentHooksTrustResponseMessageSchema = z.object({
+  type: z.literal("agent.hooks.trust.response"),
+  payload: z.object({
+    requestId: z.string(),
+    agentId: z.string(),
+    hooks: z.array(AgentHookSummarySchema),
     error: z.string().nullable(),
   }),
 });
@@ -7387,6 +7429,8 @@ export const SessionOutboundMessageSchema = z.discriminatedUnion("type", [
   AgentForkContextResponseMessageSchema,
   AgentBriefGetResponseMessageSchema,
   AgentBriefUpdateResponseMessageSchema,
+  AgentHooksListResponseMessageSchema,
+  AgentHooksTrustResponseMessageSchema,
   AgentRoutePreflightResponseMessageSchema,
   AgentRouteContinueResponseMessageSchema,
   AgentRouteSwitchBackResponseMessageSchema,
@@ -7624,6 +7668,8 @@ export type AgentTimelineListPromptsResponseMessage = z.infer<
 >;
 export type AgentForkContextResponseMessage = z.infer<typeof AgentForkContextResponseMessageSchema>;
 export type AgentBriefGetResponseMessage = z.infer<typeof AgentBriefGetResponseMessageSchema>;
+export type AgentHooksListResponseMessage = z.infer<typeof AgentHooksListResponseMessageSchema>;
+export type AgentHooksTrustResponseMessage = z.infer<typeof AgentHooksTrustResponseMessageSchema>;
 export type AgentBriefUpdateResponseMessage = z.infer<typeof AgentBriefUpdateResponseMessageSchema>;
 export type AgentRoutePreflightResponseMessage = z.infer<
   typeof AgentRoutePreflightResponseMessageSchema
@@ -7743,6 +7789,8 @@ export type ProjectListRequestMessage = z.infer<typeof ProjectListRequestMessage
 export type FetchAgentRequestMessage = z.infer<typeof FetchAgentRequestMessageSchema>;
 export type AgentForkContextRequestMessage = z.infer<typeof AgentForkContextRequestMessageSchema>;
 export type AgentBriefGetRequestMessage = z.infer<typeof AgentBriefGetRequestMessageSchema>;
+export type AgentHooksListRequestMessage = z.infer<typeof AgentHooksListRequestMessageSchema>;
+export type AgentHooksTrustRequestMessage = z.infer<typeof AgentHooksTrustRequestMessageSchema>;
 export type AgentBriefUpdateRequestMessage = z.infer<typeof AgentBriefUpdateRequestMessageSchema>;
 export type AgentRoutePreflightRequestMessage = z.infer<
   typeof AgentRoutePreflightRequestMessageSchema

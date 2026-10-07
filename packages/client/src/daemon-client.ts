@@ -1,3 +1,4 @@
+import type { AgentHookSummary } from "@getpaseo/protocol/agent-hooks";
 import { legacyUsageIcon } from "./legacy-usage-icons.js";
 import { subscribeTimeline, type TimelineMessage } from "./timeline-subscription/index.js";
 import { ProviderSnapshotUpdates } from "./provider-snapshots/index.js";
@@ -3671,6 +3672,53 @@ export class DaemonClient {
     });
     if (payload.error) throw new Error(payload.error);
     return payload;
+  }
+
+  /** Hooks the agent's harness knows about and whether each is trusted (docs/agent-hooks.md). */
+  async listAgentHooks(
+    agentId: string,
+  ): Promise<{ supported: boolean; hooks: AgentHookSummary[] }> {
+    const requestId = this.createRequestId();
+    const message = SessionInboundMessageSchema.parse({
+      type: "agent.hooks.list.request",
+      agentId,
+      requestId,
+    });
+    const payload = await this.sendRequest({
+      requestId,
+      message,
+      timeout: 15000,
+      options: { skipQueue: true },
+      select: (msg) =>
+        msg.type === "agent.hooks.list.response" && msg.payload.requestId === requestId
+          ? msg.payload
+          : null,
+    });
+    if (payload.error) throw new Error(payload.error);
+    return { supported: payload.supported, hooks: payload.hooks };
+  }
+
+  /** Trusts hook slots at their current content; returns the refreshed list. */
+  async trustAgentHooks(agentId: string, keys: readonly string[]): Promise<AgentHookSummary[]> {
+    const requestId = this.createRequestId();
+    const message = SessionInboundMessageSchema.parse({
+      type: "agent.hooks.trust.request",
+      agentId,
+      keys: [...keys],
+      requestId,
+    });
+    const payload = await this.sendRequest({
+      requestId,
+      message,
+      timeout: 15000,
+      options: { skipQueue: true },
+      select: (msg) =>
+        msg.type === "agent.hooks.trust.response" && msg.payload.requestId === requestId
+          ? msg.payload
+          : null,
+    });
+    if (payload.error) throw new Error(payload.error);
+    return payload.hooks;
   }
 
   async updateAgentBrief(agentId: string, brief: AgentBriefEdit): Promise<AgentBriefUpdatePayload> {

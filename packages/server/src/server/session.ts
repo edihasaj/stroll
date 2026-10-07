@@ -1,3 +1,7 @@
+import {
+  AgentHooksSession,
+  isAgentHooksMessage,
+} from "./session/agent-hooks/agent-hooks-session.js";
 import { searchTimeline } from "./agent/chat-search/index.js";
 import type { BrowserToolsBroker } from "./browser-tools/broker.js";
 import { BrowserAutomationHostCapabilitySchema } from "@getpaseo/protocol/browser-automation/capabilities";
@@ -883,6 +887,7 @@ export class Session {
   private readonly providerAccountSession: ProviderAccountSession;
   private readonly usageSession: UsageSession;
   private readonly agentRoutingSession: AgentRoutingSession;
+  private readonly agentHooksSession: AgentHooksSession;
   private readonly agentRouteCreation: RouteCreationResolver | null | undefined;
   private readonly workspaceFilesSession: WorkspaceFilesSession;
   private readonly agentConfigSession: AgentConfigSession;
@@ -1108,6 +1113,15 @@ export class Session {
     });
     this.agentRoutingSession = new AgentRoutingSession({
       routing: options.agentRouting,
+      emit: (msg) => this.emit(msg),
+      logger: this.sessionLogger,
+    });
+    this.agentHooksSession = new AgentHooksSession({
+      access: {
+        // Only a running session has hooks to review; listing must not resume a closed agent
+        // (that would start its harness just to read a config file).
+        load: async (agentId) => this.agentManager.getHookControls(agentId),
+      },
       emit: (msg) => this.emit(msg),
       logger: this.sessionLogger,
     });
@@ -3125,6 +3139,7 @@ export class Session {
 
   private dispatchProviderMessage(msg: SessionInboundMessage): Promise<void> | undefined {
     if (isAgentRoutingMessage(msg)) return this.agentRoutingSession.dispatch(msg);
+    if (isAgentHooksMessage(msg)) return this.agentHooksSession.dispatch(msg);
     switch (msg.type) {
       case "list_provider_models_request":
         return this.providerCatalogSession.handleListProviderModelsRequest(msg);

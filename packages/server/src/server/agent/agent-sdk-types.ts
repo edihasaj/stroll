@@ -1,3 +1,4 @@
+import type { AgentHookSummary } from "@getpaseo/protocol/agent-hooks";
 import type {
   AgentFeature,
   AgentGoal,
@@ -680,6 +681,10 @@ export interface AgentSession {
   getAvailableModes(): Promise<AgentMode[]>;
   getCurrentMode(): Promise<string | null>;
   getGoal?(): Promise<AgentGoal | null>;
+  /** Hooks the harness knows about and whether each is trusted to run (Codex hooks API). */
+  listHooks?(): Promise<AgentHookSummary[]>;
+  /** Trusts the given hook slots at their current content so the harness runs them. */
+  trustHooks?(keys: readonly string[]): Promise<void>;
   setMode(modeId: string): Promise<void | AgentProviderNotice>;
   getPendingPermissions(): AgentPermissionRequest[];
   respondToPermission(

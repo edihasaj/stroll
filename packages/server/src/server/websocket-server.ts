@@ -1946,6 +1946,8 @@ export class VoiceAssistantWebSocketServer {
         agentForkContext: true,
         // COMPAT(agentRoutes): added in Stroll 0.11, remove gate after 2027-04-06.
         agentRoutes: this.agentRouting !== null,
+        // COMPAT(agentHooks): added in Stroll 0.11, remove gate after 2027-04-07.
+        agentHooks: true,
         // COMPAT(agentForkContextCursor): added in v0.1.108, remove gate after 2027-01-14.
         agentForkContextCursor: true,
         // COMPAT(providerSubagents): added in v0.1.107, remove gate after 2027-01-12.

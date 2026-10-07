@@ -1,3 +1,4 @@
+import type { AgentHookSummary } from "@getpaseo/protocol/agent-hooks";
 import { projectTimelineRows } from "./timeline-projection.js";
 import type { PluginLifecycle } from "../plugins/lifecycle/index.js";
 import { describeHookAgent, publishAgentStream } from "../plugins/lifecycle/index.js";
@@ -507,6 +508,11 @@ interface ManagedAgentBase {
    * User-defined labels for categorizing agents (e.g., { surface: "workspace" }).
    */
   labels: Record<string, string>;
+}
+
+export interface AgentHookControls {
+  listHooks(): Promise<AgentHookSummary[]>;
+  trustHooks(keys: readonly string[]): Promise<void>;
 }
 
 type ManagedAgentWithSession = ManagedAgentBase & {
@@ -1231,6 +1237,19 @@ export class AgentManager {
   usageSession(id: string) {
     const agent = this.agents.get(id);
     return agent?.session?.usageSession?.() ?? null;
+  }
+
+  /**
+   * The agent session's hook review (docs/agent-hooks.md), or null when the agent is not loaded
+   * or its harness has no hooks API.
+   */
+  getHookControls(agentId: string): AgentHookControls | null {
+    const agent = this.agents.get(agentId);
+    const session = agent && "session" in agent ? agent.session : null;
+    if (!session?.listHooks || !session.trustHooks) return null;
+    const listHooks = session.listHooks.bind(session);
+    const trustHooks = session.trustHooks.bind(session);
+    return { listHooks: () => listHooks(), trustHooks: (keys) => trustHooks(keys) };
   }
 
   getAgent(id: string): ManagedAgent | null {

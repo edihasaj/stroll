@@ -1,4 +1,11 @@
 import { validateProviderOptions } from "../provider-options.js";
+import type { AgentHookSummary } from "@getpaseo/protocol/agent-hooks";
+import {
+  buildHookTrustWrite,
+  describeHookRunNotice,
+  parseCodexHooksList,
+  type CodexHookList,
+} from "./codex/hooks.js";
 import {
   getAgentStreamEventTurnId,
   type AgentPermissionAction,
@@ -4672,6 +4679,31 @@ export class CodexAppServerAgentSession implements AgentSession {
     return ThreadGoalGetResponseSchema.parse(response).goal;
   }
 
+  async listHooks(): Promise<AgentHookSummary[]> {
+    return (await this.readHooks()).hooks;
+  }
+
+  async trustHooks(keys: readonly string[]): Promise<void> {
+    // Trust what is configured now, not what an earlier list showed: a hook edited since the
+    // review gets a new hash and is reported as modified again.
+    const { hashByKey } = await this.readHooks();
+    if (!this.client) throw new Error("Codex is not connected");
+    await this.client.request("config/value/write", {
+      keyPath: "hooks.state",
+      mergeStrategy: "upsert",
+      value: buildHookTrustWrite(keys, hashByKey),
+    });
+  }
+
+  private async readHooks(): Promise<CodexHookList> {
+    await this.connect();
+    if (!this.client) throw new Error("Codex is not connected");
+    const response = await this.client.request("hooks/list", {
+      cwds: this.config.cwd ? [this.config.cwd] : [],
+    });
+    return parseCodexHooksList(response);
+  }
+
   async getAvailableModes(): Promise<AgentMode[]> {
     if (this.autoReviewEnabled) {
       return CODEX_MODES;
@@ -5483,6 +5515,18 @@ export class CodexAppServerAgentSession implements AgentSession {
     return `codex-turn-${this.nextTurnOrdinal++}`;
   }
 
+  /** Hook runs reach the chat only when they fail, block, or report something (codex/hooks.ts). */
+  private handleHookRunNotification(method: string, params: unknown): void {
+    if (method !== "hook/completed") return;
+    const notice = describeHookRunNotice(params);
+    if (!notice) return;
+    this.emitEvent({
+      type: "timeline",
+      provider: CODEX_PROVIDER,
+      item: { type: "notification", level: notice.level, message: notice.message },
+    });
+  }
+
   private handleNotification(method: string, params: unknown): void {
     const notificationParams = toObjectRecord(params);
     if (method === "serverRequest/resolved" && typeof notificationParams?.requestId === "number") {
@@ -5503,6 +5547,10 @@ export class CodexAppServerAgentSession implements AgentSession {
           resolution: { behavior: "deny", interrupt: true },
         });
       }
+      return;
+    }
+    if (method === "hook/started" || method === "hook/completed") {
+      this.handleHookRunNotification(method, params);
       return;
     }
     const parsed = CodexNotificationSchema.parse({ method, params });

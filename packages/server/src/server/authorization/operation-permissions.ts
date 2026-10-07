@@ -12,6 +12,9 @@ const INBOUND_PERMISSION = {
   "agent.fork_context.request": "workspace.read",
   "agent.brief.get.request": "workspace.read",
   "agent.brief.update.request": "workspace.write",
+  "agent.hooks.list.request": "workspace.read",
+  // Trusting a hook lets the harness run its command, the same authority as running a script.
+  "agent.hooks.trust.request": "workspace.write",
   "agent.route.preflight.request": "workspace.read",
   "agent.route.continue.request": "workspace.write",
   "agent.route.switch_back.request": "workspace.write",
@@ -245,6 +248,8 @@ const OUTBOUND_PERMISSION = {
   "agent.fork_context.response": "workspace.read",
   "agent.brief.get.response": "workspace.read",
   "agent.brief.update.response": "workspace.write",
+  "agent.hooks.list.response": "workspace.read",
+  "agent.hooks.trust.response": "workspace.write",
   "agent.route.preflight.response": "workspace.read",
   "agent.route.continue.response": "workspace.write",
   "agent.route.switch_back.response": "workspace.write",
