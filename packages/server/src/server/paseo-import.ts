@@ -12,9 +12,13 @@ import path from "node:path";
 
 /**
  * What a first Stroll start takes from an upstream Paseo home: settings, chat history, projects,
- * schedules, attachments, and downloaded models. Everything else stays behind on purpose: the
- * server id, keypair, local credential, and push tokens are Paseo's identity (copying them would
- * make Stroll pose as the Paseo host), and logs, receipts, and runtime state are rebuilt.
+ * schedules, attachments and uploads, and downloaded models. Everything else stays behind on
+ * purpose: the server id, keypair, local credential, and push tokens are Paseo's identity (copying
+ * them would make Stroll pose as the Paseo host), and logs, receipts, and runtime state are
+ * rebuilt. Worktrees stay where they are; chats keep pointing at them by absolute path.
+ *
+ * Adding an entry here also reaches homes imported before it existed: the next start copies it
+ * in (`catchUpPaseoImport`), so the list can grow without a manual migration.
  */
 const IMPORTED_ENTRIES = [
   "config.json",
@@ -22,6 +26,7 @@ const IMPORTED_ENTRIES = [
   "projects",
   "schedules",
   "desktop-attachments",
+  "uploads",
   "models",
   "loops",
   "opencode-home",
@@ -87,7 +92,49 @@ export function importPaseoHome(input: {
   return result;
 }
 
-/** Runs the import on a daemon's first start in the default home; null when there is nothing to do. */
+/**
+ * Copies entries that joined `IMPORTED_ENTRIES` after this home was imported. Only homes that came
+ * from an import (they carry the marker) are touched, and an entry is copied only when Paseo has
+ * it and Stroll does not, so nothing Stroll wrote since is overwritten. Every entry checked is
+ * recorded in the marker, so each one is considered once.
+ */
+export function catchUpPaseoImport(input: {
+  strollHome: string;
+  now?: Date;
+}): PaseoImportResult | null {
+  const markerPath = path.join(input.strollHome, MARKER_FILE);
+  if (!existsSync(markerPath)) return null;
+  const marker: unknown = JSON.parse(readFileSync(markerPath, "utf8"));
+  if (!isRecord(marker) || typeof marker.from !== "string") return null;
+  const paseoHome = marker.from;
+  const recorded = Array.isArray(marker.entries) ? marker.entries : [];
+  const pending = IMPORTED_ENTRIES.filter((entry) => !recorded.includes(entry));
+  if (pending.length === 0) return null;
+
+  const copied: string[] = [];
+  for (const entry of pending) {
+    const source = path.join(paseoHome, entry);
+    const target = path.join(input.strollHome, entry);
+    if (!existsSync(source) || existsSync(target)) continue;
+    cpSync(source, target, { recursive: true, mode: constants.COPYFILE_FICLONE, force: false });
+    copied.push(entry);
+  }
+  const now = input.now ?? new Date();
+  writeFileSync(
+    markerPath,
+    `${JSON.stringify(
+      { ...marker, entries: [...recorded, ...pending], caughtUpAt: now.toISOString() },
+      null,
+      2,
+    )}\n`,
+  );
+  return copied.length > 0 ? { from: paseoHome, entries: copied, pausedSchedules: 0 } : null;
+}
+
+/**
+ * Runs the import on a daemon's first start in the default home, or catches an earlier import up
+ * with entries added since; null when there is nothing to do.
+ */
 export function importPaseoHomeOnFirstRun(input: {
   strollHome: string;
   homeDir?: string;
@@ -96,7 +143,7 @@ export function importPaseoHomeOnFirstRun(input: {
   const paseoHome = path.join(homeDir, ".paseo");
   const defaultStrollHome = path.join(homeDir, ".stroll");
   if (!shouldImportPaseoHome({ strollHome: input.strollHome, paseoHome, defaultStrollHome })) {
-    return null;
+    return catchUpPaseoImport({ strollHome: input.strollHome });
   }
   return importPaseoHome({ strollHome: input.strollHome, paseoHome });
 }

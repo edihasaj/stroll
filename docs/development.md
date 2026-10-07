@@ -63,12 +63,13 @@ PASEO_DEV_RESET_HOME=1 npm run dev            # clear and reseed the derived wor
 ### Moving from Paseo
 
 The first time a daemon starts in the default home (`~/.stroll`, however it was selected) and finds an upstream Paseo setup in `~/.paseo`, it clones settings, chat history, projects,
-schedules, attachments, and downloaded models into `~/.stroll` (`packages/server/src/server/paseo-import.ts`,
+schedules, attachments and uploads, and downloaded models into `~/.stroll` (`packages/server/src/server/paseo-import.ts`,
 called from the supervisor entry before the config is created). It leaves behind Paseo's server id,
 keypair, local credential, push tokens, logs, and request receipts, so Stroll is a separate host; drops
 Paseo's pinned `listen` address so Stroll keeps `6867`; and pauses active schedules so a job does not
 run in both apps. `~/.paseo` is never modified. `~/.stroll/imported-from-paseo.json` records the
-import; an existing Stroll home is never imported into again.
+import; an existing Stroll home is never imported into again, except that entries added to the import
+list later are copied in on the next start when Paseo has them and Stroll does not.
 
 ### Daemon endpoints
 

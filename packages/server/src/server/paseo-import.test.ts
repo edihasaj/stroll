@@ -3,6 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
+  catchUpPaseoImport,
   importPaseoHome,
   importPaseoHomeOnFirstRun,
   shouldImportPaseoHome,
@@ -97,6 +98,51 @@ describe("importPaseoHomeOnFirstRun", () => {
     expect(
       importPaseoHomeOnFirstRun({ strollHome: path.join(homeDir, "dev-home"), homeDir }),
     ).toBeNull();
+  });
+});
+
+describe("catchUpPaseoImport", () => {
+  /** A Stroll home imported before `uploads` joined the import list. */
+  function createEarlierImport() {
+    const homes = createHomes();
+    write(path.join(homes.paseoHome, "uploads", "upload_1", "photo.png"), "png");
+    write(path.join(homes.strollHome, "imported-from-paseo.json"), {
+      from: homes.paseoHome,
+      entries: ["config.json", "agents", "projects", "schedules"],
+      pausedSchedules: 1,
+      importedAt: NOW.toISOString(),
+    });
+    return homes;
+  }
+
+  it("copies entries added to the import since, once", () => {
+    const { strollHome } = createEarlierImport();
+
+    const result = catchUpPaseoImport({ strollHome, now: NOW });
+
+    expect(result?.entries).toEqual(["uploads"]);
+    expect(existsSync(path.join(strollHome, "uploads", "upload_1", "photo.png"))).toBe(true);
+    expect(readJson(path.join(strollHome, "imported-from-paseo.json")).entries).toContain(
+      "uploads",
+    );
+    expect(catchUpPaseoImport({ strollHome, now: NOW })).toBeNull();
+  });
+
+  it("never overwrites what the Stroll home already has", () => {
+    const { strollHome } = createEarlierImport();
+    write(path.join(strollHome, "uploads", "upload_2", "own.png"), "mine");
+
+    expect(catchUpPaseoImport({ strollHome, now: NOW })).toBeNull();
+    expect(existsSync(path.join(strollHome, "uploads", "upload_1"))).toBe(false);
+    expect(existsSync(path.join(strollHome, "uploads", "upload_2", "own.png"))).toBe(true);
+  });
+
+  it("leaves homes that were never imported alone", () => {
+    const { strollHome } = createHomes();
+    mkdirSync(strollHome, { recursive: true });
+
+    expect(catchUpPaseoImport({ strollHome, now: NOW })).toBeNull();
+    expect(existsSync(path.join(strollHome, "imported-from-paseo.json"))).toBe(false);
   });
 });
 
