@@ -1,5 +1,32 @@
-import { expect, type Page } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
 import { getServerId } from "./server-id";
+
+/**
+ * The sidebar's Help affordance: a standalone trigger on a phone (`sidebar-help-menu.tsx`), or
+ * the desktop rail's merged `•••` overflow (`sidebar-rail-more`, History + Import session + the
+ * same Help items — see `sidebar-more-menu.tsx`). Only one of the two ever renders for a given
+ * breakpoint, the same "visible one carries the id" rule `sidebar-settings` follows.
+ */
+export function sidebarHelpTrigger(page: Page): Locator {
+  return page
+    .locator('[data-testid="sidebar-help"]:visible, [data-testid="sidebar-rail-more"]:visible')
+    .first();
+}
+
+/** The content box the trigger above opens — `sidebar-help-shortcuts`/`-changelog`/etc. render
+ * inside whichever of these is open, sharing one set of ids (`SidebarHelpMenuItems`). */
+export function sidebarHelpMenuContent(page: Page): Locator {
+  return page
+    .locator(
+      '[data-testid="sidebar-help-menu"]:visible, [data-testid="sidebar-rail-more-menu"]:visible',
+    )
+    .first();
+}
+
+export async function openSidebarHelpMenu(page: Page): Promise<void> {
+  await sidebarHelpTrigger(page).click();
+  await expect(sidebarHelpMenuContent(page)).toBeVisible();
+}
 
 interface ContextMenuAnchor {
   x: number;

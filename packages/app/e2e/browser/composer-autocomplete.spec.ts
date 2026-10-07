@@ -662,7 +662,9 @@ test.describe("Composer autocomplete", () => {
     const agent = await openReadyMockAgent(page);
 
     try {
-      await expect(page.getByTestId("sidebar-sessions")).toBeVisible({ timeout: 30_000 });
+      // "sidebar-sessions" (History) moved inside the rail's `•••` overflow on desktop; the
+      // rail itself is the stable proxy for "the desktop sidebar is open" now.
+      await expect(page.getByTestId("sidebar-rail")).toBeVisible({ timeout: 30_000 });
       const input = composerLocator(page);
       await expect(input).toBeEditable({ timeout: 30_000 });
 

@@ -249,8 +249,13 @@ test.describe("Plugin sidebar items", () => {
     await newWorkspace.hover();
     const hint = page.getByText("Ctrl+N", { exact: true }).locator("visible=true");
     await expect(hint).toBeVisible();
-    await qaScreenshot(page, "phase7-header-row-hint", newWorkspace.locator("xpath=../.."));
-    await hint.click();
+    await qaScreenshot(page, "phase7-header-row-hint", newWorkspace);
+    // New workspace moved from a full-width row (whose inline shortcut hint is itself a button
+    // wired to the row's own onPress) to the panel's trailing "+" icon (sidebar-new-chat-row.tsx).
+    // Icon buttons show their shortcut in a floating Tooltip, which is pointer-events: none like
+    // every other tooltip (tooltip.tsx's TooltipContent) — the hint is no longer clickable, so the
+    // row itself is what presses now.
+    await newWorkspace.click();
     await expect(page).toHaveURL(/\/new(\?|$)/);
   });
 

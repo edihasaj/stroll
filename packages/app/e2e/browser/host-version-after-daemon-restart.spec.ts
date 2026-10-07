@@ -4,6 +4,7 @@ import { gotoAppShell, openSettings } from "../support/helpers/app";
 import { addConnectedHostAndReload } from "../support/helpers/hosts";
 import { openHostSection, selectSettingsHost } from "../support/helpers/settings";
 import { getServerId } from "../support/helpers/server-id";
+import { sidebarHelpTrigger } from "../support/helpers/sidebar";
 import {
   startRestartableHostDaemon,
   type RestartableHostDaemon,
@@ -68,7 +69,7 @@ test("host page shows the restarted daemon's version without reloading", async (
 });
 
 async function readHelpHostVersion(page: Page, serverId: string): Promise<string> {
-  await page.getByTestId("sidebar-help").click();
+  await sidebarHelpTrigger(page).click();
   const row = page.getByTestId(`sidebar-help-host-version-${serverId}`);
   await expect(row).toBeVisible();
   const text = await row.innerText();

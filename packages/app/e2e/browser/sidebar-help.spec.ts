@@ -2,6 +2,7 @@ import { expect, test, type Page } from "../support/fixtures";
 import { gotoAppShell, openSettings } from "../support/helpers/app";
 import { openSettingsSection } from "../support/helpers/settings";
 import { openWhatsNew, release, serveChangelog } from "../support/helpers/changelog";
+import { openSidebarHelpMenu, sidebarHelpTrigger } from "../support/helpers/sidebar";
 
 const GITHUB_ISSUE_DESTINATION =
   /^https:\/\/github\.com\/(?:edihasaj\/stroll\/issues\/new(?:\/choose)?(?:[/?#]|$)|login\?return_to=https%3A%2F%2Fgithub\.com%2Fedihasaj%2Fstroll%2Fissues%2Fnew$)/;
@@ -11,8 +12,7 @@ const CHANGELOG_DESTINATION = /^https:\/\/paseo\.sh\/changelog(?:[/?#]|$)/;
 const APP_VERSION = /^Stroll\s*v\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
 
 async function openHelpMenu(page: Page): Promise<void> {
-  await page.getByTestId("sidebar-help").click();
-  await expect(page.getByTestId("sidebar-help-menu")).toBeVisible();
+  await openSidebarHelpMenu(page);
 }
 
 async function expectDiagnosticReport(page: Page): Promise<void> {
@@ -42,7 +42,7 @@ async function expectExternalPage(
 
 test("opens troubleshooting and support destinations", async ({ page }) => {
   await gotoAppShell(page);
-  await expect(page.getByTestId("sidebar-help")).toBeVisible();
+  await expect(sidebarHelpTrigger(page)).toBeVisible();
 
   await test.step("opens diagnostics and keyboard shortcuts", async () => {
     await openHelpMenu(page);
@@ -180,7 +180,11 @@ async function openCompactSidebar(page: Page): Promise<void> {
 
 async function expectFingerSizedFooterTargets(page: Page): Promise<void> {
   const buttons = page.getByTestId("sidebar-footer-bottom-line").getByRole("button");
-  await expect(buttons).toHaveCount(5);
+  // The identity trigger (avatar + host name) plus Import session, Help, and Settings. The
+  // separate Add-project/Usage/Hosts icons this once counted are gone since the brand-row/
+  // identity-chip restyle (65350836f) folded Hosts into the identity trigger and dropped the
+  // other two.
+  await expect(buttons).toHaveCount(4);
   for (const button of await buttons.all()) {
     const bounds = await button.boundingBox();
     expect(bounds?.width).toBeGreaterThanOrEqual(44);

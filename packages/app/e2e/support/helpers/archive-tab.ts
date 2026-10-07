@@ -243,10 +243,25 @@ export async function reloadWorkspace(page: Page, workspaceId: string): Promise<
   await waitForWorkspaceTabsVisible(page);
 }
 
+/**
+ * Opens History/Sessions. On a phone this is the standalone `sidebar-sessions` nav row; on
+ * desktop it moved inside the rail's `•••` overflow (`sidebar-more-history` — see
+ * `sidebar-more-menu.tsx`), so open that first. Only one of the two ever renders for a given
+ * breakpoint.
+ */
 export async function openSessions(page: Page): Promise<void> {
-  const sessionsButton = page.getByTestId("sidebar-sessions");
-  await expect(sessionsButton).toBeVisible({ timeout: 30_000 });
-  await sessionsButton.click();
+  const sessionsRow = page.getByTestId("sidebar-sessions").filter({ visible: true }).first();
+  if (await sessionsRow.isVisible().catch(() => false)) {
+    await sessionsRow.click();
+    await expectAppRoute(page, buildSessionsRoute(), { timeout: 30_000 });
+    return;
+  }
+  const moreTrigger = page.locator('[data-testid="sidebar-rail-more"]:visible').first();
+  await expect(moreTrigger).toBeVisible({ timeout: 30_000 });
+  await moreTrigger.click();
+  const historyItem = page.getByTestId("sidebar-more-history");
+  await expect(historyItem).toBeVisible({ timeout: 10_000 });
+  await historyItem.click();
   await expectAppRoute(page, buildSessionsRoute(), { timeout: 30_000 });
   await expect(page.getByText("History", { exact: true }).last()).toBeVisible({
     timeout: 30_000,

@@ -94,7 +94,9 @@ test.describe("explorer surface after upgrading from the docked sidebar", () => 
       await gotoWorkspace(page, workspace.workspaceId);
       await waitForWorkspaceTabsVisible(page);
 
-      const agentList = visible(page, "sidebar-sessions");
+      // "sidebar-sessions" (History) moved inside the rail's `•••` overflow on desktop; the
+      // rail itself is the stable proxy for "the agent list sidebar is mounted" now.
+      const agentList = visible(page, "sidebar-rail");
       const toggle = visible(page, "workspace-explorer-toggle").first();
 
       await test.step("open the explorer so both sides are showing", async () => {
