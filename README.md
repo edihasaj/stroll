@@ -4,179 +4,83 @@
 
 <h1 align="center">Stroll</h1>
 
-<p align="center">One interface for Claude Code, Codex, Copilot, OpenCode, Pi, Oh My Pi, Antigravity, Muse Code, and local models.</p>
+<p align="center">One place to run Claude Code, Codex, Copilot, OpenCode, Pi, Oh My Pi, Antigravity, Muse Code, and local models on your own computers.</p>
 
 <p align="center">
-  <em>A private fork of <a href="https://github.com/getpaseo/paseo">Paseo</a> by Mohamed Boudra, Apache-2.0. See <a href="NOTICE">NOTICE</a>.</em>
+  <em>A fork of <a href="https://github.com/getpaseo/paseo">Paseo</a> by Mohamed Boudra, under the Apache-2.0 license. See <a href="NOTICE">NOTICE</a>.</em>
 </p>
 
-Run agents in parallel on your own machines. Ship from your phone or your desk.
+Run agents in parallel on your own machines and follow them from your desk or your phone.
 
-- **Self-hosted:** Agents run on your machine with your full dev environment. Use your tools, your configs, and your skills.
-- **Multi-provider:** Claude Code, Codex, Copilot, OpenCode, Pi, Antigravity, and Muse Code through the same interface. Pick the right model for each job.
-- **Voice control:** Dictate tasks or talk through problems in voice mode. Hands-free when you need it.
-- **Cross-device:** iOS, Android, desktop, web, and CLI. Start work at your desk, check in from your phone, script it from the terminal.
-- **Privacy-first:** no telemetry, no tracking, no forced log-ins. Local models stay local.
+- **Self-hosted:** agents run on your machine with your dev environment, tools, configs, and skills.
+- **Multi-provider:** Claude Code, Codex, Copilot, OpenCode, Pi, Oh My Pi, Antigravity, and Muse Code behind one interface.
+- **Local models:** send work to models on your own hardware, with failover to subscription or API models.
+- **Subagents on any of your computers:** an agent can start subagents on another machine and hears back when they finish.
+- **Private by default:** no telemetry, no tracking, no forced log-ins. Local models stay local.
 
-## Plugins
+## What Stroll adds to Paseo
 
-Add themes, workspace panels, commands, settings screens, and coding-agent providers with trusted
-TypeScript plugins. Install from npm, Git, or a local directory with `paseo plugin install <source>`.
+- **Routes and failover:** an ordered list of agent profiles per task. When one stops working mid-task, the next continues with a handoff, so you don't re-explain the work. See [docs/agent-routes.md](docs/agent-routes.md).
+- **Cross-computer subagents:** daemons peer with each other, and `create_agent` takes a `computer`. See [docs/peers.md](docs/peers.md).
+- **A Codex-style interface:** finished work folds behind "Worked for …", the live footer names the current step, subagents get their own panel, file and folder links open wherever they appear, and new or changed hooks get a review button.
 
-Start with the [plugin quickstart](https://paseo.sh/docs/plugins). Plugins run with access to your daemon
-machine and inside connected clients; install only code you trust.
+## Getting started
 
-## Getting Started
+Stroll runs a local server, the daemon, that manages your coding agents. The desktop app, web app, mobile app, and CLI connect to it.
 
-Paseo runs a local server called the daemon that manages your coding agents. Clients like the desktop app, mobile app, web app, and CLI connect to it.
+You need at least one agent CLI installed and signed in, such as [Claude Code](https://docs.anthropic.com/en/docs/claude-code), [Codex](https://github.com/openai/codex), [GitHub Copilot](https://github.com/features/copilot/cli/), [OpenCode](https://github.com/anomalyco/opencode), or [Pi](https://pi.dev).
 
-### Prerequisites
+### Desktop app (macOS)
 
-You need at least one agent CLI installed and configured with your credentials:
-
-- [Claude Code](https://docs.anthropic.com/en/docs/claude-code)
-- [Codex](https://github.com/openai/codex)
-- [GitHub Copilot](https://github.com/features/copilot/cli/)
-- [OpenCode](https://github.com/anomalyco/opencode)
-- [Pi](https://pi.dev)
-- [Antigravity](https://paseo.sh/docs/supported-providers#antigravity)
-- [Muse Code](https://paseo.sh/docs/muse-code)
-
-### Desktop app (recommended)
-
-Download it from [paseo.sh/download](https://paseo.sh/download) or the [GitHub releases page](https://github.com/getpaseo/paseo/releases). Open the app and the daemon starts automatically. Nothing else to install.
-
-To connect from your phone, open **Settings → your host → Pair Device**.
-
-### CLI / headless
-
-Install the CLI and start Paseo:
+Download a macOS build from [Releases](https://github.com/edihasaj/stroll/releases) when one is published, or build it yourself:
 
 ```bash
-npm install -g @getpaseo/cli
-paseo
+npm ci
+npm run build:desktop    # Stroll.app lands in packages/desktop/release
 ```
 
-Paseo starts locally, then asks whether to enable the end-to-end encrypted relay for device pairing. If you decline, connect directly over TCP, Tailscale, or another VPN. This path is useful for servers and remote machines.
+Open the app and the daemon starts. The app bundles the `stroll` CLI.
 
-For full setup and configuration, see:
+Stroll can run beside an upstream Paseo install. It keeps its own home (`~/.stroll`) and port (`6867`). On its first start it imports your Paseo settings, chat history, and projects from `~/.paseo` if there are any, and pauses imported schedules so they don't run twice. Paseo's own files are not changed.
 
-- [Docs](https://paseo.sh/docs)
-- [Connectivity guide](https://paseo.sh/docs/connectivity)
-- [Configuration reference](https://paseo.sh/docs/configuration)
-
-### Docker
-
-Run the Paseo daemon and self-hosted web UI in Docker:
+### CLI
 
 ```bash
-docker run -d --name paseo \
-  -p 6767:6767 \
-  -e PASEO_PASSWORD=change-me \
-  -v "$PWD/paseo-home:/home/paseo" \
-  -v "$PWD:/workspace" \
-  ghcr.io/getpaseo/paseo:latest
+stroll ls                                   # list agents
+stroll run --provider codex "implement X"   # start an agent
+stroll attach <id>                          # stream its output
+stroll send <id> "also add tests"           # follow-up task
+stroll peer add studio ssh://you@studio     # let agents use another computer
 ```
 
-Open `http://localhost:6767` after it starts. Extend the base image with the agent CLIs you use, then provide credentials through environment variables or the persistent `/home/paseo` volume. See the [Docker documentation](docs/docker.md) for full setup details.
-
-## CLI
-
-Everything you can do in the app, you can do from the terminal.
-
-```bash
-paseo run --provider claude/opus-4.6 "implement user authentication"
-paseo run --provider codex/gpt-5.5 --worktree feature-x "implement feature X"
-
-paseo ls                           # list running agents
-paseo attach abc123                # stream live output
-paseo send abc123 "also add tests" # follow-up task
-
-# run on a remote daemon; --cwd is a path on that host
-paseo run --host workstation.local:6767 --cwd /workspace "run the full test suite"
-```
-
-See the [full CLI reference](https://paseo.sh/docs/cli) for more.
-
-## TypeScript SDK
-
-Build issue integrations, dashboards, and orchestration services with `@getpaseo/client`:
-
-```ts
-import { createPaseoClient } from "@getpaseo/client";
-
-const client = createPaseoClient({ url: "ws://127.0.0.1:6767/ws" });
-await client.connect();
-
-const agent = await client.agents.create({
-  config: { provider: "codex/gpt-5.5" },
-  cwd: "/Users/me/dev/storefront",
-  prompt: "Review the current diff and name the riskiest change.",
-});
-
-const result = await agent.waitForFinish();
-console.log(result.lastMessage);
-
-await client.close();
-```
-
-See the [SDK quickstart](https://paseo.sh/docs/sdk/quickstart), [recipes](https://paseo.sh/docs/sdk/recipes), and [API reference](https://paseo.sh/docs/sdk/reference).
-
-## Skills
-
-Skills teach your agent to use Paseo to orchestrate other agents.
-
-```bash
-npx skills add getpaseo/paseo
-```
-
-Then use them in any agent conversation:
-
-- `/paseo-handoff` — hand off work between agents. I use this to plan with Claude and then handoff to Codex to implement.
-- `/paseo-advisor` — spin up a single agent as an advisor for a second opinion, without delegating the work itself.
-- `/paseo-committee` — form a committee of two contrasting agents to step back, do root cause analysis, and produce a plan.
+Run `stroll --help` for the rest.
 
 ## Development
 
-Quick monorepo package map:
-
-- `packages/server`: Paseo daemon (agent process orchestration, WebSocket API, MCP server)
-- `packages/app`: Expo client (iOS, Android, web)
-- `packages/cli`: `paseo` CLI for daemon and agent workflows
-- `packages/desktop`: Electron desktop app
-- `packages/relay`: Relay transport and encryption used by the daemon and clients
-- `packages/website`: Marketing site and documentation (`paseo.sh`)
-
-Common commands:
-
 ```bash
-# run all local dev services
-npm run dev
-
-# run individual surfaces
-npm run dev:server
-npm run dev:app
-npm run dev:desktop
-npm run dev:website
-
-# build the server stack
-npm run build:server
-
-# repo-wide checks
+npm ci
+npm run dev            # dev daemon on 127.0.0.1:6768 with state in .dev/paseo-home
+npm run dev:app        # Expo web against the dev daemon
+npm run dev:desktop    # Electron desktop against the dev daemon
 npm run typecheck
+npm run lint
 ```
 
-## Sponsors
+Package map:
 
-Paseo is built by one person and funded by the people who use it. Support the work on [GitHub Sponsors](https://github.com/sponsors/boudra). Companies can [sponsor Paseo](https://paseo.sh/sponsor#spot) monthly and have their logo shown here and on the paseo.sh homepage.
+- `packages/server`: the daemon (agent processes, WebSocket API, MCP server)
+- `packages/app`: Expo client (iOS, Android, web)
+- `packages/cli`: the `stroll` CLI
+- `packages/desktop`: Electron desktop app
+- `packages/relay`: relay transport and encryption used by the daemon and clients
+- `packages/protocol`, `packages/client`: wire schemas and the client library
 
-<!-- Sponsor logos go here, in the same order as packages/website/src/data/sponsors.ts -->
+Start with [CLAUDE.md](CLAUDE.md) for the docs map, and [docs/development.md](docs/development.md) for setup details. Package names stay `@getpaseo/*` so merging upstream stays cheap; see [docs/glossary.md](docs/glossary.md) for what keeps the Paseo name and why.
 
-## Related projects
+## Upstream
 
-- [getpaseo/paseo-relay](https://github.com/getpaseo/paseo-relay) — official distributed relay, written in Elixir
-- [paseo-vscode](https://marketplace.visualstudio.com/items?itemName=hinnes.paseo-vscode) — VS Code extension
+Stroll tracks Paseo and merges it regularly. Paseo is built by Mohamed Boudra and funded by the people who use it. If Stroll is useful to you, consider [sponsoring Paseo](https://github.com/sponsors/boudra).
 
 ## License
 
-Apache-2.0
+Apache-2.0. Stroll is a derivative work of Paseo; see [LICENSE](LICENSE) and [NOTICE](NOTICE).

@@ -94,4 +94,4 @@ Paseo only talks to a forge host that is either a known cloud host or one the fo
 
 ## Reporting vulnerabilities
 
-If you discover a security vulnerability, please report it privately by emailing hello@moboudra.com. Do not open a public issue.
+If you discover a security vulnerability in Stroll, report it privately through GitHub's private vulnerability reporting: open the repository's **Security** tab and choose **Report a vulnerability** (https://github.com/edihasaj/stroll/security/advisories/new). Do not open a public issue. If the vulnerability is also in upstream Paseo, report it to Paseo as well, following [its security policy](https://github.com/getpaseo/paseo/blob/main/SECURITY.md).
