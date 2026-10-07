@@ -27,7 +27,7 @@ The web and desktop dev launchers pass the current Git branch to Metro as
 `EXPO_PUBLIC_PASEO_DEV_BUILD_LABEL`. The expanded desktop sidebar shows it in
 the titlebar row. Production builds leave the variable unset and show no label.
 
-`npm run dev` is only a shorthand for `npm run dev:server`. Keep `127.0.0.1:6767` for the packaged app and production-style `~/.paseo` state.
+`npm run dev` is only a shorthand for `npm run dev:server`. Keep `127.0.0.1:6867` for the packaged app and production-style `~/.stroll` state. Port `6767` and `~/.paseo` belong to an upstream Paseo install that may run beside Stroll; leave them alone.
 
 ## Nix desktop package
 
@@ -44,9 +44,9 @@ than downloading a published desktop release.
 
 ### PASEO_HOME
 
-`PASEO_HOME` is the directory that holds runtime state (agents, worktrees, workspace config, sockets, daemon log). Resolution rules:
+`PASEO_HOME` is the env var name; see [glossary.md](glossary.md) for why the daemon home, product name, and this variable read differently. The directory holds runtime state (agents, worktrees, workspace config, sockets, daemon log). Resolution rules:
 
-- The **server itself** (e.g. when launched by the desktop app or `npm run start`) defaults to `~/.paseo` (see `packages/server/src/server/paseo-home.ts`).
+- The **server itself** (e.g. when launched by the desktop app or `npm run start`) defaults to `~/.stroll`, checking `STROLL_HOME` then `PASEO_HOME` first (see `packages/server/src/server/paseo-home.ts`).
 - **Repo dev scripts** default to `$ROOT/.dev/paseo-home`, where `$ROOT` is the current checkout or worktree root. This keeps all dev state scoped to the checkout instead of the packaged desktop app.
 - **`npm run cli -- ...`** runs through the same dev-home wrapper as the dev scripts, so the in-repo CLI automatically targets the current checkout's `.dev/paseo-home` and configured dev daemon endpoint.
 - **Paseo-created worktrees** seed `$PASEO_WORKTREE_PATH/.dev/paseo-home` from `$PASEO_SOURCE_CHECKOUT_PATH/.dev/paseo-home` by copying durable JSON metadata. Runtime files like pid files, sockets, and logs are not copied.
@@ -60,13 +60,25 @@ PASEO_DEV_SEED_HOME=/path/to/home npm run dev # seed from a different source hom
 PASEO_DEV_RESET_HOME=1 npm run dev            # clear and reseed the derived worktree home
 ```
 
+### Moving from Paseo
+
+The first time a daemon starts in the default home (`~/.stroll`, no `STROLL_HOME` or `PASEO_HOME`
+set) and finds an upstream Paseo setup in `~/.paseo`, it clones settings, chat history, projects,
+schedules, attachments, and downloaded models into `~/.stroll` (`packages/server/src/server/paseo-import.ts`,
+called from the supervisor entry before the config is created). It leaves behind Paseo's server id,
+keypair, local credential, push tokens, logs, and request receipts, so Stroll is a separate host; drops
+Paseo's pinned `listen` address so Stroll keeps `6867`; and pauses active schedules so a job does not
+run in both apps. `~/.paseo` is never modified. `~/.stroll/imported-from-paseo.json` records the
+import; an existing Stroll home is never imported into again.
+
 ### Daemon endpoints
 
-- Stable daemon launched by the desktop app: `localhost:6767`.
+- Stable daemon launched by the desktop app: `localhost:6867`.
+- Upstream Paseo, if installed beside Stroll: `localhost:6767`.
 - Root checkout dev daemon: `localhost:6768`.
 - Root checkout Expo: `http://localhost:8081`.
 - Root checkout desktop dev Expo: first free port from `8082` through `8089`.
-- `npm run dev` (Windows): `localhost:6767` for the daemon.
+- `npm run dev` (Windows): `localhost:6867` for the daemon.
 
 In Paseo-managed worktree services, use the injected service environment rather than hardcoded root checkout ports.
 
@@ -106,7 +118,7 @@ npm run ios        # → expo run:ios (packages/app): builds and launches the ap
 
 `expo run:ios` starts its own Metro and gives you the normal Simulator.app window (full speed, native touch, no stream).
 
-**Pointing the app at a daemon.** The client resolves its local daemon from `EXPO_PUBLIC_LOCAL_DAEMON` (`packages/app/src/runtime/host-runtime.ts`); when unset it falls back to `localhost:6767`, the production `~/.paseo` daemon. To target a worktree's dev daemon instead, set it on the build command:
+**Pointing the app at a daemon.** The client resolves its local daemon from `EXPO_PUBLIC_LOCAL_DAEMON` (`packages/app/src/runtime/host-runtime.ts`); when unset it falls back to `localhost:6867`, the production `~/.stroll` daemon. To target a worktree's dev daemon instead, set it on the build command:
 
 ```bash
 EXPO_PUBLIC_LOCAL_DAEMON=localhost:${PASEO_SERVICE_DAEMON_PORT} npm run ios   # worktree daemon running as a Paseo service
@@ -483,9 +495,9 @@ Or persist it in `config.json`:
 }
 ```
 
-When enabled, opening the daemon HTTP origin (for example `http://localhost:6767/`) serves the web app. The same HTTP server continues to serve `/api/*`, `/mcp/*`, `/public/*`, the WebSocket upgrade, and service-proxy routes. Static files load without daemon bearer auth; API and WebSocket calls still enforce auth.
+When enabled, opening the daemon HTTP origin (for example `http://localhost:6867/`) serves the web app. The same HTTP server continues to serve `/api/*`, `/mcp/*`, `/public/*`, the WebSocket upgrade, and service-proxy routes. Static files load without daemon bearer auth; API and WebSocket calls still enforce auth.
 
-The served app auto-bootstraps a connection to the same origin, so opening `http://localhost:6767/` directly usually skips the Add Host step.
+The served app auto-bootstraps a connection to the same origin, so opening `http://localhost:6867/` directly usually skips the Add Host step.
 
 Build the artifact for packaging or measurement with:
 
@@ -583,7 +595,7 @@ npm run cli -- --host ssh://user@host ls -a
 Set `PASEO_HOST` to use the same target across invocations. An explicit
 selector overrides both environment selectors. With both `PASEO_HOME` and `PASEO_HOST` set, pass an explicit selector. See [CLI target selection](../public-docs/cli.md#select-one-daemon).
 
-In an SSH URI, the URL port is the SSH server port. The remote daemon defaults to `127.0.0.1:6767`; use `?daemonPort=7777` to override it. The transport runs non-interactively through the local OpenSSH client and never installs, starts, or configures the remote daemon. User-facing setup and troubleshooting live in [public-docs/connectivity.md](../public-docs/connectivity.md#ssh).
+In an SSH URI, the URL port is the SSH server port. The remote daemon defaults to `127.0.0.1:6867` (Stroll's port, not an upstream Paseo's `6767`); use `?daemonPort=7777` to override it. The transport runs non-interactively through the local OpenSSH client and never installs, starts, or configures the remote daemon. User-facing setup and troubleshooting live in [public-docs/connectivity.md](../public-docs/connectivity.md#ssh).
 
 Desktop integrations can focus an existing agent without creating one or
 sending a message. Use `paseo://h/<server-id>/agent/<agent-id>`, or run

@@ -12,10 +12,11 @@ import { resolvePaseoHome } from "../src/server/paseo-home.js";
 import { daemonLogPath } from "../src/server/daemon-instance.js";
 import { PRIVATE_FILE_MODE } from "../src/server/private-files.js";
 import { loadPersistedConfig } from "../src/server/persisted-config.js";
+import { importPaseoHomeOnFirstRun } from "../src/server/paseo-import.js";
 import { runSupervisor } from "./supervisor.js";
 import { resolveSupervisorLogFile } from "./supervisor-log-config.js";
 
-process.title = "Paseo Supervisor";
+process.title = "Stroll Supervisor";
 
 interface DaemonRunnerConfig {
   devMode: boolean;
@@ -108,6 +109,9 @@ async function main(): Promise<void> {
       : null;
 
   const paseoHome = resolvePaseoHome(workerEnv);
+  // Before the config load below, which writes a default config.json that would mark the home
+  // as already set up (docs/development.md, "Moving from Paseo").
+  reportPaseoImport(paseoHome, workerEnv);
   const persistedConfig = loadPersistedConfig(paseoHome);
   const supervisorLogFile = resolveSupervisorLogFile(paseoHome, persistedConfig, workerEnv);
 
@@ -181,6 +185,20 @@ async function main(): Promise<void> {
 
 // The supervisor opens its log only after config and the PID lock succeed. A background
 // launch discards stderr, so earlier failures also go to the log the launcher points at.
+function reportPaseoImport(paseoHome: string, env: NodeJS.ProcessEnv): void {
+  try {
+    const result = importPaseoHomeOnFirstRun({ env, strollHome: paseoHome });
+    if (result) {
+      process.stderr.write(
+        `Imported ${result.entries.join(", ")} from ${result.from} (${result.pausedSchedules} schedules paused)\n`,
+      );
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    process.stderr.write(`Importing the Paseo home failed; starting without it: ${message}\n`);
+  }
+}
+
 function failStartup(detail: string, summary: string): never {
   process.stderr.write(`${detail}\n`);
   try {
