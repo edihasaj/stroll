@@ -11,10 +11,7 @@ import { useIsCompactFormFactor } from "@/constants/layout";
 import { isNative } from "@/constants/platform";
 import { useAgentQueuePrompts } from "@/agent-queue/use-agent-queue";
 import { useSessionStore } from "@/stores/session-store";
-import {
-  WorkspaceTabIcon,
-  type WorkspaceTabPresentation,
-} from "@/screens/workspace/workspace-tab-presentation";
+import { type WorkspaceTabPresentation } from "@/screens/workspace/workspace-tab-presentation";
 import type { Theme } from "@/styles/theme";
 import { getPanelManifest } from "@/panels/panel-manifest";
 import { getShortcutOs } from "@/utils/shortcut-platform";
@@ -23,6 +20,8 @@ import type { SubagentRow, SubagentTreeNode } from "./select";
 import type { OpenSubagentOptions } from "./use-open-subagent";
 import type { ArchiveFinishedStatus } from "./use-archive-finished";
 import { useElapsedLabel } from "./use-elapsed-label";
+import { SubagentGlyph } from "./subagent-glyph";
+import { subagentGlyphSeed } from "./subagent-glyph-model";
 import {
   buildSubagentPillPresentation,
   buildSubagentRowPresentationData,
@@ -547,6 +546,7 @@ function SubagentsTrackRow({
   );
   const actionsAlwaysVisible = isNative || isCompact;
 
+  const glyphSeed = subagentGlyphSeed(row);
   const renderRow = useCallback(
     ({ active }: { active: boolean }) => (
       <>
@@ -569,7 +569,7 @@ function SubagentsTrackRow({
         ) : (
           <View style={styles.disclosure} />
         )}
-        <WorkspaceTabIcon presentation={presentation} backdrop={active ? "surface2" : "surface1"} />
+        <SubagentGlyph seed={glyphSeed} size={16} />
         <Text style={styles.rowLabel} numberOfLines={1}>
           {displayLabel}
         </Text>
@@ -608,6 +608,7 @@ function SubagentsTrackRow({
     ),
     [
       actionsAlwaysVisible,
+      glyphSeed,
       displayLabel,
       depth,
       descendantRows.length,

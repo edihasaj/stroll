@@ -6,14 +6,9 @@ import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { ROUTE_ID_LABEL } from "@getpaseo/protocol/agent-route";
 import type { ToolCallDetail } from "@getpaseo/protocol/agent-types";
 import { ToolCallDetailsContent } from "@/components/tool-call-details";
-import { useProviderIcon } from "@/components/provider-icons";
 import { useAuxClickRef } from "@/hooks/use-aux-click-ref";
 import { getShortcutOs } from "@/utils/shortcut-platform";
 import { useSessionStore } from "@/stores/session-store";
-import {
-  WorkspaceTabIcon,
-  type WorkspaceTabPresentation,
-} from "@/screens/workspace/workspace-tab-presentation";
 import type { Theme } from "@/styles/theme";
 import { isSubagentOpenAsTabClick, readSubagentClickModifiers } from "./open-gesture";
 import { providerSubagentKey, useProviderSubagentStore } from "./provider-store";
@@ -27,6 +22,8 @@ import type { SubagentToolCallLink } from "./tool-call-link";
 import { resolveManagedElapsedWindow } from "./track-presentation";
 import { useElapsedLabel } from "./use-elapsed-label";
 import { useOpenSubagent } from "./use-open-subagent";
+import { SubagentGlyph } from "./subagent-glyph";
+import { subagentGlyphSeed } from "./subagent-glyph-model";
 
 const ThemedChevronDown = withUnistyles(ChevronDown);
 const ThemedChevronRight = withUnistyles(ChevronRight);
@@ -173,6 +170,28 @@ function useSubagentToolCallPresentation(input: {
   ]);
 }
 
+/** The same identity glyph the subagent shows in the track and the panel. */
+function resolveTranscriptGlyphSeed(input: {
+  link: SubagentToolCallLink;
+  parentAgentId: string | null;
+  toolName: string;
+  detail: ToolCallDetail;
+}): string {
+  if (input.link.kind === "managed") return input.link.agentId;
+  if (input.parentAgentId && input.link.mappedSubagentId) {
+    return subagentGlyphSeed({
+      kind: "provider",
+      id: input.link.mappedSubagentId,
+      parentAgentId: input.parentAgentId,
+    });
+  }
+  const task =
+    input.detail.type === "sub_agent"
+      ? (input.detail.description ?? input.detail.subAgentType ?? "")
+      : "";
+  return `${input.toolName}:${task}`;
+}
+
 export function SubagentToolCallRow(props: SubagentToolCallRowProps): ReactElement {
   const { t } = useTranslation();
   const {
@@ -189,35 +208,14 @@ export function SubagentToolCallRow(props: SubagentToolCallRowProps): ReactEleme
     disableOuterSpacing = false,
   } = props;
   const [isExpanded, setIsExpanded] = useState(false);
-  const { presentation, iconProvider } = useSubagentToolCallPresentation({
+  const { presentation } = useSubagentToolCallPresentation({
     link,
     detail,
     toolCallStatus,
     serverId,
     parentAgentId,
   });
-  const icon = useProviderIcon(iconProvider, serverId);
-  const iconPresentation: WorkspaceTabPresentation = useMemo(
-    () => ({
-      key: "subagent-row",
-      kind: "agent" as const,
-      label: presentation.title,
-      subtitle: presentation.meta,
-      tooltip: presentation.title,
-      modified: false,
-      showCloseButton: false,
-      titleState: presentation.titleState,
-      icon,
-      statusBucket: presentation.statusBucket,
-    }),
-    [
-      icon,
-      presentation.meta,
-      presentation.statusBucket,
-      presentation.title,
-      presentation.titleState,
-    ],
-  );
+  const glyphSeed = resolveTranscriptGlyphSeed({ link, parentAgentId, toolName, detail });
 
   const { openSubagent, openProviderSubagent } = useOpenSubagent({ serverId, workspaceId });
   const isMac = useMemo(() => getShortcutOs() === "mac", []);
@@ -264,7 +262,7 @@ export function SubagentToolCallRow(props: SubagentToolCallRowProps): ReactEleme
 
   const rowContent = (
     <>
-      <WorkspaceTabIcon presentation={iconPresentation} backdrop="surface1" size={14} />
+      <SubagentGlyph seed={glyphSeed} size={16} />
       <View style={styles.textColumn}>
         <View style={styles.titleRow}>
           <Text style={styles.titleText} numberOfLines={1}>
