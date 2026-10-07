@@ -107,6 +107,12 @@ import {
   type AgentDeepLinkTarget,
 } from "@getpaseo/protocol/agent-deep-link";
 import { AgentNavigationInbox, parseAgentDeepLinkFromArgv } from "./agent-navigation.js";
+import { runPaseoAppStateImportIfNeeded } from "./features/paseo-app-state-import-electron.js";
+import {
+  buildPaseoAppStateImportBlankPageHtml,
+  PASEO_PROTOCOL_SCHEME,
+  STROLL_APP_STATE_IMPORT_PATH,
+} from "./features/paseo-app-state-import.js";
 
 const DEV_SERVER_URL = process.env.EXPO_DEV_URL ?? "http://localhost:8081";
 const APP_SCHEME = "stroll";
@@ -130,6 +136,12 @@ const bootstrapComplete = new Promise<void>((resolve) => {
   resolveBootstrapComplete = resolve;
 });
 let bootstrapIsComplete = false;
+
+// The Paseo app-state import opens and destroys its own hidden windows before the real main
+// window exists. On Windows/Linux, dropping Electron's window count to zero fires
+// window-all-closed, which would quit the app before it ever shows a window; suppress that
+// while the import runs. macOS never quits on window-all-closed, so this is a no-op there.
+let suppressWindowAllClosedQuit = false;
 
 app.setName(APP_NAME);
 log.info("[desktop] app startup", {
@@ -565,6 +577,12 @@ protocol.registerSchemesAsPrivileged([
     scheme: APP_SCHEME,
     privileges: { standard: true, secure: true, supportFetchAPI: true },
   },
+  // Lets a temp session read Paseo's copied "Local Storage" under the same origin
+  // (paseo://app) Paseo's own renderer used. See paseo-app-state-import-electron.ts.
+  {
+    scheme: PASEO_PROTOCOL_SCHEME,
+    privileges: { standard: true, secure: true },
+  },
 ]);
 
 // ---------------------------------------------------------------------------
@@ -937,6 +955,14 @@ async function bootstrap(): Promise<void> {
     const { pathname, search, hash } = new URL(request.url);
     const decodedPath = decodeURIComponent(pathname);
 
+    // A hidden window loads this during the Paseo app-state import, before the app bundle
+    // exists to serve. See paseo-app-state-import-electron.ts.
+    if (decodedPath === STROLL_APP_STATE_IMPORT_PATH) {
+      return new Response(buildPaseoAppStateImportBlankPageHtml(), {
+        headers: { "content-type": "text/html" },
+      });
+    }
+
     // Chromium can occasionally request the exported entrypoint directly.
     // Canonicalize it back to the route URL so Expo Router sees `/`, not `/index.html`.
     if (decodedPath.endsWith("/index.html")) {
@@ -958,6 +984,19 @@ async function bootstrap(): Promise<void> {
 
     return net.fetch(pathToFileURL(filePath).toString());
   });
+
+  // Before the real window loads, so its first paint already reflects imported settings.
+  suppressWindowAllClosedQuit = true;
+  try {
+    await runPaseoAppStateImportIfNeeded({
+      appScheme: APP_SCHEME,
+      isPackaged: app.isPackaged,
+      appDataDir: app.getPath("appData"),
+      strollUserDataDir: app.getPath("userData"),
+    });
+  } finally {
+    suppressWindowAllClosedQuit = false;
+  }
 
   await applyAppIcon();
   setupApplicationMenu({
@@ -1069,7 +1108,7 @@ app.on("before-quit", quitLifecycle.handleBeforeQuit);
 registerExternalQuitSignals({ signals: process, quit: () => app.quit() });
 
 app.on("window-all-closed", () => {
-  if (process.platform !== "darwin") {
+  if (process.platform !== "darwin" && !suppressWindowAllClosedQuit) {
     app.quit();
   }
 });

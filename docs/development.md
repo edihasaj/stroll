@@ -71,6 +71,14 @@ run in both apps. `~/.paseo` is never modified. `~/.stroll/imported-from-paseo.j
 import; an existing Stroll home is never imported into again, except that entries added to the import
 list later are copied in on the next start when Paseo has them and Stroll does not.
 
+The packaged desktop app mirrors this for renderer state on its own first launch: before the main
+window loads, it copies an allowlist of `stroll://app`'s localStorage keys — model/profile
+defaults, settings, shortcuts, dismissed callouts — from Paseo's `paseo://app` storage, skipping
+anything that names a Paseo host, server, or device, or that is a rebuildable cache
+(`packages/desktop/src/features/paseo-app-state-import.ts`). An `imported-paseo-app-state.json`
+marker in the desktop app's userData folder records which keys it copied, by name only, so it
+never runs again once that marker exists.
+
 ### Daemon endpoints
 
 - Stable daemon launched by the desktop app: `localhost:6867`.
