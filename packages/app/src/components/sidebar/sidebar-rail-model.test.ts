@@ -110,12 +110,13 @@ describe("deriveSidebarRailItems", () => {
 });
 
 describe("deriveSidebarPanelItems", () => {
-  it("shows New chat, New workspace, and Search by default", () => {
+  it("shows New chat, New workspace, and Search by default, with no plugin items", () => {
     const items = resolveSidebarNavItems({ section: "header", pluginGroups: [], preferences: [] });
     expect(deriveSidebarPanelItems(items)).toEqual({
       showNewChat: true,
       showNewWorkspace: true,
       showSearch: true,
+      pluginItems: [],
     });
   });
 
@@ -129,6 +130,7 @@ describe("deriveSidebarPanelItems", () => {
       showNewChat: false,
       showNewWorkspace: true,
       showSearch: true,
+      pluginItems: [],
     });
   });
 
@@ -142,6 +144,7 @@ describe("deriveSidebarPanelItems", () => {
       showNewChat: true,
       showNewWorkspace: false,
       showSearch: true,
+      pluginItems: [],
     });
   });
 
@@ -167,6 +170,33 @@ describe("deriveSidebarPanelItems", () => {
       showNewChat: true,
       showNewWorkspace: true,
       showSearch: true,
+      pluginItems: [],
     });
+  });
+
+  it("includes a visible current-shape addSidebarHeaderItem group — the rail has no icon for it", () => {
+    const visible = itemPluginGroup({ key: "plugin:demo:visible", contributionId: "visible" });
+    const hidden = itemPluginGroup({ key: "plugin:demo:hidden", contributionId: "hidden" });
+    const items = resolveSidebarNavItems({
+      section: "header",
+      pluginGroups: [visible, hidden],
+      preferences: [
+        { key: visible.key, visible: true },
+        { key: hidden.key, visible: false },
+      ],
+    });
+    const derived = deriveSidebarPanelItems(items);
+    expect(derived.pluginItems).toHaveLength(1);
+    expect(derived.pluginItems[0]?.key).toBe(visible.key);
+  });
+
+  it("excludes a legacy addSidebarItem group — it renders as a rail icon instead", () => {
+    const legacy = legacyPluginGroup({ key: "plugin:demo:legacy" });
+    const items = resolveSidebarNavItems({
+      section: "header",
+      pluginGroups: [legacy],
+      preferences: [{ key: legacy.key, visible: true }],
+    });
+    expect(deriveSidebarPanelItems(items).pluginItems).toEqual([]);
   });
 });

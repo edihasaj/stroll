@@ -1,9 +1,10 @@
-import { useMemo, type ReactElement } from "react";
+import { useMemo, useRef, type ReactElement } from "react";
 import { View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 import { SidebarAgentListSkeleton } from "@/components/sidebar-agent-list-skeleton";
 import { SidebarWorkspaceList } from "@/components/sidebar-workspace-list";
 import { SidebarCalloutSlot } from "@/components/sidebar-callout-slot";
+import { PluginSidebarItem } from "@/plugins/sidebar-items";
 import { usePanelStore } from "@/stores/panel-store";
 import { useSidebarViewStore } from "@/stores/sidebar-view-store";
 import { useSidebarNavItems } from "@/sidebar-nav/use-sidebar-nav-items";
@@ -71,6 +72,7 @@ export function SidebarPanel({
   const panelItems = useMemo(() => deriveSidebarPanelItems(items), [items]);
   const projectsCollapsed = usePanelStore((state) => state.desktop.projectsSectionCollapsed);
   const hasActiveHostFilter = useSidebarViewStore((state) => state.hostFilters.length > 0);
+  const pluginHeaderItemsRef = useRef<View | null>(null);
 
   let projectsBody: ReactElement | null = null;
   if (!projectsCollapsed) {
@@ -105,6 +107,18 @@ export function SidebarPanel({
         showNewChat={panelItems.showNewChat}
         showNewWorkspace={panelItems.showNewWorkspace}
       />
+      {panelItems.pluginItems.length > 0 ? (
+        <View ref={pluginHeaderItemsRef} collapsable={false} style={styles.pluginHeaderItems}>
+          {panelItems.pluginItems.map((group) => (
+            <PluginSidebarItem
+              key={group.key}
+              group={group}
+              section="header"
+              fallbackAnchorRef={pluginHeaderItemsRef}
+            />
+          ))}
+        </View>
+      ) : null}
       <View style={styles.scrollArea}>
         <SidebarPanelProjectsHeader />
         {projectsBody}
@@ -125,5 +139,11 @@ const styles = StyleSheet.create((theme) => ({
   scrollArea: {
     flex: 1,
     minHeight: 0,
+  },
+  // Same vertical rhythm as Mobile's `sidebarHeaderGroup` nav rows (`left-sidebar.tsx`) — these
+  // are the same current-shape `addSidebarHeaderItem` rows, just not interleaved with the
+  // builtins, which the rail and the row above already render in fixed positions.
+  pluginHeaderItems: {
+    gap: 2,
   },
 }));

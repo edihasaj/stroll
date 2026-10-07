@@ -4,8 +4,14 @@ import type { BuiltinSidebarNavId, SidebarNavItem } from "@/sidebar-nav/model";
 /** A legacy `addSidebarItem` group: the only plugin sidebar item shape with a single icon,
  * so the only one the rail can render as one of its 34px buttons. A current-shape
  * `addSidebarHeaderItem`/`addSidebarFooterItem` group renders an arbitrary component sized
- * for a full-width row and has no rail equivalent. */
+ * for a full-width row and has no rail equivalent — the panel renders those instead, see
+ * `PanelPluginSidebarGroup` below. */
 type RailPluginSidebarGroup = Extract<PluginSidebarGroup, { kind: "legacy" }>;
+
+/** A current-shape `addSidebarHeaderItem` group: a full-width component with no icon-only rail
+ * form (the complement of `RailPluginSidebarGroup`). The panel renders these itself — see
+ * `sidebar-panel.tsx` — in the same relative order Mobile's `SidebarNavRows` gives them. */
+type PanelPluginSidebarGroup = Extract<PluginSidebarGroup, { kind: "item" }>;
 
 /**
  * Which of the rail's fixed route icons the user's sidebar-nav-items preference allows, plus
@@ -21,11 +27,14 @@ export interface SidebarRailDerivedItems {
   pluginItems: RailPluginSidebarGroup[];
 }
 
-/** Which of the panel's two header/new-chat affordances the same preference list allows. */
+/** Which of the panel's two header/new-chat affordances the same preference list allows, plus
+ * the current-shape plugin header items the panel renders directly (see `PanelPluginSidebarGroup`
+ * above). */
 export interface SidebarPanelDerivedItems {
   showNewChat: boolean;
   showNewWorkspace: boolean;
   showSearch: boolean;
+  pluginItems: PanelPluginSidebarGroup[];
 }
 
 function isBuiltinVisible(items: readonly SidebarNavItem[], id: BuiltinSidebarNavId): boolean {
@@ -51,5 +60,9 @@ export function deriveSidebarPanelItems(
     showNewChat: isBuiltinVisible(items, "new-chat"),
     showNewWorkspace: isBuiltinVisible(items, "new-workspace"),
     showSearch: isBuiltinVisible(items, "search"),
+    pluginItems: items
+      .filter((item) => item.kind === "plugin" && item.visible)
+      .map((item) => (item as Extract<SidebarNavItem, { kind: "plugin" }>).group)
+      .filter((group): group is PanelPluginSidebarGroup => group.kind === "item"),
   };
 }
