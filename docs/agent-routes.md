@@ -62,6 +62,10 @@ Routes live in the daemon config next to agent profiles. Each entry names an age
   undo. `ask` stops and offers the next entry instead.
 - `probeUrl` is checked before a self-hosted entry is used (see Preflight).
 - `defaultAgentRoute` is the route new chats use when the client does not pick a model.
+- `defaultAgentProfile` is a lower-precedence sibling: the profile a draft starts on when it
+  remembers nothing from a previous one and the client does not pick a model. See **Agent
+  profile** in [glossary.md](glossary.md) for the full precedence order and the remembered-profile
+  mechanic.
 
 There is no spending limit. A paid API entry is used while it answers; when it runs out of credits,
 it fails like any other entry, and when no entry is left the thread pauses with its context kept.
