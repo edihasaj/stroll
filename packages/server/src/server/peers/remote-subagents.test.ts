@@ -1,4 +1,5 @@
 import os from "node:os";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { resolveRemoteSubagentCwd } from "./remote-subagents.js";
 
@@ -15,7 +16,7 @@ describe("resolveRemoteSubagentCwd", () => {
         callerCwd: "/Users/edi/Projects/x",
         requestedCwd: "packages/app",
       }),
-    ).toBe("/Users/edi/Projects/x/packages/app");
+    ).toBe(path.resolve("/Users/edi/Projects/x", "packages/app"));
   });
 
   it("uses an absolute requested cwd as-is even with a caller cwd", () => {
@@ -24,12 +25,12 @@ describe("resolveRemoteSubagentCwd", () => {
         callerCwd: "/Users/edi/Projects/x",
         requestedCwd: "/Users/edi/Projects/y",
       }),
-    ).toBe("/Users/edi/Projects/y");
+    ).toBe(path.resolve("/Users/edi/Projects/y"));
   });
 
   it("expands a home-relative requested cwd when there is no caller", () => {
     expect(resolveRemoteSubagentCwd({ callerCwd: undefined, requestedCwd: "~/Projects/x" })).toBe(
-      `${os.homedir()}/Projects/x`,
+      path.resolve(os.homedir(), "Projects/x"),
     );
   });
 

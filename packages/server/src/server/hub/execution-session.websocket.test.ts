@@ -165,11 +165,24 @@ test("ordinary Hub create and message retries do not duplicate agents or prompts
   };
   expect(await hub.requestOrdinary({ ...message, requestId: "message-first" })).toEqual({
     type: "send_agent_message_response",
-    payload: { requestId: "message-first", agentId, accepted: true, error: null },
+    payload: {
+      requestId: "message-first",
+      agentId,
+      accepted: true,
+      error: null,
+      dispatch: "turn_started",
+    },
   });
   expect(await hub.requestOrdinary({ ...message, requestId: "message-duplicate" })).toEqual({
     type: "send_agent_message_response",
-    payload: { requestId: "message-duplicate", agentId, accepted: true, error: null },
+    // The retry is answered from the first delivery, so nothing is dispatched a second time.
+    payload: {
+      requestId: "message-duplicate",
+      agentId,
+      accepted: true,
+      error: null,
+      dispatch: null,
+    },
   });
   expect(
     hub

@@ -152,8 +152,9 @@ test("managed two-home restart retains its supervisor and never routes ordinary 
     const beforeA = await f.liveStatus(a);
     const beforeB = await f.liveStatus(b, poisoned);
     if (process.platform !== "win32") {
-      for (const home of [a, b, path.join(f.root, ".stroll")])
-        expect((await stat(home)).mode & 0o777).toBe(0o700);
+      for (const home of [a, b]) expect((await stat(home)).mode & 0o777).toBe(0o700);
+      // Two explicit homes leave the default one alone: neither Stroll's nor upstream Paseo's.
+      expect(existsSync(path.join(f.root, ".stroll"))).toBe(false);
       expect(existsSync(path.join(f.root, ".paseo"))).toBe(false);
     }
 

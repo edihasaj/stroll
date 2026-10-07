@@ -293,7 +293,7 @@ describe("ACPAgentSession forced interruption", () => {
       calls.push(options);
       return calls.length === 1 ? "kill-timeout" : "terminated";
     };
-    const session = createSession(terminate);
+    const session = createSession({ terminateProcess: terminate });
     asInternals<ACPForceInterruptInternals>(session).child = createProbeChildStub();
 
     await session.forceInterrupt();

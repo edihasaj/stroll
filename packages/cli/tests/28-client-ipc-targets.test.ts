@@ -1,12 +1,8 @@
 #!/usr/bin/env npx tsx
 
 import assert from "node:assert";
-import {
-  getDaemonHost,
-  normalizeDaemonHost,
-  resolveDaemonPassword,
-  resolveDaemonTarget,
-} from "../src/utils/client.js";
+import { normalizeDaemonHost, resolveDaemonTarget } from "@getpaseo/server/host-connection";
+import { getDaemonHost, resolveDaemonPassword } from "../src/utils/client.js";
 import { selectDaemonTarget } from "../src/utils/daemon-target.js";
 import { resolveCliVersion } from "../src/version.js";
 
