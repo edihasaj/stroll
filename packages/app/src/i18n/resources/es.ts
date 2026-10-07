@@ -212,6 +212,21 @@ export const es: TranslationResources = {
       title_mr: "Adjuntar problema o MR",
     },
   },
+  agentHooks: {
+    review: {
+      button_one: "{{count}} gancho por revisar",
+      button_other: "{{count}} ganchos por revisar",
+      title: "Revisar ganchos",
+      description:
+        "Estos ganchos son nuevos o cambiaron desde la última vez que los permitiste. El agente no los ejecuta hasta que los permitas.",
+      statusNew: "Nuevo",
+      statusModified: "Modificado",
+      notNow: "Ahora no",
+      allowSelected: "Permitir seleccionados",
+      allowAll: "Permitir todos",
+      failed: "No se pudieron permitir los ganchos.",
+    },
+  },
   agentControls: {
     provider: {
       fallback: "Proveedor",

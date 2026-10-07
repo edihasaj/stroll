@@ -210,6 +210,21 @@ export const ar: TranslationResources = {
       title_mr: "إرفاق المشكلة أو MR",
     },
   },
+  agentHooks: {
+    review: {
+      button_one: "{{count}} خطاف يحتاج إلى مراجعة",
+      button_other: "{{count}} خطافات تحتاج إلى مراجعة",
+      title: "مراجعة الخطافات",
+      description:
+        "هذه الخطافات جديدة أو تغيّرت منذ آخر مرة سمحت بها. لن يشغّلها الوكيل حتى تسمح بها.",
+      statusNew: "جديد",
+      statusModified: "معدّل",
+      notNow: "ليس الآن",
+      allowSelected: "السماح بالمحدد",
+      allowAll: "السماح بالكل",
+      failed: "تعذّر السماح بالخطافات.",
+    },
+  },
   agentControls: {
     provider: {
       fallback: "مزود",

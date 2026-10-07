@@ -212,6 +212,21 @@ export const ru: TranslationResources = {
       title_mr: "Прикрепить задачу или MR",
     },
   },
+  agentHooks: {
+    review: {
+      button_one: "Хук на проверку: {{count}}",
+      button_other: "Хуков на проверку: {{count}}",
+      title: "Проверка хуков",
+      description:
+        "Эти хуки новые или изменились с тех пор, как вы их разрешили. Агент не запускает их, пока вы их не разрешите.",
+      statusNew: "Новый",
+      statusModified: "Изменён",
+      notNow: "Не сейчас",
+      allowSelected: "Разрешить выбранные",
+      allowAll: "Разрешить все",
+      failed: "Не удалось разрешить хуки.",
+    },
+  },
   agentControls: {
     provider: {
       fallback: "Провайдер",

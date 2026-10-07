@@ -211,6 +211,21 @@ export const ptBR: TranslationResources = {
       title_mr: "Anexar issue ou MR",
     },
   },
+  agentHooks: {
+    review: {
+      button_one: "{{count}} hook para revisar",
+      button_other: "{{count}} hooks para revisar",
+      title: "Revisar hooks",
+      description:
+        "Estes hooks são novos ou mudaram desde a última vez que você os permitiu. O agente não os executa até que você os permita.",
+      statusNew: "Novo",
+      statusModified: "Modificado",
+      notNow: "Agora não",
+      allowSelected: "Permitir selecionados",
+      allowAll: "Permitir todos",
+      failed: "Não foi possível permitir os hooks.",
+    },
+  },
   agentControls: {
     provider: {
       fallback: "Provedor",

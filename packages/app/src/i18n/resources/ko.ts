@@ -210,6 +210,21 @@ export const ko: TranslationResources = {
       title_mr: "이슈 또는 MR 첨부",
     },
   },
+  agentHooks: {
+    review: {
+      button_one: "검토가 필요한 훅 {{count}}개",
+      button_other: "검토가 필요한 훅 {{count}}개",
+      title: "훅 검토",
+      description:
+        "이 훅은 새로 추가되었거나 마지막으로 허용한 이후 변경되었습니다. 허용하기 전까지 에이전트는 이 훅을 실행하지 않습니다.",
+      statusNew: "새 훅",
+      statusModified: "변경됨",
+      notNow: "나중에",
+      allowSelected: "선택 항목 허용",
+      allowAll: "모두 허용",
+      failed: "훅을 허용하지 못했습니다.",
+    },
+  },
   agentControls: {
     provider: {
       fallback: "프로바이더",

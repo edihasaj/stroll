@@ -210,6 +210,21 @@ export const zhCN: TranslationResources = {
       title_mr: "附加 issue 或 MR",
     },
   },
+  agentHooks: {
+    review: {
+      button_one: "{{count}} 个 hook 需要审核",
+      button_other: "{{count}} 个 hooks 需要审核",
+      title: "审核 hooks",
+      description:
+        "这些 hooks 是新增的，或自你上次允许后已更改。在你允许之前，智能体不会运行它们。",
+      statusNew: "新增",
+      statusModified: "已修改",
+      notNow: "暂不",
+      allowSelected: "允许所选",
+      allowAll: "全部允许",
+      failed: "无法允许这些 hooks。",
+    },
+  },
   agentControls: {
     provider: {
       fallback: "Provider",

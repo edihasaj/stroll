@@ -206,6 +206,21 @@ export const en = {
       title_mr: "Attach issue or MR",
     },
   },
+  agentHooks: {
+    review: {
+      button_one: "{{count}} hook needs review",
+      button_other: "{{count}} hooks need review",
+      title: "Review hooks",
+      description:
+        "These hooks are new or changed since you last allowed them. The agent won't run them until you allow them.",
+      statusNew: "New",
+      statusModified: "Modified",
+      notNow: "Not now",
+      allowSelected: "Allow selected",
+      allowAll: "Allow all",
+      failed: "Couldn't allow the hooks.",
+    },
+  },
   agentControls: {
     provider: {
       fallback: "Provider",

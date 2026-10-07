@@ -6,6 +6,7 @@ import {
   useRef,
   useState,
   type ReactElement,
+  type ReactNode,
   type RefObject,
 } from "react";
 import { useTranslation } from "react-i18next";
@@ -50,6 +51,7 @@ import {
   type AgentAccountControlValue,
 } from "@/composer/agent-controls/account-control";
 import { AdaptiveModalSheet, type SheetHeader } from "@/components/adaptive-modal-sheet";
+import { AgentHooksReviewButton } from "@/agent-hooks/hooks-review-button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type {
   AgentFeature,
@@ -138,6 +140,8 @@ interface ControlledAgentControlsProps {
   isRetryingModelProvider?: boolean;
   modeControl?: AgentModeControlValue | null;
   accountControl?: AgentAccountControlValue | null;
+  /** Shown right after the mode control, e.g. the hooks review button (agent-hooks/). */
+  leadingAccessory?: ReactNode;
   modelSelectorServerId?: string | null;
   isCompactLayout?: boolean;
 }
@@ -582,6 +586,7 @@ function ControlledAgentControls({
   isRetryingModelProvider = false,
   modeControl,
   accountControl,
+  leadingAccessory,
   modelSelectorServerId = null,
   isCompactLayout,
 }: ControlledAgentControlsProps) {
@@ -863,6 +868,7 @@ function ControlledAgentControls({
             renderThinkingOption={renderThinkingOption}
             modeControl={modeControl}
             accountControl={accountControl}
+            leadingAccessory={leadingAccessory}
             presentation={presentation}
             glyphSize={layoutContextValue.glyphSize}
             activeSheet={activeSheet}
@@ -909,6 +915,7 @@ function ControlledAgentControls({
             canSwitchProvider={Boolean(onSelectProviderAndModel)}
           />
         )}
+        {isCompact ? leadingAccessory : null}
       </View>
     </ComposerControlLayoutProvider>
   );
@@ -965,6 +972,7 @@ interface DesktopAgentControlsContentProps {
   }) => ReactElement;
   modeControl?: AgentModeControlValue | null;
   accountControl?: AgentAccountControlValue | null;
+  leadingAccessory?: ReactNode;
   presentation: ComposerControlPresentation;
   glyphSize: number;
   activeSheet: ActiveSheet;
@@ -1023,6 +1031,7 @@ function DesktopAgentControlsContent(props: DesktopAgentControlsContentProps) {
     renderThinkingOption,
     modeControl,
     accountControl,
+    leadingAccessory,
     presentation,
     glyphSize,
     activeSheet,
@@ -1059,6 +1068,7 @@ function DesktopAgentControlsContent(props: DesktopAgentControlsContentProps) {
       {accountControl ? (
         <AgentAccountControl {...accountControl} onClose={onDropdownClose} />
       ) : null}
+      {leadingAccessory}
       <View style={styles.trailingControls}>
         {providerOptions && providerOptions.length > 0 ? (
           <>
@@ -1701,6 +1711,10 @@ export const AgentControls = memo(function AgentControls({
   const modeControl = useLiveAgentModeControl(serverId, agentId);
   const commandCenterModes = toCommandCenterModes(modeControl);
   const modeProviderDefinitions = getModeProviderDefinitions(modeControl);
+  const hooksReview = useMemo(
+    () => <AgentHooksReviewButton serverId={serverId} agentId={agentId} />,
+    [agentId, serverId],
+  );
 
   const {
     entries: snapshotEntries,
@@ -1982,6 +1996,7 @@ export const AgentControls = memo(function AgentControls({
         disabled={!client}
         modeControl={modeControl}
         accountControl={accountControl}
+        leadingAccessory={hooksReview}
         modelSelectorServerId={serverId}
         isCompactLayout={isCompactLayout}
       />

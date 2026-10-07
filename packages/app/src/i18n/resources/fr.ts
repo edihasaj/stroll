@@ -214,6 +214,21 @@ export const fr: TranslationResources = {
       title_mr: "Joindre le problème ou MR",
     },
   },
+  agentHooks: {
+    review: {
+      button_one: "{{count}} crochet à vérifier",
+      button_other: "{{count}} crochets à vérifier",
+      title: "Vérifier les crochets",
+      description:
+        "Ces crochets sont nouveaux ou ont changé depuis votre dernière autorisation. L'agent ne les exécute pas tant que vous ne les autorisez pas.",
+      statusNew: "Nouveau",
+      statusModified: "Modifié",
+      notNow: "Plus tard",
+      allowSelected: "Autoriser la sélection",
+      allowAll: "Tout autoriser",
+      failed: "Impossible d'autoriser les crochets.",
+    },
+  },
   agentControls: {
     provider: {
       fallback: "Fournisseur",

@@ -212,6 +212,21 @@ export const ja: TranslationResources = {
       title_mr: "イシューまたはMRを添付",
     },
   },
+  agentHooks: {
+    review: {
+      button_one: "確認が必要なフック: {{count}}件",
+      button_other: "確認が必要なフック: {{count}}件",
+      title: "フックの確認",
+      description:
+        "これらのフックは新規、または前回許可した後に変更されています。許可するまでエージェントは実行しません。",
+      statusNew: "新規",
+      statusModified: "変更あり",
+      notNow: "後で",
+      allowSelected: "選択したものを許可",
+      allowAll: "すべて許可",
+      failed: "フックを許可できませんでした。",
+    },
+  },
   agentControls: {
     provider: {
       fallback: "プロバイダー",
