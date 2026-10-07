@@ -33,6 +33,13 @@ const WEB_SHIMMER_KEYFRAME_CSS = `
 
 let webShimmerRegistered = false;
 
+// CSS that only react-native-web reads (gradients, keyframe animations). React Native's style
+// types do not declare it, so it is typed as an empty style: the type check skips it instead of
+// treating it as something native understands.
+function webOnlyStyle(style: Record<string, string>): Record<never, never> {
+  return style;
+}
+
 function ensureWebShimmerKeyframes(): void {
   if (!isWeb) {
     return;
@@ -116,16 +123,16 @@ const webShimmerStyles = StyleSheet.create((theme) => {
       left: 0,
       width: "300%",
       pointerEvents: "none",
-      backgroundImage: `linear-gradient(90deg, ${veil} 0%, ${veil} 40%, transparent 50%, ${veil} 60%, ${veil} 100%)`,
-      animationName: WEB_SHIMMER_ANIMATION_NAME,
-      animationDuration: "1.6s",
-      animationTimingFunction: "linear",
-      animationIterationCount: "infinite",
-      willChange: "transform",
+      ...webOnlyStyle({
+        backgroundImage: `linear-gradient(90deg, ${veil} 0%, ${veil} 40%, transparent 50%, ${veil} 60%, ${veil} 100%)`,
+        animationName: WEB_SHIMMER_ANIMATION_NAME,
+        animationDuration: "1.6s",
+        animationTimingFunction: "linear",
+        animationIterationCount: "infinite",
+        willChange: "transform",
+      }),
     },
-    veilPaused: {
-      animationPlayState: "paused",
-    },
+    veilPaused: webOnlyStyle({ animationPlayState: "paused" }),
   };
 });
 

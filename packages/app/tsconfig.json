@@ -13,5 +13,19 @@
     "expo-env.d.ts",
     "nativewind-env.d.ts",
     "react-native-web.d.ts"
+  ],
+  // `expo start` writes expo-env.d.ts and .expo/types (git-ignored) and re-adds both to `include`.
+  // They declare web-only style props CI never sees, so a local typecheck that reads them passes
+  // where CI fails. Excluding them keeps local runs identical to CI. Setting `exclude` replaces
+  // the base config's list, so its entries are repeated here.
+  "exclude": [
+    "node_modules",
+    "babel.config.js",
+    "metro.config.js",
+    "jest.config.js",
+    "android",
+    "ios",
+    "expo-env.d.ts",
+    ".expo"
   ]
 }
