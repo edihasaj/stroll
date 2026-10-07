@@ -8,7 +8,7 @@ import { useActiveWorkspaceSelection } from "@/stores/navigation-active-workspac
 import { useWorkspaceFields } from "@/stores/session-store-hooks";
 import {
   buildWorktreeSetupCalloutPolicy,
-  selectActiveGitWorkspaceProject,
+  selectActiveWorktreeProject,
   shouldShowWorktreeSetupCallout,
 } from "./worktree-setup-callout-policy";
 
@@ -17,7 +17,7 @@ export function WorktreeSetupCalloutSource() {
   const selectedWorkspaceProject = useWorkspaceFields(
     selection?.serverId ?? null,
     selection?.workspaceId ?? null,
-    (workspace) => selectActiveGitWorkspaceProject(selection?.serverId ?? "", workspace),
+    (workspace) => selectActiveWorktreeProject(selection?.serverId ?? "", workspace),
   );
   const activeProject = selectedWorkspaceProject;
   const client = useHostRuntimeClient(activeProject?.serverId ?? "");

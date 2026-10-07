@@ -1,17 +1,18 @@
 import { describe, expect, it } from "vitest";
 import {
   buildWorktreeSetupCalloutPolicy,
-  selectActiveGitWorkspaceProject,
+  selectActiveWorktreeProject,
   shouldShowWorktreeSetupCallout,
 } from "./worktree-setup-callout-policy";
 
-describe("selectActiveGitWorkspaceProject", () => {
-  it("selects the host-local project id for a git workspace", () => {
+describe("selectActiveWorktreeProject", () => {
+  it("selects the host-local project id for a worktree workspace", () => {
     expect(
-      selectActiveGitWorkspaceProject("server-1", {
+      selectActiveWorktreeProject("server-1", {
         projectId: "prj_local",
         projectKind: "git",
         projectRootPath: "/repo/project",
+        workspaceKind: "worktree",
       }),
     ).toEqual({
       serverId: "server-1",
@@ -20,12 +21,34 @@ describe("selectActiveGitWorkspaceProject", () => {
     });
   });
 
+  it("stays quiet in a plain checkout of a git project", () => {
+    for (const workspaceKind of ["local_checkout", "checkout"]) {
+      expect(
+        selectActiveWorktreeProject("server-1", {
+          projectId: "prj_local",
+          projectKind: "git",
+          projectRootPath: "/repo/project",
+          workspaceKind,
+        }),
+      ).toBeNull();
+    }
+  });
+
   it("ignores non-git workspaces and blank coordinates", () => {
     expect(
-      selectActiveGitWorkspaceProject("server-1", {
+      selectActiveWorktreeProject("server-1", {
         projectId: "project",
         projectKind: "directory",
         projectRootPath: "/repo",
+        workspaceKind: "directory",
+      }),
+    ).toBeNull();
+    expect(
+      selectActiveWorktreeProject("server-1", {
+        projectId: "prj_local",
+        projectKind: "git",
+        projectRootPath: "  ",
+        workspaceKind: "worktree",
       }),
     ).toBeNull();
   });
@@ -54,5 +77,21 @@ describe("buildWorktreeSetupCalloutPolicy", () => {
       projectSettingsRoute: "/settings/hosts/server-1/projects/prj_local",
       testID: "worktree-setup-callout-prj_local",
     });
+  });
+
+  it("shares one dismissal across projects and hosts", () => {
+    const first = buildWorktreeSetupCalloutPolicy({
+      serverId: "server-1",
+      projectId: "prj_a",
+      repoRoot: "/repo/a",
+    });
+    const second = buildWorktreeSetupCalloutPolicy({
+      serverId: "server-2",
+      projectId: "prj_b",
+      repoRoot: "/repo/b",
+    });
+
+    expect(first.id).not.toBe(second.id);
+    expect(first.dismissalKey).toBe(second.dismissalKey);
   });
 });
