@@ -663,13 +663,15 @@ function CollapsedSubagentCount({
   );
 }
 
-function SubagentRowActions({
+/** A managed subagent's row actions, shared by the composer pill and the Subagents panel. */
+export function SubagentRowActions({
   rowId,
   displayLabel,
   visible,
   onDetachPress,
   onArchivePress,
   onStopPress,
+  testIDPrefix = "subagents-track",
 }: {
   rowId: string;
   displayLabel: string;
@@ -677,6 +679,7 @@ function SubagentRowActions({
   onDetachPress?: () => void;
   onArchivePress: () => void;
   onStopPress?: () => void;
+  testIDPrefix?: string;
 }): ReactElement {
   const { t } = useTranslation();
   return (
@@ -687,7 +690,7 @@ function SubagentRowActions({
       {onDetachPress ? (
         <SubagentActionButton
           accessibilityLabel={t("subagents.detachAction", { label: displayLabel })}
-          testID={`subagents-track-detach-${rowId}`}
+          testID={`${testIDPrefix}-detach-${rowId}`}
           tooltipLabel={t("subagents.detachTooltip")}
           icon="detach"
           visible={visible}
@@ -697,7 +700,7 @@ function SubagentRowActions({
       {onStopPress ? (
         <SubagentActionButton
           accessibilityLabel={t("subagents.stopAction", { label: displayLabel })}
-          testID={`subagents-track-stop-${rowId}`}
+          testID={`${testIDPrefix}-stop-${rowId}`}
           tooltipLabel={t("subagents.stopAction", { label: displayLabel })}
           icon="stop"
           visible={visible}
@@ -706,7 +709,7 @@ function SubagentRowActions({
       ) : null}
       <SubagentActionButton
         accessibilityLabel={t("subagents.archiveAction", { label: displayLabel })}
-        testID={`subagents-track-archive-${rowId}`}
+        testID={`${testIDPrefix}-archive-${rowId}`}
         tooltipLabel={t("subagents.archiveTooltip")}
         icon="archive"
         visible={visible}
