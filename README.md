@@ -32,7 +32,7 @@ You need at least one agent CLI installed and signed in, such as [Claude Code](h
 
 ### Desktop app (macOS)
 
-Download a macOS build from [Releases](https://github.com/edihasaj/stroll/releases) when one is published, or build it yourself:
+Download the latest signed and notarized build for Apple Silicon from [Releases](https://github.com/edihasaj/stroll/releases/latest), or build it yourself:
 
 ```bash
 npm ci
