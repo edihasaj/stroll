@@ -199,21 +199,21 @@ buildNpmPackage {
         --add-flags "$out/share/paseo-desktop/electron-app" \
         --add-flags "--no-sandbox" \
         --add-flags "--class=paseo-desktop" \
-        --set EXPO_DEV_URL "paseo://app/" \
+        --set EXPO_DEV_URL "stroll://app/" \
         --set CHROME_DESKTOP "paseo-desktop.desktop"
 
       copyDesktopItems
     ''}
 
     ${lib.optionalString stdenv.hostPlatform.isDarwin ''
-      app="$(find packages/desktop/release -maxdepth 3 -type d -name Paseo.app -print -quit)"
+      app="$(find packages/desktop/release -maxdepth 3 -type d -name Stroll.app -print -quit)"
       if [ -z "$app" ]; then
-        echo "electron-builder did not produce Paseo.app" >&2
+        echo "electron-builder did not produce Stroll.app" >&2
         exit 1
       fi
       mkdir -p "$out/Applications"
-      cp -R "$app" "$out/Applications/Paseo.app"
-      ln -s ../Applications/Paseo.app/Contents/MacOS/Paseo "$out/bin/paseo-desktop"
+      cp -R "$app" "$out/Applications/Stroll.app"
+      ln -s ../Applications/Stroll.app/Contents/MacOS/Stroll "$out/bin/paseo-desktop"
     ''}
 
     runHook postInstall
@@ -250,8 +250,8 @@ buildNpmPackage {
 
   meta = {
     description = "Paseo desktop app (Electron wrapper)";
-    homepage = "https://github.com/getpaseo/paseo";
-    license = lib.licenses.agpl3Plus;
+    homepage = "https://github.com/edihasaj/stroll";
+    license = lib.licenses.asl20;
     mainProgram = "paseo-desktop";
     platforms = lib.platforms.linux ++ lib.platforms.darwin;
   };

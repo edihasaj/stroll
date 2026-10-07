@@ -41,13 +41,13 @@ const sherpaEnvModule =
 // manifests and workspace symlinks used by Node's resolution.
 const runtimeDependencies = new Map([
   ["packages/cli/dist/commands/daemon/local-daemon.js", ["@getpaseo/server"]],
-  [terminalModule, ["@getpaseo/cli/bin/paseo", "node-pty/package.json"]],
+  [terminalModule, ["@getpaseo/cli/bin/stroll", "node-pty/package.json"]],
   [sherpaModule, ["sherpa-onnx-node"]],
   [sherpaEnvModule, [`${sherpaPlatformPackageName()}/package.json`]],
   ...(traceDesktop
     ? [
         ["packages/desktop/dist/daemon/runtime-paths.js", ["@getpaseo/server"]],
-        ["packages/desktop/dist/integrations/cli-install/paths.js", ["@getpaseo/cli/bin/paseo"]],
+        ["packages/desktop/dist/integrations/cli-install/paths.js", ["@getpaseo/cli/bin/stroll"]],
       ]
     : []),
 ]);
