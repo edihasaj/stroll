@@ -290,6 +290,19 @@ export function useAgentInputDraft(input: UseAgentInputDraftInput): AgentInputDr
     [applyProfileFeatureValues, formState],
   );
 
+  // A draft that opens on a profile without a pick (remembered, else the host default) takes its
+  // feature toggles too, as if it had been applied from the picker. Once per profile, so toggles
+  // the user changes afterwards stay changed.
+  const autoAppliedProfileIdRef = useRef<string | null>(null);
+  const preferredAgentProfile = formState.preferredAgentProfile;
+  const appliedProfileId = formState.appliedProfileId;
+  useEffect(() => {
+    if (!preferredAgentProfile || appliedProfileId !== preferredAgentProfile.id) return;
+    if (autoAppliedProfileIdRef.current === preferredAgentProfile.id) return;
+    autoAppliedProfileIdRef.current = preferredAgentProfile.id;
+    applyProfileFeatureValues(preferredAgentProfile.featureValues);
+  }, [appliedProfileId, applyProfileFeatureValues, preferredAgentProfile]);
+
   const commandDraft = useMemo(
     () =>
       buildDraftCommandTarget({

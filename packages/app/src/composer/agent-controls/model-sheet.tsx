@@ -28,6 +28,8 @@ interface CompactModelSheetProps {
   selectedProvider: string;
   selectedModel: string;
   thinkingLabel: string | null;
+  /** The applied profile's name, shown in place of the model label (docs/glossary.md, Agent profile). */
+  profileName?: string;
   onSelect: (provider: string, modelId: string) => void;
   isLoading: boolean;
   profiles?: AgentProfilePicker | null;
@@ -80,6 +82,7 @@ export function CompactModelSheet({
   selectedProvider,
   selectedModel,
   thinkingLabel,
+  profileName,
   onSelect,
   isLoading,
   profiles = null,
@@ -269,9 +272,14 @@ export function CompactModelSheet({
         onPress={toggle}
         style={triggerStyle}
         accessibilityRole="button"
-        accessibilityLabel={t("modelSelector.selectedModel", {
-          model: rootBrowser.selectedModelLabel,
-        })}
+        accessibilityLabel={
+          profileName
+            ? t("modelSelector.selectedProfileAndModel", {
+                profile: profileName,
+                model: rootBrowser.selectedModelLabel,
+              })
+            : t("modelSelector.selectedModel", { model: rootBrowser.selectedModelLabel })
+        }
         testID="combined-model-selector"
         chevron={null}
       >
@@ -282,7 +290,7 @@ export function CompactModelSheet({
         ) : null}
         <View style={styles.triggerLabels}>
           <Text style={styles.triggerText} numberOfLines={1}>
-            {shortModelLabel(rootBrowser.triggerLabel)}
+            {profileName ?? shortModelLabel(rootBrowser.triggerLabel)}
           </Text>
           {thinkingLabel ? (
             <Text style={styles.triggerThinking} numberOfLines={1}>

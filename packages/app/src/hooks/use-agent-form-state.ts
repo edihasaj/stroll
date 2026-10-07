@@ -95,6 +95,11 @@ export interface UseAgentFormStateResult {
    * `null` once a manual provider/model change moves away from it.
    */
   appliedProfileId: string | null;
+  /**
+   * The profile a new draft opens on without a pick (remembered in this app, else the host
+   * default), or null. The draft uses it to carry the profile's feature toggles as well.
+   */
+  preferredAgentProfile: MaterializedAgentProfile | null;
   clearProviderSelectionFromUser: () => void;
   workingDirIsEmpty: boolean;
   persistFormPreferences: () => Promise<void>;
@@ -623,6 +628,7 @@ export function useAgentFormState(options: UseAgentFormStateOptions): UseAgentFo
       setProviderAndModelFromUser,
       applyProfileFromUser,
       appliedProfileId,
+      preferredAgentProfile,
       clearProviderSelectionFromUser,
       workingDirIsEmpty,
       persistFormPreferences,
@@ -657,6 +663,7 @@ export function useAgentFormState(options: UseAgentFormStateOptions): UseAgentFo
       setProviderAndModelFromUser,
       applyProfileFromUser,
       appliedProfileId,
+      preferredAgentProfile,
       clearProviderSelectionFromUser,
       workingDirIsEmpty,
       persistFormPreferences,

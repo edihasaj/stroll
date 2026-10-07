@@ -912,6 +912,7 @@ function ControlledAgentControls({
             onRetryModelProvider={onRetryModelProvider}
             isRetryingModelProvider={isRetryingModelProvider}
             agentProfiles={agentProfiles}
+            appliedProfileName={appliedProfileName}
             disabled={disabled}
             isModelLoading={isModelLoading}
             canSelectModel={canSelectModel}
@@ -1260,6 +1261,7 @@ interface SheetAgentControlsContentProps {
   onRetryModelProvider?: (provider: AgentProvider) => void;
   isRetryingModelProvider: boolean;
   agentProfiles: AgentProfilePicker | null;
+  appliedProfileName?: string;
   disabled: boolean;
   isModelLoading: boolean;
   canSelectModel: boolean;
@@ -1305,6 +1307,7 @@ function SheetAgentControlsContent(props: SheetAgentControlsContentProps) {
     onRetryModelProvider,
     isRetryingModelProvider,
     agentProfiles,
+    appliedProfileName,
     disabled,
     isModelLoading,
     canSelectModel,
@@ -1399,6 +1402,7 @@ function SheetAgentControlsContent(props: SheetAgentControlsContentProps) {
       selectedProvider={provider}
       selectedModel={selectedModelId ?? ""}
       thinkingLabel={hasThinking ? displayThinking : null}
+      profileName={appliedProfileName}
       onSelect={handleSheetModelSelect}
       profiles={agentProfiles}
       onApplyProfile={onApplyAgentProfile}
