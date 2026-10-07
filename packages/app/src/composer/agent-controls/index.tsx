@@ -177,8 +177,9 @@ export interface DraftAgentControlsProps {
   /**
    * The new-chat composer's "Route: <name>" chip (docs/agent-routes.md) — set only by
    * `new-workspace-screen.tsx` when the draft has a default route and hasn't removed it. While
-   * present, the route picks provider/model/mode/thinking/account on creation, so the rest of
-   * this row goes inert rather than showing choices the route will override.
+   * present, the route picks provider/model/mode/thinking/account on creation, so the chip stands
+   * in for those controls: disabled pickers for choices the route overrides only crowd a phone-width
+   * row. Removing the chip brings them back.
    */
   routeChip?: { label: string; onRemove: () => void } | null;
 }
@@ -2116,35 +2117,36 @@ export function DraftAgentControls({
       {profileEditor.element}
       {routeChip ? (
         <DraftRouteChip label={routeChip.label} onRemove={routeChip.onRemove} disabled={disabled} />
-      ) : null}
-      <ControlledAgentControls
-        provider={selectedProvider ?? ""}
-        modelSelectorProviders={modelSelectorProviders}
-        modelOptions={modelOptions}
-        selectedModelId={selectedModel}
-        onSelectModel={onSelectModel}
-        onSelectProviderAndModel={onSelectProviderAndModel}
-        isModelLoading={isAllModelsLoading}
-        agentProfiles={agentProfiles}
-        onApplyAgentProfile={agentProfiles?.applyProfile}
-        onEditAgentProfiles={handleEditAgentProfiles}
-        onCreateAgentProfile={profileActions.create}
-        onEditAgentProfile={profileActions.edit}
-        thinkingOptions={mappedThinkingOptions.length > 0 ? mappedThinkingOptions : undefined}
-        selectedThinkingOptionId={effectiveSelectedThinkingOption}
-        onSelectThinkingOption={onSelectThinkingOption}
-        features={features}
-        onSetFeature={onSetFeature}
-        onDropdownClose={onDropdownClose}
-        onModelSelectorOpen={onModelSelectorOpen}
-        onRetryModelProvider={onRetryModelProvider}
-        isRetryingModelProvider={isRetryingModelProvider}
-        disabled={disabled || Boolean(routeChip)}
-        modeControl={modeControl}
-        accountControl={accountControl}
-        modelSelectorServerId={modelSelectorServerId}
-        isCompactLayout={isCompactLayout}
-      />
+      ) : (
+        <ControlledAgentControls
+          provider={selectedProvider ?? ""}
+          modelSelectorProviders={modelSelectorProviders}
+          modelOptions={modelOptions}
+          selectedModelId={selectedModel}
+          onSelectModel={onSelectModel}
+          onSelectProviderAndModel={onSelectProviderAndModel}
+          isModelLoading={isAllModelsLoading}
+          agentProfiles={agentProfiles}
+          onApplyAgentProfile={agentProfiles?.applyProfile}
+          onEditAgentProfiles={handleEditAgentProfiles}
+          onCreateAgentProfile={profileActions.create}
+          onEditAgentProfile={profileActions.edit}
+          thinkingOptions={mappedThinkingOptions.length > 0 ? mappedThinkingOptions : undefined}
+          selectedThinkingOptionId={effectiveSelectedThinkingOption}
+          onSelectThinkingOption={onSelectThinkingOption}
+          features={features}
+          onSetFeature={onSetFeature}
+          onDropdownClose={onDropdownClose}
+          onModelSelectorOpen={onModelSelectorOpen}
+          onRetryModelProvider={onRetryModelProvider}
+          isRetryingModelProvider={isRetryingModelProvider}
+          disabled={disabled}
+          modeControl={modeControl}
+          accountControl={accountControl}
+          modelSelectorServerId={modelSelectorServerId}
+          isCompactLayout={isCompactLayout}
+        />
+      )}
     </>
   );
 }
@@ -2198,10 +2200,12 @@ const styles = StyleSheet.create((theme) => ({
   },
   // Same 28px pill geometry as `AgentControlTrigger`'s `toolbarControl`, but with a trailing
   // remove glyph instead of a caret — `surface2` fill (vs. the triggers' transparent rest state)
-  // marks it as the row's one fixed, non-interactive-until-removed control.
+  // marks it as a setting rather than a picker. It shrinks with the row, so a long route name
+  // truncates instead of pushing the send button off a phone-width composer.
   routeChip: {
     height: 28,
-    flexShrink: 0,
+    minWidth: 0,
+    flexShrink: 1,
     flexDirection: "row",
     alignItems: "center",
     gap: theme.spacing[1],
@@ -2211,7 +2215,8 @@ const styles = StyleSheet.create((theme) => ({
     backgroundColor: theme.colors.surface2,
   },
   routeChipLabel: {
-    maxWidth: 160,
+    flexShrink: 1,
+    maxWidth: 280,
     color: theme.colors.foreground,
     fontSize: theme.fontSize.sm,
   },

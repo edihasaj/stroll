@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState, type ReactElement } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactElement } from "react";
 import { useTranslation } from "react-i18next";
-import { Text, View } from "react-native";
+import { Text, View, type TextStyle } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 import {
   resolveEntryPrivacy,
@@ -14,9 +14,22 @@ import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { createControlGeometry } from "@/components/ui/control-geometry";
 import { EditingTextInput } from "@/components/ui/text-input";
+import { isWeb } from "@/constants/platform";
 import { useToast } from "@/contexts/toast-context";
 import { settingsStyles } from "@/styles/settings";
+import { inlineUnistylesStyle } from "@/styles/unistyles-inline-style";
 import { toAgentRoutePreflightResultView } from "../internal/preflight-result-view";
+
+// A multiline input is a textarea on web, which keeps a fixed number of rows. `field-sizing` lets it
+// grow with its text in Chromium (the desktop app); other browsers keep two rows and scroll. Native
+// multiline inputs grow on their own.
+const GROW_WITH_TEXT_ON_WEB: TextStyle | null = isWeb
+  ? inlineUnistylesStyle({ fieldSizing: "content" } as unknown as TextStyle)
+  : null;
+
+// Enter saves the description through blur instead of starting a new line. On web the input only
+// holds the newline back when it has a submit handler, so this one exists for that.
+function keepDescriptionOnOneLine(): void {}
 
 function resolveProfileName(profiles: readonly AgentProfile[] | null, profileId: string): string {
   return profiles?.find((profile) => profile.id === profileId)?.name ?? profileId;
@@ -84,19 +97,24 @@ function RouteDescriptionField({
       toast.error(error instanceof Error ? error.message : t("errors.unableToSave"));
     });
   }, [draft, onUpdateDescription, route.description, route.id, t, toast]);
+  const inputStyle = useMemo(() => [styles.descriptionInput, GROW_WITH_TEXT_ON_WEB], []);
 
   return (
     <View style={styles.descriptionField}>
       <Text style={styles.descriptionLabel}>{t("agentRoutes.description.label")}</Text>
+      {/* Multiline so a long description wraps on a narrow screen instead of running off the edge. */}
       <EditingTextInput
         testID={`agent-route-description-${route.id}`}
         accessibilityLabel={t("agentRoutes.description.label")}
         initialValue={route.description ?? ""}
         onChangeText={setDraft}
         onBlur={handleBlur}
+        multiline
+        blurOnSubmit
+        onSubmitEditing={keepDescriptionOnOneLine}
         placeholder={t("agentRoutes.description.placeholder")}
         placeholderTextColor={styles.descriptionPlaceholder.color}
-        style={styles.descriptionInput}
+        style={inputStyle}
       />
     </View>
   );
@@ -223,6 +241,7 @@ const styles = StyleSheet.create((theme) => {
       borderRadius: theme.borderRadius.lg,
       color: theme.colors.foreground,
       fontSize: theme.fontSize.base,
+      textAlignVertical: "top",
     },
     descriptionPlaceholder: {
       color: theme.colors.foregroundMuted,

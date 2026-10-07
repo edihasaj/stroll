@@ -97,8 +97,10 @@ const styles = StyleSheet.create((theme) => ({
   copy: {
     gap: theme.spacing[1],
   },
+  // Wraps so a narrow sidebar puts the second action on its own line instead of clipping it.
   actions: {
     flexDirection: "row",
+    flexWrap: "wrap",
     gap: theme.spacing[2],
     marginTop: theme.spacing[4],
   },
