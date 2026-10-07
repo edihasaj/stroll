@@ -92,7 +92,7 @@ export function SidebarNewChatRow({
         <Pressable
           style={rowButtonStyle}
           onPress={handleNewChat}
-          testID="sidebar-panel-new-chat"
+          testID="sidebar-global-new-chat"
           accessible
           accessibilityRole="button"
           accessibilityLabel={t(builtinSidebarNavLabelKey("new-chat"))}
@@ -118,7 +118,7 @@ export function SidebarNewChatRow({
             <Pressable
               style={plusButtonStyle}
               onPress={handleNewWorkspace}
-              testID="sidebar-panel-new-workspace"
+              testID="sidebar-global-new-workspace"
               accessible
               accessibilityRole="button"
               accessibilityLabel={t(builtinSidebarNavLabelKey("new-workspace"))}

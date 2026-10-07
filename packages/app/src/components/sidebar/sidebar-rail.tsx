@@ -127,7 +127,7 @@ export function SidebarRail({
         label={t("sidebar.actions.settings")}
         onPress={handleSettings}
         isActive={isSettingsRoute}
-        testID="sidebar-rail-settings"
+        testID="sidebar-settings"
         shortcutKeys={settingsShortcut}
         rail
       />

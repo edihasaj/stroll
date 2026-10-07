@@ -66,7 +66,7 @@ export function SidebarPanelHeader({ showSearch }: { showSearch: boolean }) {
               <Pressable
                 style={searchButtonStyle}
                 onPress={handleSearch}
-                testID="sidebar-panel-search"
+                testID="sidebar-search"
                 accessible
                 accessibilityRole="button"
                 accessibilityLabel={t(builtinSidebarNavLabelKey("search"))}
