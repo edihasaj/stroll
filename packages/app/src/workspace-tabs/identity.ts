@@ -67,6 +67,10 @@ function normalizeSimpleWorkspaceTabTarget(value: WorkspaceTabTarget): Workspace
       const sha = trimNonEmpty(value.sha);
       return sha ? { kind: "commit_diff", sha } : null;
     }
+    case "subagents": {
+      const parentAgentId = trimNonEmpty(value.parentAgentId);
+      return parentAgentId ? { kind: "subagents", parentAgentId } : null;
+    }
     default:
       return null;
   }
@@ -144,6 +148,9 @@ function secondaryWorkspaceTabTargetsEqual(
   if (left.kind === "browser" && right.kind === "browser") {
     return left.browserId === right.browserId;
   }
+  if (left.kind === "subagents" && right.kind === "subagents") {
+    return left.parentAgentId === right.parentAgentId;
+  }
   if (left.kind === "file" && right.kind === "file") {
     return workspaceFileLocationsEqual(left, right);
   }
@@ -214,6 +221,9 @@ export function buildDeterministicWorkspaceTabId(target: WorkspaceTabTarget): st
   }
   if (target.kind === "provider_subagent") {
     return `provider_subagent_${target.parentAgentId.length}_${target.parentAgentId}_${target.subagentId.length}_${target.subagentId}`;
+  }
+  if (target.kind === "subagents") {
+    return `subagents_${target.parentAgentId}`;
   }
   if (target.kind === "terminal") {
     return `terminal_${target.terminalId}`;

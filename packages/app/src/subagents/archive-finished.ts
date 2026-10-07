@@ -35,7 +35,10 @@ export interface ArchiveFinishedSubagents {
 }
 
 export function isFinishedSubagent(row: SubagentRow): boolean {
-  if (row.kind === "paseo") return row.status === "idle" || row.status === "error";
+  // A closed agent's session ended (or the daemon unloaded it after a restart): its work is done.
+  if (row.kind === "paseo") {
+    return row.status === "idle" || row.status === "error" || row.status === "closed";
+  }
   return row.status === "completed" || row.status === "failed" || row.status === "canceled";
 }
 

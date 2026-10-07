@@ -146,6 +146,7 @@ import {
   WorkspaceExplorerSidebarToggle,
   WorkspaceHeaderExplorerToggle,
 } from "@/screens/workspace/workspace-explorer-toggle";
+import { WorkspaceSummaryToggle } from "./workspace-summary-toggle";
 import { useHasWindowChromeObstruction } from "@/utils/desktop-window";
 import {
   resolveWorkspaceHeaderRenderState,
@@ -384,7 +385,7 @@ function getFallbackTabOptionDescription(
   if (tab.target.kind === "browser") {
     return labels.browser;
   }
-  if (tab.target.kind === "provider_subagent") {
+  if (tab.target.kind === "provider_subagent" || tab.target.kind === "subagents") {
     return labels.agent;
   }
   if (tab.target.kind === "commit_diff") {
@@ -3829,6 +3830,7 @@ function WorkspaceScreenContent({
         {!isMobile && workspaceDirectory ? (
           <WorkspaceHeaderCommitPill serverId={normalizedServerId} cwd={workspaceDirectory} />
         ) : null}
+        {!isMobile ? <WorkspaceSummaryToggle style={styles.compactHeaderActionButton} /> : null}
         {!isMobile && workspaceDirectory ? (
           <>
             <WorkspaceActions serverId={normalizedServerId} cwd={workspaceDirectory} menuOnly />

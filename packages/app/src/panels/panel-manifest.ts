@@ -43,6 +43,13 @@ const manifests = {
     singleton: false,
     resourceKey: (target) => `${target.parentAgentId}:${target.subagentId}`,
   },
+  subagents: {
+    kind: "subagents",
+    supportedHosts: ["main", "explorer"],
+    showCloseButton: true,
+    singleton: false,
+    resourceKey: (target) => target.parentAgentId,
+  },
   terminal: {
     kind: "terminal",
     supportedHosts: ["main", "explorer"],

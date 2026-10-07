@@ -1,6 +1,7 @@
 import { getHostRuntimeStore } from "@/runtime/host-runtime";
 import { useHostFeature } from "@/runtime/host-features";
 import { AgentContextToolbar, RouteBanner } from "@/agent-routes";
+import { ChatSummaryCard } from "@/subagents/chat-summary-card";
 import { Button } from "@/components/ui/button";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import type { DaemonClient } from "@getpaseo/client/internal/daemon-client";
@@ -1288,6 +1289,13 @@ const ChatAgentReadyContent = memo(function ChatAgentReadyContent({
           hasPluginComposerPills={hasPluginComposerPills}
         />
       ) : null}
+      <ChatSummaryCard
+        serverId={serverId}
+        workspaceId={workspaceId}
+        cwd={cwd}
+        agentId={agentId}
+        subagentRows={subagentRows}
+      />
     </View>
   );
 

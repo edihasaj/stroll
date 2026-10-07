@@ -117,6 +117,8 @@ export interface AppSettings {
   autoExpandReasoning: boolean;
   toolCallDetailLevel: ToolCallDetailLevel;
   chatOutlineEnabled: boolean;
+  /** The floating summary card at the top right of a chat (subagents, changes). */
+  showChatSummary: boolean;
   vimKeybindings: boolean;
   /** Desktop-only preferences for implicit opens into the ordinary side pane. */
   openInSidePane: OpenInSidePanePreferences;
@@ -179,6 +181,7 @@ export const DEFAULT_CLIENT_SETTINGS: AppSettings = {
   // install (there is no stored blob at all, so this default applies directly).
   toolCallDetailLevel: "overview",
   chatOutlineEnabled: true,
+  showChatSummary: true,
   vimKeybindings: false,
   openInSidePane: DEFAULT_OPEN_IN_SIDE_PANE_PREFERENCES,
   pullRequestOpenLocation: "explorer",
@@ -284,6 +287,7 @@ const StoredAppSettingsSchema = z
     // COMPAT(compactToolCalls): migrated in v0.1.105, remove after 2027-01-12.
     compactToolCalls: z.boolean().optional().catch(undefined),
     chatOutlineEnabled: z.boolean().catch(true),
+    showChatSummary: z.boolean().catch(true),
     vimKeybindings: z.boolean().catch(false),
     openInSidePane: z
       .object({
