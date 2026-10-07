@@ -32,6 +32,7 @@ interface SupportedMutableConfigPatch {
   agentProfiles?: MutableDaemonConfig["agentProfiles"];
   agentRoutes?: MutableDaemonConfig["agentRoutes"];
   defaultAgentRoute?: MutableDaemonConfig["defaultAgentRoute"];
+  defaultAgentProfile?: MutableDaemonConfig["defaultAgentProfile"];
   peers?: MutableDaemonConfig["peers"];
   skills?: MutableDaemonConfig["skills"];
   pluginsEnabled?: boolean;
@@ -190,6 +191,7 @@ const RELOADABLE_PATHS = [
   "daemon.agentProfiles",
   "daemon.agentRoutes",
   "daemon.defaultAgentRoute",
+  "daemon.defaultAgentProfile",
   "daemon.peers",
   "app.baseUrl",
   "agents.providers",
@@ -216,6 +218,7 @@ const PERSISTED_TO_MUTABLE_PATH = new Map<string, string>([
   ["daemon.agentProfiles", "agentProfiles"],
   ["daemon.agentRoutes", "agentRoutes"],
   ["daemon.defaultAgentRoute", "defaultAgentRoute"],
+  ["daemon.defaultAgentProfile", "defaultAgentProfile"],
   ["daemon.peers", "peers"],
   ["app.baseUrl", "app.baseUrl"],
   ["agents.providers", "providers"],
@@ -306,6 +309,9 @@ function pickSupportedPatchFields(patch: MutableDaemonConfigPatch): SupportedMut
       : {}),
     ...(patch.terminalProfiles !== undefined ? { terminalProfiles: patch.terminalProfiles } : {}),
     ...(patch.agentProfiles !== undefined ? { agentProfiles: patch.agentProfiles } : {}),
+    ...(patch.defaultAgentProfile !== undefined
+      ? { defaultAgentProfile: patch.defaultAgentProfile }
+      : {}),
     ...pickAgentRoutePatch(patch),
     ...(patch.peers !== undefined ? { peers: patch.peers } : {}),
     ...(patch.pluginsEnabled !== undefined ? { pluginsEnabled: patch.pluginsEnabled } : {}),
@@ -703,6 +709,7 @@ function mergeMutableDaemonPatch(
   if (patch.agentProfiles !== undefined) next.agentProfiles = patch.agentProfiles;
   if (patch.agentRoutes !== undefined) next.agentRoutes = patch.agentRoutes;
   if (patch.defaultAgentRoute !== undefined) next.defaultAgentRoute = patch.defaultAgentRoute;
+  if (patch.defaultAgentProfile !== undefined) next.defaultAgentProfile = patch.defaultAgentProfile;
   if (patch.peers !== undefined) next.peers = patch.peers;
   return Object.keys(next).length > 0 ? next : undefined;
 }

@@ -423,6 +423,7 @@ export interface PaseoDaemonConfig {
   agentProfiles?: AgentProfile[];
   agentRoutes?: AgentRoute[];
   defaultAgentRoute?: string | null;
+  defaultAgentProfile?: string | null;
   peers?: DaemonPeer[];
   skillSelection?: AgentSkillSelection;
   pluginsEnabled?: boolean;
@@ -573,7 +574,12 @@ function resolveOptionalProfileListFields(
   config: PaseoDaemonConfig,
 ): Pick<
   MutableDaemonConfig,
-  "terminalProfiles" | "agentProfiles" | "agentRoutes" | "defaultAgentRoute" | "peers"
+  | "terminalProfiles"
+  | "agentProfiles"
+  | "agentRoutes"
+  | "defaultAgentRoute"
+  | "defaultAgentProfile"
+  | "peers"
 > {
   return {
     ...(config.terminalProfiles !== undefined ? { terminalProfiles: config.terminalProfiles } : {}),
@@ -581,6 +587,9 @@ function resolveOptionalProfileListFields(
     ...(config.agentRoutes !== undefined ? { agentRoutes: config.agentRoutes } : {}),
     ...(config.defaultAgentRoute !== undefined
       ? { defaultAgentRoute: config.defaultAgentRoute }
+      : {}),
+    ...(config.defaultAgentProfile !== undefined
+      ? { defaultAgentProfile: config.defaultAgentProfile }
       : {}),
     ...(config.peers !== undefined ? { peers: config.peers } : {}),
   };

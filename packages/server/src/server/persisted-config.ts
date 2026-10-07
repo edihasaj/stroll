@@ -268,6 +268,7 @@ export const PersistedConfigSchema = z
         agentProfiles: z.array(AgentProfileSchema).optional(),
         agentRoutes: z.array(AgentRouteSchema).optional(),
         defaultAgentRoute: z.string().nullable().optional(),
+        defaultAgentProfile: z.string().nullable().optional(),
         peers: z.array(DaemonPeerSchema).optional(),
         cors: z
           .object({

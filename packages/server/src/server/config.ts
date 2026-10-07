@@ -528,6 +528,7 @@ function resolveProfileLists(persisted: ReturnType<typeof loadPersistedConfig>) 
     agentProfiles: persisted.daemon?.agentProfiles,
     agentRoutes: persisted.daemon?.agentRoutes,
     defaultAgentRoute: persisted.daemon?.defaultAgentRoute,
+    defaultAgentProfile: persisted.daemon?.defaultAgentProfile,
     peers: persisted.daemon?.peers,
   };
 }
@@ -583,6 +584,7 @@ export function resolveConfigFromPersisted(
     agentProfiles,
     agentRoutes,
     defaultAgentRoute,
+    defaultAgentProfile,
     peers,
     hostnames,
     trustedProxies,
@@ -631,6 +633,7 @@ export function resolveConfigFromPersisted(
     agentProfiles,
     agentRoutes,
     defaultAgentRoute,
+    defaultAgentProfile,
     peers,
     skillSelection: persisted.agents?.skills?.selection,
     pluginsEnabled: persisted.pluginsEnabled ?? false,

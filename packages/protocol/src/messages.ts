@@ -242,6 +242,8 @@ export const MutableDaemonConfigSchema = z
     agentRoutes: z.array(AgentRouteSchema).optional(),
     /** A route id new chats use when the client does not pick a model. */
     defaultAgentRoute: z.string().nullable().optional(),
+    /** A profile id new drafts use when nothing else picks a provider/model. */
+    defaultAgentProfile: z.string().nullable().optional(),
     /** Other daemons this daemon can dial to spawn agents on another computer. */
     peers: z.array(DaemonPeerSchema).optional(),
     skills: z.object({ selection: AgentSkillSelectionSchema.optional() }).strict().optional(),
@@ -267,6 +269,7 @@ export const MutableDaemonConfigPatchSchema = z
     agentProfiles: z.array(AgentProfileSchema).optional(),
     agentRoutes: z.array(AgentRouteSchema).optional(),
     defaultAgentRoute: z.string().nullable().optional(),
+    defaultAgentProfile: z.string().nullable().optional(),
     peers: z.array(DaemonPeerSchema).optional(),
     pluginsEnabled: z.boolean().optional(),
     plugins: z.record(PluginIdSchema, PluginSourceSchema).optional(),

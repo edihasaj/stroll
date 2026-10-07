@@ -29,6 +29,7 @@ function reloadableConfig(
     appendSystemPrompt: daemon.appendSystemPrompt ?? "",
     terminalProfiles: daemon.terminalProfiles,
     agentProfiles: daemon.agentProfiles,
+    defaultAgentProfile: daemon.defaultAgentProfile,
     cors: { allowedOrigins: [] },
     trustedProxies: ["loopback"],
     git: {
@@ -188,6 +189,50 @@ describe("DaemonConfigStore", () => {
 
     expect(store.get().agentProfiles).toEqual([{ id: "a", name: "Keep", provider: "claude" }]);
     expect(loadPersistedConfig(paseoHome).daemon?.agentProfiles).toHaveLength(1);
+  });
+
+  test("patch persists a default agent profile and emits its field change", () => {
+    const paseoHome = mkdtempSync(path.join(tmpdir(), "paseo-daemon-config-store-"));
+    tempDirs.push(paseoHome);
+    const store = new DaemonConfigStore(paseoHome, {
+      relay: { enabled: false },
+      mcp: { injectIntoAgents: false },
+      browserTools: { enabled: false },
+      providers: {},
+      metadataGeneration: { providers: [] },
+      autoArchiveAfterMerge: false,
+      enableTerminalAgentHooks: false,
+      appendSystemPrompt: "",
+    });
+    const changes: unknown[] = [];
+    store.onFieldChange("defaultAgentProfile", (value) => changes.push(value));
+
+    store.patch({ defaultAgentProfile: "profile_ui" });
+
+    expect(changes).toEqual(["profile_ui"]);
+    expect(store.get().defaultAgentProfile).toBe("profile_ui");
+    expect(loadPersistedConfig(paseoHome).daemon?.defaultAgentProfile).toBe("profile_ui");
+  });
+
+  test("patch clears a default agent profile by setting it to null", () => {
+    const paseoHome = mkdtempSync(path.join(tmpdir(), "paseo-daemon-config-store-"));
+    tempDirs.push(paseoHome);
+    const store = new DaemonConfigStore(paseoHome, {
+      relay: { enabled: false },
+      mcp: { injectIntoAgents: false },
+      browserTools: { enabled: false },
+      providers: {},
+      metadataGeneration: { providers: [] },
+      autoArchiveAfterMerge: false,
+      enableTerminalAgentHooks: false,
+      appendSystemPrompt: "",
+      defaultAgentProfile: "profile_ui",
+    });
+
+    store.patch({ defaultAgentProfile: null });
+
+    expect(store.get().defaultAgentProfile).toBeNull();
+    expect(loadPersistedConfig(paseoHome).daemon?.defaultAgentProfile).toBeNull();
   });
 
   test("patch round-trips peers and replaces the whole list rather than merging entries", () => {
@@ -1173,6 +1218,7 @@ describe("DaemonConfigStore reload", () => {
         ...persisted.daemon,
         terminalProfiles: [{ id: "shell", name: "Shell", command: "bash" }],
         agentProfiles: [{ id: "review", name: "Review", provider: "codex" }],
+        defaultAgentProfile: "review",
       },
       agents: {
         providers: {
@@ -1188,11 +1234,13 @@ describe("DaemonConfigStore reload", () => {
     expect(result.appliedPaths).toEqual([
       "agents.providers",
       "daemon.agentProfiles",
+      "daemon.defaultAgentProfile",
       "daemon.terminalProfiles",
     ]);
     expect(store.get().providers).toEqual({});
     expect(store.get().terminalProfiles).toBeUndefined();
     expect(store.get().agentProfiles).toBeUndefined();
+    expect(store.get().defaultAgentProfile).toBeUndefined();
   });
 
   test("reports a launch-controlled edit without changing live state", () => {
