@@ -13,6 +13,8 @@ export interface InlinePathTarget {
   path: string;
   lineStart?: number;
   lineEnd?: number;
+  /** Omitted when the string shape doesn't say — probe at open time to decide. */
+  kind?: "file" | "directory";
 }
 
 const FILE_PROTOCOL = "file:";
@@ -78,8 +80,29 @@ const ASSISTANT_FILE_EXTENSIONS = new Set([
   "zsh",
 ]);
 
+// Recognized regardless of extension — keep lowercase, compared case-insensitively.
+const ASSISTANT_EXTENSIONLESS_FILENAMES = new Set([
+  "makefile",
+  "dockerfile",
+  "license",
+  "readme",
+  "procfile",
+  "gemfile",
+  "rakefile",
+  "justfile",
+  "brewfile",
+  "codeowners",
+]);
+
 export interface AssistantHrefParseOptions {
   workspaceRoot?: string;
+  /**
+   * An explicit markdown link href is intentional authoring, not ambient text: accept a bare
+   * relative path (no leading `./`, `../`, `~/`) when it either contains a "/" or ends in any
+   * dot-extension, instead of requiring a recognized extension. Absolute, `~/`, `file://`, and
+   * Windows paths are unaffected — they already bypass the extension allowlist.
+   */
+  allowAnyExtension?: boolean;
 }
 
 export type AssistantFileLinkClassification =
@@ -294,6 +317,29 @@ export function parseAssistantFileLink(
   value: string,
   options: AssistantHrefParseOptions = {},
 ): InlinePathTarget | null {
+  const target = parseAssistantFileLinkTarget(value, options);
+  if (!target) {
+    return null;
+  }
+  if (target.kind) {
+    return target;
+  }
+  // Resolving a relative path under the workspace drops its trailing slash, so the raw token is
+  // what still says "directory" for `notes/`.
+  const kind = endsWithPathSeparator(target.raw.trim())
+    ? "directory"
+    : inferInlinePathTargetKind(target.path, options);
+  return kind ? { ...target, kind } : target;
+}
+
+function endsWithPathSeparator(value: string): boolean {
+  return value.length > 1 && (value.endsWith("/") || value.endsWith("\\"));
+}
+
+function parseAssistantFileLinkTarget(
+  value: string,
+  options: AssistantHrefParseOptions,
+): InlinePathTarget | null {
   const fileUrlTarget = parseFileProtocolUrl(value);
   if (fileUrlTarget) {
     return fileUrlTarget;
@@ -334,6 +380,7 @@ export function parseAssistantFileLink(
 
   const relativeTarget = parseWorkspaceRelativeFileLink(trimmed, {
     workspaceRoot: options.workspaceRoot,
+    allowAnyExtension: options.allowAnyExtension,
   });
   if (relativeTarget) {
     return relativeTarget;
@@ -390,7 +437,7 @@ function parseWorkspaceRelativeFileLink(
   value: string,
   options: AssistantHrefParseOptions,
 ): InlinePathTarget | null {
-  const parsed = parseLocalPathParts(value);
+  const parsed = parseLocalPathParts(value, { allowAnyExtension: options.allowAnyExtension });
   if (!parsed || isAbsolutePath(parsed.path)) {
     return null;
   }
@@ -422,11 +469,17 @@ function parseWorkspaceRelativeFileLink(
 
 function parseLocalPathParts(
   value: string,
+  options: { allowAnyExtension?: boolean } = {},
 ): { path: string; lines: Pick<InlinePathTarget, "lineStart" | "lineEnd"> } | null {
   const normalized = normalizePathToken(value);
   if (!normalized || normalized.includes("?")) {
     return null;
   }
+
+  const isPlausible = (candidate: string) =>
+    options.allowAnyExtension
+      ? isLooseLocalPathShapedToken(candidate)
+      : isPlausibleAssistantLocalPath(candidate);
 
   const hashIndex = normalized.indexOf("#");
   const beforeHash = hashIndex >= 0 ? normalized.slice(0, hashIndex) : normalized;
@@ -438,7 +491,7 @@ function parseLocalPathParts(
 
   const inlinePathTarget = parseInlinePathToken(beforeHash);
   if (inlinePathTarget) {
-    if (!isPlausibleAssistantLocalPath(inlinePathTarget.path)) {
+    if (!isPlausible(inlinePathTarget.path)) {
       return null;
     }
 
@@ -455,7 +508,7 @@ function parseLocalPathParts(
     return null;
   }
 
-  if (!isPlausibleAssistantLocalPath(beforeHash)) {
+  if (!isPlausible(beforeHash)) {
     return null;
   }
 
@@ -463,6 +516,35 @@ function parseLocalPathParts(
     path: beforeHash,
     lines: fragmentLines,
   };
+}
+
+/**
+ * Looser gate for an explicit markdown link href (or a path already confirmed by the prose/
+ * user-message scanner): a bare relative token with no `./`, `../`, `~/` marker still counts as
+ * a local path when it contains a "/" or ends in any dot-extension — the curated extension
+ * allowlist only matters for ambient text, where intent is inferred rather than authored.
+ */
+function isLooseLocalPathShapedToken(value: string): boolean {
+  const normalized = normalizePathToken(value);
+  if (!normalized) {
+    return false;
+  }
+  if (isAbsolutePath(normalized)) {
+    return true;
+  }
+  if (
+    normalized.startsWith("./") ||
+    normalized.startsWith("../") ||
+    normalized.startsWith("~/") ||
+    normalized === "~"
+  ) {
+    return true;
+  }
+  if (normalized.includes("/")) {
+    return true;
+  }
+  const lastDot = normalized.lastIndexOf(".");
+  return lastDot >= 0 && lastDot < normalized.length - 1;
 }
 
 export function normalizeInlinePathTarget(
@@ -596,6 +678,11 @@ function isPlausibleAssistantLocalPath(pathValue: string): boolean {
     return true;
   }
 
+  // A bare relative directory marker ("docs/") — the trailing slash is itself the signal.
+  if (normalized.length > 1 && normalized.endsWith("/")) {
+    return true;
+  }
+
   const segments = normalized.split("/").filter(Boolean);
   const firstSegment = segments[0];
   if (!firstSegment) {
@@ -604,18 +691,30 @@ function isPlausibleAssistantLocalPath(pathValue: string): boolean {
 
   if (segments.length > 1) {
     const lastSegment = segments[segments.length - 1];
-    return !isDomainLikePathSegment(firstSegment) && isPlausibleAssistantFileName(lastSegment);
+    // The token already contains a "/", so any short alphanumeric extension counts, not just
+    // the curated allowlist — "src/notes.xyz" shouldn't need its extension registered here.
+    return (
+      !isDomainLikePathSegment(firstSegment) &&
+      isPlausibleAssistantFileName(lastSegment, { allowAnyShortExtension: true })
+    );
   }
 
   return isPlausibleAssistantFileName(firstSegment);
 }
 
-function isPlausibleAssistantFileName(fileName: string | undefined): boolean {
+function isPlausibleAssistantFileName(
+  fileName: string | undefined,
+  options: { allowAnyShortExtension?: boolean } = {},
+): boolean {
   if (!fileName) {
     return false;
   }
 
   if (fileName.startsWith(".") && fileName.length > 1) {
+    return true;
+  }
+
+  if (ASSISTANT_EXTENSIONLESS_FILENAMES.has(fileName.toLowerCase())) {
     return true;
   }
 
@@ -625,7 +724,38 @@ function isPlausibleAssistantFileName(fileName: string | undefined): boolean {
   }
 
   const extension = fileName.slice(lastDot + 1).toLowerCase();
-  return ASSISTANT_FILE_EXTENSIONS.has(extension);
+  if (ASSISTANT_FILE_EXTENSIONS.has(extension)) {
+    return true;
+  }
+
+  return Boolean(options.allowAnyShortExtension) && /^[a-z0-9]{1,10}$/.test(extension);
+}
+
+/**
+ * Best-effort file-vs-directory signal from the path string alone. `undefined` means the shape
+ * doesn't say — callers probe the daemon at open time rather than guessing.
+ */
+function inferInlinePathTargetKind(
+  path: string,
+  options: AssistantHrefParseOptions,
+): "file" | "directory" | undefined {
+  if (path.length > 1 && path.endsWith("/")) {
+    return "directory";
+  }
+
+  const lastSegment = path.split("/").findLast((segment) => segment.length > 0);
+  if (!lastSegment) {
+    return undefined;
+  }
+
+  if (options.allowAnyExtension) {
+    const lastDot = lastSegment.lastIndexOf(".");
+    return lastDot >= 0 && lastDot < lastSegment.length - 1 ? "file" : undefined;
+  }
+
+  return isPlausibleAssistantFileName(lastSegment, { allowAnyShortExtension: true })
+    ? "file"
+    : undefined;
 }
 
 function isDomainLikePathSegment(segment: string): boolean {

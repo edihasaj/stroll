@@ -15,6 +15,11 @@ import type { AssistantFileLinkContext, GetDirectorySuggestions } from "./resolv
 
 export interface AssistantFileLinkDaemonClient {
   getDirectorySuggestions: GetDirectorySuggestions;
+  /**
+   * Resolves when `path` (rooted at `cwd`) is a directory, rejects otherwise. Used only to probe
+   * an ambiguous target whose kind the string shape couldn't determine — see use-file-link.ts.
+   */
+  listDirectory?: (cwd: string, path: string) => Promise<unknown>;
 }
 
 export interface AssistantFileLinkResolverConfig {
@@ -22,6 +27,8 @@ export interface AssistantFileLinkResolverConfig {
   serverId?: string;
   workspaceRoot?: string;
   onOpenWorkspaceFile?: (target: InlinePathTarget, disposition: OpenFileDisposition) => void;
+  /** Sibling of `onOpenWorkspaceFile` for targets that resolve to a directory. */
+  onOpenWorkspaceFolder?: (path: string) => void;
   toast?: ToastApi | null;
 }
 
@@ -42,6 +49,7 @@ export function AssistantFileLinkResolverProvider({
   serverId,
   workspaceRoot,
   onOpenWorkspaceFile,
+  onOpenWorkspaceFolder,
   toast,
   children,
 }: AssistantFileLinkResolverProviderProps) {
@@ -50,9 +58,17 @@ export function AssistantFileLinkResolverProvider({
     serverId,
     workspaceRoot,
     onOpenWorkspaceFile,
+    onOpenWorkspaceFolder,
     toast,
   });
-  configRef.current = { client, serverId, workspaceRoot, onOpenWorkspaceFile, toast };
+  configRef.current = {
+    client,
+    serverId,
+    workspaceRoot,
+    onOpenWorkspaceFile,
+    onOpenWorkspaceFolder,
+    toast,
+  };
 
   const getDirectorySuggestions = useCallback<GetDirectorySuggestions>(async (input) => {
     const activeClient = configRef.current.client;
@@ -82,6 +98,15 @@ export function useAssistantFileLinkResolverContext(): AssistantFileLinkResolver
     throw new Error("AssistantFileLinkResolverProvider is required for assistant file links.");
   }
   return context;
+}
+
+/**
+ * Same context, without the throw. User messages aren't wrapped in a resolver provider today, so
+ * their path-link rendering (components/message.tsx) uses this to stay plain text there instead
+ * of crashing, and to light up automatically once a provider is added around them.
+ */
+export function useOptionalAssistantFileLinkResolverContext(): AssistantFileLinkResolverContextValue | null {
+  return useContext(AssistantFileLinkResolverContext);
 }
 
 export type { AssistantFileLinkContext };

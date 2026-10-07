@@ -113,8 +113,13 @@ export function classifyForResolution(
     return { kind: "resolved", value: { kind: "ignored" } };
   }
 
+  // An authored `[text](href)` markdown link is intentional, unlike a linkified autolink or an
+  // inline-code mention: its href opens regardless of extension (see parse.ts's
+  // `allowAnyExtension`). Linkified/inline-code sources keep the curated-extension gate.
+  const isExplicitLinkHref = !isLinkifiedSource(source) && source.sourceType !== "inline-code";
   const classification = classifyAssistantFileLink(token, {
     workspaceRoot: context.workspaceRoot,
+    allowAnyExtension: isExplicitLinkHref,
   });
   if (!classification) {
     return { kind: "resolved", value: { kind: "ignored" } };
@@ -183,7 +188,8 @@ export function shouldResolveDirectFileThroughSuggestions(input: {
     return false;
   }
 
-  if (isAbsoluteInlineCodeToken(input.token)) {
+  // The lookup only finds files, so a directory resolves where it stands.
+  if (isAbsoluteInlineCodeToken(input.token) || input.target.kind === "directory") {
     return false;
   }
 

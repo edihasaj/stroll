@@ -32,6 +32,9 @@ export function normalizeWorkspaceTabTarget(
   if (value.kind === "file") {
     return normalizeFileTabTarget(value);
   }
+  if (value.kind === "folder") {
+    return normalizeFolderTabTarget(value);
+  }
   if (value.kind === "working_diff") {
     return normalizeWorkingDiffTabTarget(value);
   }
@@ -154,9 +157,21 @@ function secondaryWorkspaceTabTargetsEqual(
   if (left.kind === "file" && right.kind === "file") {
     return workspaceFileLocationsEqual(left, right);
   }
+  if (left.kind === "folder" && right.kind === "folder") {
+    return left.path === right.path;
+  }
   if (left.kind === "working_diff" && right.kind === "working_diff") {
     return left.focusPath === right.focusPath && left.focusRequestId === right.focusRequestId;
   }
+  return tertiaryWorkspaceTabTargetsEqual(left, right);
+}
+
+// Split from secondaryWorkspaceTabTargetsEqual to stay under the complexity limit — both halves
+// of the same "match on kind, then compare the kind-specific fields" shape.
+function tertiaryWorkspaceTabTargetsEqual(
+  left: WorkspaceTabTarget,
+  right: WorkspaceTabTarget,
+): boolean {
   if (left.kind === "files" && right.kind === "files") {
     return true;
   }
@@ -243,6 +258,9 @@ export function buildDeterministicWorkspaceTabId(target: WorkspaceTabTarget): st
   if (target.kind === "changes_tree" || target.kind === "files" || target.kind === "pull_request") {
     return target.kind;
   }
+  if (target.kind === "folder") {
+    return `folder_${target.path}`;
+  }
   if (target.kind === "plugin") {
     const identity = `${target.pluginId.length}_${target.pluginId}_${target.panelId.length}_${target.panelId}`;
     return target.context === "workspace"
@@ -278,6 +296,13 @@ function normalizeFileTabTarget(
 ): WorkspaceTabTarget | null {
   const location = normalizeWorkspaceFileLocation(value);
   return location ? { kind: "file", ...location } : null;
+}
+
+function normalizeFolderTabTarget(
+  value: Extract<WorkspaceTabTarget, { kind: "folder" }>,
+): WorkspaceTabTarget | null {
+  const path = trimNonEmpty(value.path)?.replace(/\\/g, "/");
+  return path ? { kind: "folder", path } : null;
 }
 
 function normalizeWorkingDiffTabTarget(

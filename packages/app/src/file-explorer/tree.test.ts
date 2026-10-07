@@ -1,10 +1,12 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { ExplorerEntry } from "@/stores/session-store";
 import {
+  collectExplorerAncestorPaths,
   MAX_AUTO_EXPANDED_DIRECTORY_DEPTH,
   flattenExplorerTree,
   reconcileRestoredExpandedPaths,
   restoreExpandedDirectories,
+  revealExplorerEntry,
   setExpandedDirectoryPath,
   showHiddenFilesAndRestoreExpandedDirectories,
 } from "./tree";
@@ -193,5 +195,98 @@ describe("file explorer tree", () => {
     expect(hiddenFilesAreShown).toBe(true);
     resolveDirectory({ path: ".hidden", entries: [] });
     await expect(restoration).resolves.toEqual([".", ".hidden"]);
+  });
+});
+
+describe("collectExplorerAncestorPaths", () => {
+  it("returns every strict ancestor, root to leaf, excluding the entry itself", () => {
+    expect(collectExplorerAncestorPaths("a/b/c.ts")).toEqual(["a", "a/b"]);
+  });
+
+  it("returns an empty list for a root-level entry", () => {
+    expect(collectExplorerAncestorPaths("file.ts")).toEqual([]);
+  });
+
+  it("returns an empty list for the root path itself", () => {
+    expect(collectExplorerAncestorPaths(".")).toEqual([]);
+    expect(collectExplorerAncestorPaths("")).toEqual([]);
+  });
+
+  it("returns ancestors for a directory entry, excluding the directory itself", () => {
+    expect(collectExplorerAncestorPaths("a/b")).toEqual(["a"]);
+  });
+});
+
+describe("revealExplorerEntry", () => {
+  it("loads every ancestor plus the entry itself, in parallel, skipping ones already loaded", async () => {
+    const directories = new Map<string, { path: string; entries: ExplorerEntry[] }>([
+      ["a", { path: "a", entries: [] }],
+    ]);
+    const requested: string[] = [];
+    const requestDirectoryListing = vi.fn(async (path: string) => {
+      requested.push(path);
+      return { path, entries: [] };
+    });
+    const setExpandedPathsForWorkspace = vi.fn();
+
+    await revealExplorerEntry({
+      entryPath: "a/b/c.ts",
+      directories,
+      workspaceStateKey: "workspace:w1",
+      requestDirectoryListing,
+      setExpandedPathsForWorkspace,
+    });
+
+    expect(requested.toSorted()).toEqual(["a/b", "a/b/c.ts"]);
+    expect(requestDirectoryListing).toHaveBeenCalledWith("a/b", {
+      recordHistory: false,
+      setCurrentPath: false,
+    });
+  });
+
+  it("expands every ancestor plus the entry itself", async () => {
+    const directories = new Map<string, { path: string; entries: ExplorerEntry[] }>();
+    const requestDirectoryListing = vi.fn(async (path: string) => ({ path, entries: [] }));
+    const setExpandedPathsForWorkspace = vi.fn();
+
+    await revealExplorerEntry({
+      entryPath: "a/b/c.ts",
+      directories,
+      workspaceStateKey: "workspace:w1",
+      requestDirectoryListing,
+      setExpandedPathsForWorkspace,
+    });
+
+    expect(setExpandedPathsForWorkspace).toHaveBeenCalledTimes(1);
+    const [workspaceStateKey, updater] = setExpandedPathsForWorkspace.mock.calls[0] as [
+      string,
+      (current: string[]) => string[],
+    ];
+    expect(workspaceStateKey).toBe("workspace:w1");
+    expect(new Set(updater(["."]))).toEqual(new Set([".", "a", "a/b", "a/b/c.ts"]));
+  });
+
+  it("expands a directory entry itself, not just its ancestors", async () => {
+    const directories = new Map<string, { path: string; entries: ExplorerEntry[] }>([
+      ["a", { path: "a", entries: [] }],
+      ["a/b", { path: "a/b", entries: [] }],
+    ]);
+    const requestDirectoryListing = vi.fn(async (path: string) => ({ path, entries: [] }));
+    const setExpandedPathsForWorkspace = vi.fn();
+
+    await revealExplorerEntry({
+      entryPath: "a/b",
+      directories,
+      workspaceStateKey: "workspace:w1",
+      requestDirectoryListing,
+      setExpandedPathsForWorkspace,
+    });
+
+    expect(requestDirectoryListing).not.toHaveBeenCalled();
+    const [, updater] = setExpandedPathsForWorkspace.mock.calls[0] as [
+      string,
+      (current: string[]) => string[],
+    ];
+    expect(new Set(updater([]))).toEqual(new Set(["a", "a/b"]));
   });
 });

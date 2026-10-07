@@ -92,6 +92,13 @@ const manifests = {
     singleton: false,
     resourceKey: (target) => target.path,
   },
+  folder: {
+    kind: "folder",
+    supportedHosts: ["main", "explorer"],
+    showCloseButton: true,
+    singleton: false,
+    resourceKey: (target) => target.path,
+  },
   working_diff: {
     kind: "working_diff",
     supportedHosts: ["main", "explorer"],

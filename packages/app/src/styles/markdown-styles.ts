@@ -161,7 +161,10 @@ export function createMarkdownStyles(theme: Theme) {
     link: {
       ...webSelectableTextStyle,
       color: theme.colors.accentBright,
-      textDecorationLine: "none" as const,
+      // In the monochrome palette the link colour matches prose, so a muted underline is what
+      // marks a link (file and folder links included, docs/file-links.md).
+      textDecorationLine: "underline" as const,
+      textDecorationColor: theme.colors.foregroundExtraMuted,
       flexShrink: 1,
       minWidth: 0,
       overflowWrap: "anywhere" as const,
@@ -170,7 +173,10 @@ export function createMarkdownStyles(theme: Theme) {
     blocklink: {
       ...webSelectableTextStyle,
       color: theme.colors.accentBright,
-      textDecorationLine: "none" as const,
+      // In the monochrome palette the link colour matches prose, so a muted underline is what
+      // marks a link (file and folder links included, docs/file-links.md).
+      textDecorationLine: "underline" as const,
+      textDecorationColor: theme.colors.foregroundExtraMuted,
       flexShrink: 1,
       minWidth: 0,
       overflowWrap: "anywhere" as const,

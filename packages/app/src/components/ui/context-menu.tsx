@@ -67,7 +67,14 @@ function isCallable(fn: unknown): fn is (...args: unknown[]) => void {
   return typeof fn === "function";
 }
 
-function coerceEventPoint(event: unknown): { pageX: number; pageY: number } | null {
+/**
+ * Extracts the page point a long-press/right-click gesture fired at, from either a
+ * GestureResponderEvent (native) or a mouse/pointer event (web). Exported so callers that can't
+ * use `ContextMenuTrigger`'s own View wrapper — e.g. a link rendered through an iOS UITextView
+ * leaf span, which a wrapping View would break (see assistant-file-links/link.tsx) — can still
+ * open a menu at the right anchor via `useContextMenu()`'s `setAnchorRect`/`setOpen`.
+ */
+export function coerceEventPoint(event: unknown): { pageX: number; pageY: number } | null {
   if (typeof event !== "object" || event === null) return null;
 
   const nativeEvent = Reflect.get(event, "nativeEvent");

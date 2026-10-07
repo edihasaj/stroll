@@ -58,6 +58,7 @@ import type {
   AgentPermissionResponse,
 } from "@getpaseo/protocol/agent-types";
 import type { AgentScreenAgent } from "@/hooks/use-agent-screen-state-machine";
+import { useOptionalPaneContext } from "@/panels/pane-context";
 import { useSessionStore } from "@/stores/session-store";
 import { useRevealedText } from "@/hooks/use-revealed-text";
 import { useFileExplorerActions } from "@/hooks/use-file-explorer-actions";
@@ -539,6 +540,8 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
       },
     );
 
+    const onOpenFolderLink = usePaneFolderLinkOpener();
+
     const handleToolCallOpenFile = useStableEvent((filePath: string) => {
       handleInlinePathPress({ raw: filePath, path: filePath }, "preferred");
     });
@@ -796,33 +799,46 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
     const renderUserMessageItem = useCallback(
       (layoutItem: StreamLayoutItem, item: Extract<StreamItem, { kind: "user_message" }>) => {
         return (
-          <UserMessage
-            serverId={resolvedServerId}
-            agentId={agentId}
-            messageId={item.messageId}
-            message={item.text}
-            images={item.images}
-            attachments={item.attachments}
-            timestamp={item.timestamp.getTime()}
-            capabilities={context.capabilities}
+          <AssistantFileLinkResolverProvider
             client={client}
-            isFirstInGroup={layoutItem.isFirstInUserGroup}
-            isLastInGroup={layoutItem.isLastInUserGroup}
-            isPending={
-              item.clientMessageId !== undefined &&
-              pendingClientMessageIds.has(item.clientMessageId)
-            }
-            animateEntrance={shouldAnimateMessageEntrance(item.id)}
-          />
+            serverId={resolvedServerId}
+            workspaceRoot={workspaceRoot}
+            onOpenWorkspaceFile={handleInlinePathPress}
+            onOpenWorkspaceFolder={onOpenFolderLink}
+            toast={toast}
+          >
+            <UserMessage
+              serverId={resolvedServerId}
+              agentId={agentId}
+              messageId={item.messageId}
+              message={item.text}
+              images={item.images}
+              attachments={item.attachments}
+              timestamp={item.timestamp.getTime()}
+              capabilities={context.capabilities}
+              client={client}
+              isFirstInGroup={layoutItem.isFirstInUserGroup}
+              isLastInGroup={layoutItem.isLastInUserGroup}
+              isPending={
+                item.clientMessageId !== undefined &&
+                pendingClientMessageIds.has(item.clientMessageId)
+              }
+              animateEntrance={shouldAnimateMessageEntrance(item.id)}
+            />
+          </AssistantFileLinkResolverProvider>
         );
       },
       [
         context.capabilities,
         agentId,
         client,
+        handleInlinePathPress,
+        onOpenFolderLink,
         pendingClientMessageIds,
         resolvedServerId,
         shouldAnimateMessageEntrance,
+        toast,
+        workspaceRoot,
       ],
     );
 
@@ -834,6 +850,7 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
             serverId={resolvedServerId}
             workspaceRoot={workspaceRoot}
             onOpenWorkspaceFile={handleInlinePathPress}
+            onOpenWorkspaceFolder={onOpenFolderLink}
             toast={toast}
           >
             <ChatFindExpansion messageId={getStreamItemMessageId(item)}>
@@ -859,6 +876,7 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
         agentId,
         client,
         handleInlinePathPress,
+        onOpenFolderLink,
         resolvedServerId,
         toast,
         workspaceRoot,
@@ -1440,6 +1458,18 @@ function agentStreamViewPropsEqual(
   }
   recordRenderProfileReasons(`AgentStreamView:${right.agentId}`, reasons);
   return reasons.length === 0;
+}
+
+/**
+ * Folder links reveal the folder in Files or open a Folder tab (docs/file-links.md). The hosting
+ * pane owns that; a view rendered outside a pane keeps opening them as files.
+ */
+function usePaneFolderLinkOpener(): ((path: string) => void) | undefined {
+  const openFolderInPane = useOptionalPaneContext()?.openFolderInWorkspace;
+  const handleFolderLinkPress = useStableEvent((path: string) => {
+    openFolderInPane?.(path);
+  });
+  return openFolderInPane ? handleFolderLinkPress : undefined;
 }
 
 export const AgentStreamView = memo(AgentStreamViewComponent, agentStreamViewPropsEqual);

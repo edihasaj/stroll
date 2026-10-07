@@ -36,6 +36,10 @@ const WorkspaceTabTargetStorageSchema = z.discriminatedUnion("kind", [
     lineEnd: z.number().int().positive().optional(),
   }),
   z.strictObject({
+    kind: z.literal("folder"),
+    path: z.string(),
+  }),
+  z.strictObject({
     kind: z.literal("working_diff"),
     focusPath: z.string().optional(),
     focusRequestId: z.number().optional(),

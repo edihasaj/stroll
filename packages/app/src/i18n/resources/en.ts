@@ -206,6 +206,11 @@ export const en = {
       title_mr: "Attach issue or MR",
     },
   },
+  fileLinks: {
+    menu: {
+      open: "Open",
+    },
+  },
   agentHooks: {
     review: {
       button_one: "{{count}} hook needs review",

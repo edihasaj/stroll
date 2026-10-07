@@ -4,9 +4,11 @@ import { useTranslation } from "react-i18next";
 import { useStableEvent } from "@/hooks/use-stable-event";
 import type { OpenFileDisposition } from "@/workspace/file-open";
 import { openExternalUrl } from "@/utils/open-external-url";
+import { resolveFilePreviewReadTarget } from "@/file-explorer/preview-target";
 import type { InlinePathTarget } from "./parse";
 import {
   useAssistantFileLinkResolverContext,
+  type AssistantFileLinkDaemonClient,
   type AssistantFileLinkResolverContextValue,
 } from "./provider";
 import {
@@ -292,7 +294,50 @@ async function dispatchFileTarget(input: {
   ) {
     return;
   }
+  const kind = await resolveInlinePathTargetKind({
+    target: input.target,
+    workspaceRoot: input.capturedWorkspaceRoot,
+    client: current.client,
+  });
+  // Falls back to onOpenWorkspaceFile when no onOpenWorkspaceFolder is configured, rather than
+  // silently dropping the open: every caller already handles a directory-shaped InlinePathTarget
+  // through onOpenWorkspaceFile today, and that must keep working verbatim for any config that
+  // hasn't added the sibling callback yet.
+  if (kind === "directory" && current.onOpenWorkspaceFolder) {
+    current.onOpenWorkspaceFolder(input.target.path);
+    return;
+  }
   current.onOpenWorkspaceFile?.(input.target, input.disposition);
+}
+
+/**
+ * Resolves a target's string-shape `kind` when known, otherwise probes the daemon — only ever
+ * called from the open/press path (see `dispatchFileTarget`), never from render or hover
+ * prefetch. `listDirectory` succeeding means the path is a directory; any failure (including an
+ * unavailable client) falls back to treating it as a file, the safer default for a bare path
+ * that a daemon round trip couldn't confirm either way.
+ */
+async function resolveInlinePathTargetKind(input: {
+  target: InlinePathTarget;
+  workspaceRoot?: string;
+  client?: AssistantFileLinkDaemonClient | null;
+}): Promise<"file" | "directory"> {
+  if (input.target.kind) {
+    return input.target.kind;
+  }
+  const probeTarget = resolveFilePreviewReadTarget({
+    path: input.target.path,
+    workspaceRoot: input.workspaceRoot,
+  });
+  if (!probeTarget || !input.client?.listDirectory) {
+    return "file";
+  }
+  try {
+    await input.client.listDirectory(probeTarget.cwd, probeTarget.path);
+    return "directory";
+  } catch {
+    return "file";
+  }
 }
 
 async function dispatchExternalUrl(input: {

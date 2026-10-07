@@ -52,6 +52,21 @@ const unavailableSuggestions: GetDirectorySuggestions = async () => {
 };
 
 describe("classifyForResolution", () => {
+  it("resolves a relative folder in inline code without a file lookup", () => {
+    const result = classifyForResolution(
+      { href: "notes/", text: "notes/", sourceType: "inline-code" },
+      CONTEXT,
+    );
+
+    expect(result).toMatchObject({
+      kind: "resolved",
+      value: {
+        kind: "file",
+        target: { path: "/Users/test/project/notes", kind: "directory" },
+      },
+    });
+  });
+
   it("returns the directFile target synchronously", () => {
     const result = classifyForResolution({ href: "src/components/message.tsx#L33" }, CONTEXT);
 
@@ -64,6 +79,7 @@ describe("classifyForResolution", () => {
           path: "/Users/test/project/src/components/message.tsx",
           lineStart: 33,
           lineEnd: undefined,
+          kind: "file",
         },
       },
     });
@@ -81,6 +97,7 @@ describe("classifyForResolution", () => {
           path: "/Users/test/project/src/components/message.tsx",
           lineStart: 33,
           lineEnd: 40,
+          kind: "file",
         },
       },
     });
@@ -101,6 +118,7 @@ describe("classifyForResolution", () => {
         path: "/Users/test/project/file.ts",
         lineStart: 12,
         lineEnd: undefined,
+        kind: "file",
       },
     });
   });
@@ -126,6 +144,7 @@ describe("classifyForResolution", () => {
           path: "/tmp/outside.txt",
           lineStart: undefined,
           lineEnd: undefined,
+          kind: "file",
         },
       },
     });
@@ -143,6 +162,7 @@ describe("classifyForResolution", () => {
           path: "~/.paseo/plans/file-preview.md",
           lineStart: undefined,
           lineEnd: undefined,
+          kind: "file",
         },
       },
     });
@@ -164,6 +184,51 @@ describe("classifyForResolution", () => {
     const result = classifyForResolution({ href: "" }, CONTEXT);
 
     expect(result).toEqual({ kind: "resolved", value: { kind: "ignored" } });
+  });
+
+  it("opens an explicit link href with an unrecognized extension", () => {
+    const result = classifyForResolution({ href: "assets/shot.png" }, CONTEXT);
+
+    expect(result).toEqual({
+      kind: "resolved",
+      value: {
+        kind: "file",
+        target: {
+          raw: "assets/shot.png",
+          path: "/Users/test/project/assets/shot.png",
+          lineStart: undefined,
+          lineEnd: undefined,
+          kind: "file",
+        },
+      },
+    });
+  });
+
+  it("ignores the same bare relative token as inline code when it has no recognized extension", () => {
+    const result = classifyForResolution(
+      { href: "notes.xyz", text: "notes.xyz", sourceType: "inline-code" },
+      CONTEXT,
+    );
+
+    expect(result).toEqual({ kind: "resolved", value: { kind: "ignored" } });
+  });
+
+  it("marks a trailing-slash href as a directory target", () => {
+    const result = classifyForResolution({ href: "/tmp/shots/" }, CONTEXT);
+
+    expect(result).toEqual({
+      kind: "resolved",
+      value: {
+        kind: "file",
+        target: {
+          raw: "/tmp/shots/",
+          path: "/tmp/shots/",
+          lineStart: undefined,
+          lineEnd: undefined,
+          kind: "directory",
+        },
+      },
+    });
   });
 });
 

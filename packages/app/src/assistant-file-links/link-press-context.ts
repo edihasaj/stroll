@@ -12,6 +12,12 @@ import type { TextProps } from "react-native";
 // it. Provided only on iOS (Android/web links tap fine via their own paths).
 export interface AssistantLinkPress {
   onPress: () => void;
+  /**
+   * Opens the link actions menu. Carried the same way as `onPress` — see the comment above.
+   * Takes the raw gesture event (not just `() => void` like `onPress`) because the menu needs
+   * the press point to anchor itself; see `coerceEventPoint` in components/ui/context-menu.tsx.
+   */
+  onLongPress?: (event: unknown) => void;
   accessibilityRole?: TextProps["accessibilityRole"];
 }
 

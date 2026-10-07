@@ -210,6 +210,11 @@ export const ko: TranslationResources = {
       title_mr: "이슈 또는 MR 첨부",
     },
   },
+  fileLinks: {
+    menu: {
+      open: "열기",
+    },
+  },
   agentHooks: {
     review: {
       button_one: "검토가 필요한 훅 {{count}}개",

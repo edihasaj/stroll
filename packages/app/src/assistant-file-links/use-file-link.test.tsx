@@ -53,6 +53,7 @@ interface TestClient {
     matchMode: "suffix";
     limit: number;
   }) => Promise<DirectorySuggestionResult>;
+  listDirectory?: (cwd: string, path: string) => Promise<unknown>;
 }
 
 function createQueryClient(): QueryClient {
@@ -72,8 +73,16 @@ function createToast(): ToastApi {
   };
 }
 
-function createWrapper(input: { client: TestClient; openedFiles: OpenedFile[]; toast?: ToastApi }) {
+function createWrapper(input: {
+  client: TestClient;
+  openedFiles: OpenedFile[];
+  openedFolders?: string[];
+  /** Defaults to true. Set false to test the fallback when no config provides it at all. */
+  provideOnOpenWorkspaceFolder?: boolean;
+  toast?: ToastApi;
+}) {
   const queryClient = createQueryClient();
+  const provideOnOpenWorkspaceFolder = input.provideOnOpenWorkspaceFolder ?? true;
   return function Wrapper({ children }: { children: ReactNode }) {
     const openWorkspaceFile = useCallback(
       (target: InlinePathTarget, disposition: OpenFileDisposition) => {
@@ -81,6 +90,9 @@ function createWrapper(input: { client: TestClient; openedFiles: OpenedFile[]; t
       },
       [],
     );
+    const openWorkspaceFolder = useCallback((path: string) => {
+      input.openedFolders?.push(path);
+    }, []);
 
     return (
       <QueryClientProvider client={queryClient}>
@@ -89,6 +101,7 @@ function createWrapper(input: { client: TestClient; openedFiles: OpenedFile[]; t
           serverId="server-1"
           workspaceRoot="/Users/test/project"
           onOpenWorkspaceFile={openWorkspaceFile}
+          onOpenWorkspaceFolder={provideOnOpenWorkspaceFolder ? openWorkspaceFolder : undefined}
           toast={input.toast}
         >
           {children}
@@ -175,6 +188,7 @@ describe("useFileLink", () => {
             path: "/Users/test/project/docs/dumm.md",
             lineStart: undefined,
             lineEnd: undefined,
+            kind: "file",
           },
           disposition: "preferred",
         },
@@ -322,6 +336,98 @@ describe("useFileLink", () => {
       expect(getDirectorySuggestions).toHaveBeenCalledTimes(1);
     });
     expect(openedFiles).toEqual([]);
+  });
+
+  it("probes an extensionless target and opens it as a folder when the probe succeeds", async () => {
+    const getDirectorySuggestions = vi.fn(async () => resolvedSuggestions([]));
+    const listDirectory = vi.fn(async () => ({}));
+    const openedFiles: OpenedFile[] = [];
+    const openedFolders: string[] = [];
+    const { result } = renderHook(() => useFileLink({ href: "/Users/test/project/bin" }), {
+      wrapper: createWrapper({
+        client: { getDirectorySuggestions, listDirectory },
+        openedFiles,
+        openedFolders,
+      }),
+    });
+
+    act(() => {
+      result.current.onPress();
+    });
+    await waitFor(() => {
+      expect(openedFolders).toEqual(["/Users/test/project/bin"]);
+    });
+    expect(listDirectory).toHaveBeenCalledWith("/Users/test/project", "/Users/test/project/bin");
+    expect(openedFiles).toEqual([]);
+  });
+
+  it("probes an extensionless target and opens it as a file when the probe fails", async () => {
+    const getDirectorySuggestions = vi.fn(async () => resolvedSuggestions([]));
+    const listDirectory = vi.fn(async () => {
+      throw new Error("ENOTDIR");
+    });
+    const openedFiles: OpenedFile[] = [];
+    const openedFolders: string[] = [];
+    const { result } = renderHook(() => useFileLink({ href: "/Users/test/project/bin" }), {
+      wrapper: createWrapper({
+        client: { getDirectorySuggestions, listDirectory },
+        openedFiles,
+        openedFolders,
+      }),
+    });
+
+    act(() => {
+      result.current.onPress();
+    });
+    await waitFor(() => {
+      expect(openedFiles).toHaveLength(1);
+    });
+    expect(openedFiles[0]?.target.path).toBe("/Users/test/project/bin");
+    expect(openedFolders).toEqual([]);
+  });
+
+  it("opens a trailing-slash target as a folder without probing", async () => {
+    const getDirectorySuggestions = vi.fn(async () => resolvedSuggestions([]));
+    const listDirectory = vi.fn(async () => ({}));
+    const openedFiles: OpenedFile[] = [];
+    const openedFolders: string[] = [];
+    const { result } = renderHook(() => useFileLink({ href: "/tmp/shots/" }), {
+      wrapper: createWrapper({
+        client: { getDirectorySuggestions, listDirectory },
+        openedFiles,
+        openedFolders,
+      }),
+    });
+
+    act(() => {
+      result.current.onPress();
+    });
+    await waitFor(() => {
+      expect(openedFolders).toEqual(["/tmp/shots/"]);
+    });
+    expect(listDirectory).not.toHaveBeenCalled();
+    expect(openedFiles).toEqual([]);
+  });
+
+  it("falls back to onOpenWorkspaceFile for a directory target when no onOpenWorkspaceFolder is configured", async () => {
+    const getDirectorySuggestions = vi.fn(async () => resolvedSuggestions([]));
+    const openedFiles: OpenedFile[] = [];
+    const { result } = renderHook(() => useFileLink({ href: "/tmp/shots/" }), {
+      wrapper: createWrapper({
+        client: { getDirectorySuggestions },
+        openedFiles,
+        provideOnOpenWorkspaceFolder: false,
+      }),
+    });
+
+    act(() => {
+      result.current.onPress();
+    });
+    await waitFor(() => {
+      expect(openedFiles).toHaveLength(1);
+    });
+    expect(openedFiles[0]?.target.path).toBe("/tmp/shots/");
+    expect(openedFiles[0]?.target.kind).toBe("directory");
   });
 });
 

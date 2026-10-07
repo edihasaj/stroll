@@ -212,6 +212,11 @@ export const ja: TranslationResources = {
       title_mr: "イシューまたはMRを添付",
     },
   },
+  fileLinks: {
+    menu: {
+      open: "開く",
+    },
+  },
   agentHooks: {
     review: {
       button_one: "確認が必要なフック: {{count}}件",

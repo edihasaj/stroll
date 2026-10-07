@@ -210,6 +210,11 @@ export const zhCN: TranslationResources = {
       title_mr: "附加 issue 或 MR",
     },
   },
+  fileLinks: {
+    menu: {
+      open: "打开",
+    },
+  },
   agentHooks: {
     review: {
       button_one: "{{count}} 个 hook 需要审核",

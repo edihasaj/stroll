@@ -206,9 +206,11 @@ import { PluginHeaderButtons } from "@/plugins";
 import {
   createWorkspaceFileTabTarget,
   normalizeWorkspaceFileLocation,
+  resolveWorkspaceFilePaths,
   type WorkspaceFileLocation,
   type WorkspaceFileOpenRequest,
 } from "@/workspace/file-open";
+import { buildWorkspaceExplorerStateKey } from "@/hooks/use-file-explorer-actions";
 import { RenderProfile } from "@/utils/render-profiler";
 import { useWorkspaceCheckoutStatus } from "@/screens/workspace/use-workspace-checkout-status";
 import { useHasPullRequest, usePullRequestAutoAdd } from "@/panels/pull-request";
@@ -335,7 +337,7 @@ function getFallbackTabOptionLabel(
   if (tab.target.kind === "browser") {
     return labels.browser;
   }
-  if (tab.target.kind === "file") {
+  if (tab.target.kind === "file" || tab.target.kind === "folder") {
     return tab.target.path.split("/").findLast(Boolean) ?? tab.target.path;
   }
   if (tab.target.kind === "working_diff" || tab.target.kind === "changes_tree") {
@@ -1815,6 +1817,7 @@ function WorkspaceScreenContent({
   });
 
   const showMobileAgent = usePanelStore((state) => state.showMobileAgent);
+  const requestExplorerReveal = usePanelStore((state) => state.requestExplorerReveal);
 
   const activeExplorerCheckout = useMemo<ExplorerCheckoutContext | null>(() => {
     if (!normalizedServerId || !workspaceDirectory) {
@@ -2331,6 +2334,65 @@ function WorkspaceScreenContent({
     }
     handleOpenFileFromChat(request.location, parentTabId);
   });
+
+  // Sibling of handleOpenWorkspaceFileFromPane for a target that resolves to a directory (see
+  // assistant-file-links' onOpenWorkspaceFolder config, threaded through PaneContext as
+  // openFolderInWorkspace). A directory inside the current workspace reveals in the Explorer's
+  // Files view; anything else — outside the workspace, or no workspace root at all — opens its
+  // own folder tab.
+  const handleOpenWorkspaceFolderFromPane = useStableEvent(
+    function handleOpenWorkspaceFolderFromPane({
+      path,
+      paneId,
+      parentTabId,
+      focusPaneBeforeOpen,
+    }: {
+      path: string;
+      paneId?: string | null;
+      parentTabId: string;
+      focusPaneBeforeOpen?: boolean;
+    }) {
+      if (focusPaneBeforeOpen && paneId && persistenceKey) {
+        focusWorkspacePane(persistenceKey, paneId);
+      }
+      if (!persistenceKey) {
+        return;
+      }
+      const resolved = workspaceDirectory
+        ? resolveWorkspaceFilePaths({ path, workspaceRoot: workspaceDirectory })
+        : null;
+      if (resolved?.relativePath) {
+        const workspaceStateKey = buildWorkspaceExplorerStateKey({
+          workspaceId: normalizedWorkspaceId,
+          workspaceRoot: workspaceDirectory,
+        });
+        if (workspaceStateKey) {
+          requestExplorerReveal(workspaceStateKey, resolved.absolutePath);
+        }
+        if (isMobile) {
+          showMobileAgent();
+        }
+        openExplorerSidebarView({
+          isCompact: isMobile,
+          workspaceKey: persistenceKey,
+          checkout: activeExplorerCheckout,
+          view: "files",
+        });
+        return;
+      }
+      const tabId = openPreferredWorkspaceTarget({
+        isCompact: isMobile,
+        workspaceKey: persistenceKey,
+        target: { kind: "folder", path },
+        source: "chatFiles",
+        preferences: openInSidePane,
+        parentTabId,
+      });
+      if (tabId) {
+        navigateToTabId(tabId);
+      }
+    },
+  );
 
   const [hoveredCloseTabKey, setHoveredCloseTabKey] = useState<string | null>(null);
   const { handleRenameTab, renamingTab, handleRenameModalSubmit, handleRenameModalClose } =
@@ -3124,7 +3186,9 @@ function WorkspaceScreenContent({
           }
           return true;
         case "workspace.tab.copy-file-path":
-          if (descriptor?.target.kind === "file") void handleCopyFilePath(descriptor.target.path);
+          if (descriptor?.target.kind === "file" || descriptor?.target.kind === "folder") {
+            void handleCopyFilePath(descriptor.target.path);
+          }
           return true;
         default:
           return false;
@@ -3625,12 +3689,21 @@ function WorkspaceScreenContent({
             focusPaneBeforeOpen: input.focusPaneBeforeOpen,
           });
         },
+        onOpenWorkspaceFolder: (path: string) => {
+          handleOpenWorkspaceFolderFromPane({
+            path,
+            paneId: input.paneId,
+            parentTabId: input.tab.tabId,
+            focusPaneBeforeOpen: input.focusPaneBeforeOpen,
+          });
+        },
         onOpenImportSheet: openImportSheet,
       }),
     [
       handleCloseTabById,
       fileNavigationRevisionByTabId,
       handleOpenWorkspaceFileFromPane,
+      handleOpenWorkspaceFolderFromPane,
       navigateToTabId,
       normalizedServerId,
       normalizedWorkspaceId,

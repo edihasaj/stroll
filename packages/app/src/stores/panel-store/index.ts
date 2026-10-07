@@ -55,6 +55,20 @@ export {
 
 export type ExpandedPathsUpdate = string[] | ((currentPaths: string[]) => string[]);
 
+/**
+ * A request to scroll a specific path into view in whichever Explorer Files surface owns
+ * `workspaceKey` — expand its ancestors, select it, and scroll to it. Transient UI state, not
+ * persisted: a cold start has nothing to reveal. `revision` increments on every request so the
+ * same path can be re-requested (e.g. the user scrolled away, then clicked the same link again).
+ * Generic by design — any caller that knows a workspace's explorer key and a path can use this,
+ * not just assistant file links.
+ */
+export interface ExplorerRevealRequest {
+  workspaceKey: string;
+  path: string;
+  revision: number;
+}
+
 export interface PanelState {
   // Mobile: React's durable target plus the generation that owns it.
   mobilePanel: MobilePanelSelection;
@@ -79,6 +93,8 @@ export interface PanelState {
   // File panel's tree rail. The changes panel keeps its own flag in
   // `useChangesPreferences`; the two rails open and close independently.
   fileTreeVisible: boolean;
+  // Transient — see ExplorerRevealRequest. Never persisted.
+  explorerRevealRequest: ExplorerRevealRequest | null;
 
   // Actions
   toggleFocusMode: () => void;
@@ -109,6 +125,7 @@ export interface PanelState {
   toggleExplorerShowHiddenFiles: () => void;
   setTreeRailWidth: (width: number) => void;
   toggleFileTreeVisible: () => void;
+  requestExplorerReveal: (workspaceKey: string, path: string) => void;
 }
 
 const DEFAULT_DESKTOP_OPEN = isWeb;
@@ -146,6 +163,7 @@ export const usePanelStore = create<PanelState>()(
       explorerShowHiddenFiles: true,
       treeRailWidth: DEFAULT_TREE_RAIL_WIDTH,
       fileTreeVisible: true,
+      explorerRevealRequest: null,
 
       toggleFocusMode: () =>
         set((state) => ({
@@ -306,6 +324,14 @@ export const usePanelStore = create<PanelState>()(
         set((state) => ({ explorerShowHiddenFiles: !state.explorerShowHiddenFiles })),
       setTreeRailWidth: (width) => set({ treeRailWidth: clampTreeRailWidth(width) }),
       toggleFileTreeVisible: () => set((state) => ({ fileTreeVisible: !state.fileTreeVisible })),
+      requestExplorerReveal: (workspaceKey, path) =>
+        set((state) => ({
+          explorerRevealRequest: {
+            workspaceKey,
+            path,
+            revision: (state.explorerRevealRequest?.revision ?? 0) + 1,
+          },
+        })),
     }),
     {
       name: "panel-state",

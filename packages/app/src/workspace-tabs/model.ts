@@ -45,6 +45,8 @@ export type WorkspaceTabTarget =
   | { kind: "files" }
   | { kind: "pull_request" }
   | WorkspaceFileTabTarget
+  /** A standalone folder browser, rooted outside (or without) a workspace — see folder-panel.tsx. */
+  | { kind: "folder"; path: string }
   | WorkspaceWorkingDiffTabTarget
   | PluginWorkspaceTabTarget
   | { kind: "setup"; workspaceId: string }

@@ -21,6 +21,8 @@ export interface PaneContextValue {
   retargetCurrentTab: (target: WorkspaceTabTarget) => void;
   setCurrentTabState: (state: JsonValue) => void;
   openFileInWorkspace: (request: WorkspaceFileOpenRequest) => void;
+  /** Sibling of `openFileInWorkspace` for a target that resolves to a directory. */
+  openFolderInWorkspace: (path: string) => void;
   openImportSheet: () => void;
 }
 
@@ -72,6 +74,11 @@ export function usePaneContext(): PaneContextValue {
   const value = useContext(PaneContext);
   invariant(value, "PaneContext is required");
   return value;
+}
+
+/** The pane context when rendered inside a pane, else null (shared views also render outside). */
+export function useOptionalPaneContext(): PaneContextValue | null {
+  return useContext(PaneContext);
 }
 
 export function usePaneFocus(): PaneFocusContextValue {

@@ -212,6 +212,11 @@ export const ru: TranslationResources = {
       title_mr: "Прикрепить задачу или MR",
     },
   },
+  fileLinks: {
+    menu: {
+      open: "Открыть",
+    },
+  },
   agentHooks: {
     review: {
       button_one: "Хук на проверку: {{count}}",

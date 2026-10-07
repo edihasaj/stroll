@@ -69,6 +69,7 @@ import {
   flattenExplorerTree,
   reconcileRestoredExpandedPaths,
   restoreExpandedDirectories,
+  revealExplorerEntry,
   setExpandedDirectoryPath,
   showHiddenFilesAndRestoreExpandedDirectories,
   type ExplorerTreeRow,
@@ -78,6 +79,7 @@ import { confirmDialog } from "@/utils/confirm-dialog";
 import { useToast } from "@/contexts/toast-context";
 import { openDesktopTarget, useDesktopOpenTargets } from "@/workspace/desktop-open-targets";
 import { useOpenDirectoryInEditor } from "@/workspace/open-in-editor/directory";
+import { resolveWorkspaceFilePaths } from "@/workspace/file-open";
 
 const SORT_OPTIONS: { value: SortOption }[] = [
   { value: "name" },
@@ -520,6 +522,42 @@ export function FileExplorerPane({
     workspaceStateKey,
   ]);
 
+  const revealRequest = usePanelStore((state) => state.explorerRevealRequest);
+  const handledRevealRevisionRef = useRef<number | null>(null);
+  const pendingRevealEntryPathRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!workspaceStateKey || !revealRequest || revealRequest.workspaceKey !== workspaceStateKey) {
+      return;
+    }
+    if (handledRevealRevisionRef.current === revealRequest.revision) {
+      return;
+    }
+    const resolved = resolveWorkspaceFilePaths({
+      path: revealRequest.path,
+      workspaceRoot: normalizedWorkspaceRoot,
+    });
+    if (!resolved?.relativePath) {
+      return;
+    }
+    handledRevealRevisionRef.current = revealRequest.revision;
+    pendingRevealEntryPathRef.current = resolved.relativePath;
+    void revealExplorerEntry({
+      entryPath: resolved.relativePath,
+      directories,
+      workspaceStateKey,
+      requestDirectoryListing,
+      setExpandedPathsForWorkspace,
+    });
+  }, [
+    directories,
+    normalizedWorkspaceRoot,
+    requestDirectoryListing,
+    revealRequest,
+    setExpandedPathsForWorkspace,
+    workspaceStateKey,
+  ]);
+
   const handleToggleDirectory = useCallback(
     (entry: ExplorerEntry) =>
       toggleDirectory({
@@ -908,6 +946,24 @@ export function FileExplorerPane({
     [directories, expandedPaths, showHiddenFiles, sortOption],
   );
 
+  // Second half of the reveal flow: once the entry the effect above expanded shows up in
+  // treeRows (directory listings land asynchronously), select it and scroll it into view. Runs
+  // again on every treeRows change until the row appears, then clears the pending ref so later
+  // tree changes don't re-snap the scroll position.
+  useEffect(() => {
+    const entryPath = pendingRevealEntryPathRef.current;
+    if (!entryPath) {
+      return;
+    }
+    const index = treeRows.findIndex((row) => row.entry.path === entryPath);
+    if (index < 0) {
+      return;
+    }
+    pendingRevealEntryPathRef.current = null;
+    selectExplorerEntry(entryPath);
+    treeListRef.current?.scrollToIndex({ index, viewPosition: 0.5 });
+  }, [treeRows, selectExplorerEntry]);
+
   const listRows = useMemo<ExplorerListRow[]>(() => {
     const rows: ExplorerListRow[] = treeRows.map((row) =>
       pendingEdit?.type === "rename" && pendingEdit.entry.path === row.entry.path
@@ -1176,6 +1232,22 @@ function FileExplorerPaneContent(props: FileExplorerPaneContentProps) {
 
   const showHiddenFiles = usePanelStore((state) => state.explorerShowHiddenFiles);
 
+  // Without getItemLayout, scrollToIndex (used to reveal a path — see the reveal effects in
+  // FileExplorerPane) fails for a row FlatList hasn't measured yet. Jump to the closest known
+  // offset, then retry once that render has committed and the row's real position is measurable.
+  const handleScrollToIndexFailed = useCallback(
+    (info: { index: number; averageItemLength: number }) => {
+      treeListRef.current?.scrollToOffset({
+        offset: info.averageItemLength * info.index,
+        animated: false,
+      });
+      requestAnimationFrame(() => {
+        treeListRef.current?.scrollToIndex({ index: info.index, viewPosition: 0.5 });
+      });
+    },
+    [treeListRef],
+  );
+
   const handleNewFileAtRoot = useCallback(() => {
     onNewEntryAtRoot?.(".", "file");
   }, [onNewEntryAtRoot]);
@@ -1331,6 +1403,7 @@ function FileExplorerPaneContent(props: FileExplorerPaneContentProps) {
               onLayout={scrollbar.onLayout}
               onScroll={scrollbar.onScroll}
               onContentSizeChange={scrollbar.onContentSizeChange}
+              onScrollToIndexFailed={handleScrollToIndexFailed}
               scrollEventThrottle={16}
               showsVerticalScrollIndicator={!scrollbar.enabled}
               initialNumToRender={24}

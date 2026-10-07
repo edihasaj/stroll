@@ -158,6 +158,58 @@ describe("commit diff tab identity", () => {
   });
 });
 
+describe("folder tab identity", () => {
+  it("normalizes a folder target, converting backslashes", () => {
+    expect(normalizeWorkspaceTabTarget({ kind: "folder", path: "C:\\repo\\notes" })).toEqual({
+      kind: "folder",
+      path: "C:/repo/notes",
+    });
+  });
+
+  it("rejects a folder target with a blank path", () => {
+    expect(normalizeWorkspaceTabTarget({ kind: "folder", path: "   " })).toBeNull();
+  });
+
+  it("keys a folder tab by its path", () => {
+    expect(buildDeterministicWorkspaceTabId({ kind: "folder", path: "/Users/test/docs" })).toBe(
+      "folder_/Users/test/docs",
+    );
+  });
+
+  it("does not collide a folder tab id with a file tab id at the same path", () => {
+    const folderId = buildDeterministicWorkspaceTabId({ kind: "folder", path: "/tmp/shots" });
+    const fileId = buildDeterministicWorkspaceTabId({ kind: "file", path: "/tmp/shots" });
+    expect(folderId).not.toBe(fileId);
+  });
+
+  it("treats two folder targets with the same path as equal", () => {
+    expect(
+      workspaceTabTargetsEqual(
+        { kind: "folder", path: "/tmp/shots" },
+        { kind: "folder", path: "/tmp/shots" },
+      ),
+    ).toBe(true);
+  });
+
+  it("treats folder targets with different paths as unequal", () => {
+    expect(
+      workspaceTabTargetsEqual(
+        { kind: "folder", path: "/tmp/shots" },
+        { kind: "folder", path: "/tmp/other" },
+      ),
+    ).toBe(false);
+  });
+
+  it("never equals a file target at the same path", () => {
+    expect(
+      workspaceTabTargetsEqual(
+        { kind: "folder", path: "/tmp/shots" },
+        { kind: "file", path: "/tmp/shots" },
+      ),
+    ).toBe(false);
+  });
+});
+
 describe("plugin panel tab identity", () => {
   it("normalizes exact workspace and agent context", () => {
     expect(

@@ -211,6 +211,11 @@ export const ptBR: TranslationResources = {
       title_mr: "Anexar issue ou MR",
     },
   },
+  fileLinks: {
+    menu: {
+      open: "Abrir",
+    },
+  },
   agentHooks: {
     review: {
       button_one: "{{count}} hook para revisar",

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   classifyAssistantFileLink,
+  isFileLookingAssistantToken,
   normalizeInlinePathTarget,
   parseAssistantFileLink,
   parseFileProtocolUrl,
@@ -135,6 +136,7 @@ describe("classifyAssistantFileLink", () => {
         path: "/Users/test/project/dumm.md",
         lineStart: undefined,
         lineEnd: undefined,
+        kind: "file",
       },
     });
 
@@ -149,6 +151,7 @@ describe("classifyAssistantFileLink", () => {
         path: "/Users/test/project/message-renderer.tsx",
         lineStart: undefined,
         lineEnd: undefined,
+        kind: "file",
       },
     });
 
@@ -163,6 +166,7 @@ describe("classifyAssistantFileLink", () => {
         path: "/Users/test/project/src/components/message.tsx",
         lineStart: 33,
         lineEnd: undefined,
+        kind: "file",
       },
     });
   });
@@ -224,6 +228,7 @@ describe("parseAssistantFileLink", () => {
       path: "/Users/test/project/dumm.md",
       lineStart: undefined,
       lineEnd: undefined,
+      kind: "file",
     });
   });
 
@@ -237,6 +242,7 @@ describe("parseAssistantFileLink", () => {
       path: "/Users/test/project/file.ts",
       lineStart: 12,
       lineEnd: undefined,
+      kind: "file",
     });
   });
 
@@ -268,6 +274,7 @@ describe("parseAssistantFileLink", () => {
       path: "/Users/test/project/src/components/message.tsx",
       lineStart: 33,
       lineEnd: undefined,
+      kind: "file",
     });
   });
 
@@ -281,6 +288,7 @@ describe("parseAssistantFileLink", () => {
       path: "/Users/test/project/src/app.tsx",
       lineStart: 33,
       lineEnd: undefined,
+      kind: "file",
     });
   });
 
@@ -294,6 +302,7 @@ describe("parseAssistantFileLink", () => {
       path: "/Users/test/project/src/app.tsx",
       lineStart: 33,
       lineEnd: undefined,
+      kind: "file",
     });
   });
 
@@ -307,6 +316,7 @@ describe("parseAssistantFileLink", () => {
       path: "C:/repo/src/app.tsx",
       lineStart: 12,
       lineEnd: 20,
+      kind: "file",
     });
   });
 
@@ -320,6 +330,7 @@ describe("parseAssistantFileLink", () => {
       path: "C:/repo/src/app.tsx",
       lineStart: 12,
       lineEnd: 20,
+      kind: "file",
     });
   });
 
@@ -333,6 +344,7 @@ describe("parseAssistantFileLink", () => {
       path: "/tmp/outside.txt",
       lineStart: undefined,
       lineEnd: undefined,
+      kind: "file",
     });
   });
 
@@ -346,6 +358,7 @@ describe("parseAssistantFileLink", () => {
       path: "/tmp/outside.txt",
       lineStart: undefined,
       lineEnd: undefined,
+      kind: "file",
     });
   });
 
@@ -359,6 +372,7 @@ describe("parseAssistantFileLink", () => {
       path: "~/.paseo/plans/file-preview.md",
       lineStart: undefined,
       lineEnd: undefined,
+      kind: "file",
     });
     expect(
       parseAssistantFileLink("~/.paseo/plans/file-preview.md:12", {
@@ -369,6 +383,7 @@ describe("parseAssistantFileLink", () => {
       path: "~/.paseo/plans/file-preview.md",
       lineStart: 12,
       lineEnd: undefined,
+      kind: "file",
     });
     expect(
       parseAssistantFileLink("~\\.paseo\\plans\\file-preview.md", {
@@ -379,7 +394,74 @@ describe("parseAssistantFileLink", () => {
       path: "~/.paseo/plans/file-preview.md",
       lineStart: undefined,
       lineEnd: undefined,
+      kind: "file",
     });
+  });
+
+  it("marks a trailing slash as a directory target", () => {
+    expect(
+      parseAssistantFileLink("/tmp/shots/", {
+        workspaceRoot: "/Users/test/project",
+      }),
+    ).toEqual({
+      raw: "/tmp/shots/",
+      path: "/tmp/shots/",
+      lineStart: undefined,
+      lineEnd: undefined,
+      kind: "directory",
+    });
+  });
+
+  it("leaves kind undefined for an extensionless absolute path, pending a probe", () => {
+    expect(
+      parseAssistantFileLink("/usr/local/bin", {
+        workspaceRoot: "/Users/test/project",
+      }),
+    ).toEqual({
+      raw: "/usr/local/bin",
+      path: "/usr/local/bin",
+      lineStart: undefined,
+      lineEnd: undefined,
+    });
+  });
+
+  it("opens an explicit relative link href regardless of extension when it contains a slash", () => {
+    expect(
+      parseAssistantFileLink("assets/shot.png", {
+        workspaceRoot: "/Users/test/project",
+        allowAnyExtension: true,
+      }),
+    ).toEqual({
+      raw: "assets/shot.png",
+      path: "/Users/test/project/assets/shot.png",
+      lineStart: undefined,
+      lineEnd: undefined,
+      kind: "file",
+    });
+  });
+
+  it("opens an explicit bare relative link href with any dot-extension", () => {
+    expect(
+      parseAssistantFileLink("report.csv", {
+        workspaceRoot: "/Users/test/project",
+        allowAnyExtension: true,
+      }),
+    ).toEqual({
+      raw: "report.csv",
+      path: "/Users/test/project/report.csv",
+      lineStart: undefined,
+      lineEnd: undefined,
+      kind: "file",
+    });
+  });
+
+  it("rejects an explicit bare relative link href with neither a slash nor an extension", () => {
+    expect(
+      parseAssistantFileLink("notes", {
+        workspaceRoot: "/Users/test/project",
+        allowAnyExtension: true,
+      }),
+    ).toBeNull();
   });
 
   it("rejects external URLs", () => {
@@ -467,5 +549,43 @@ describe("normalizeInlinePathTarget", () => {
     ).toEqual({
       directory: "packages/app",
     });
+  });
+});
+
+describe("isFileLookingAssistantToken", () => {
+  it("accepts any short extension once the token contains a slash", () => {
+    expect(isFileLookingAssistantToken("src/notes.xyz")).toBe(true);
+    expect(isFileLookingAssistantToken("assets/photo.heic")).toBe(true);
+  });
+
+  it("accepts a relative directory marker ending in a slash", () => {
+    expect(isFileLookingAssistantToken("docs/")).toBe(true);
+  });
+
+  it("accepts well-known extensionless filenames", () => {
+    expect(isFileLookingAssistantToken("Makefile")).toBe(true);
+    expect(isFileLookingAssistantToken("docs/Dockerfile")).toBe(true);
+    expect(isFileLookingAssistantToken("README")).toBe(true);
+    expect(isFileLookingAssistantToken("CODEOWNERS")).toBe(true);
+  });
+
+  it("accepts any absolute or home-relative path regardless of extension", () => {
+    expect(isFileLookingAssistantToken("/usr/local/bin")).toBe(true);
+    expect(isFileLookingAssistantToken("~/scripts")).toBe(true);
+  });
+
+  it("rejects slash tokens with neither an extension nor a trailing slash", () => {
+    expect(isFileLookingAssistantToken("feat/agent-routes")).toBe(false);
+    expect(isFileLookingAssistantToken("owner/repo")).toBe(false);
+    expect(isFileLookingAssistantToken("origin/main")).toBe(false);
+  });
+
+  it("rejects URLs and tokens with spaces", () => {
+    expect(isFileLookingAssistantToken("https://example.com/a/b.ts")).toBe(false);
+    expect(isFileLookingAssistantToken("src/has space.ts")).toBe(false);
+  });
+
+  it("rejects a single bare word with no extension", () => {
+    expect(isFileLookingAssistantToken("main")).toBe(false);
   });
 });

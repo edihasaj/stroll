@@ -173,6 +173,70 @@ export function setExpandedDirectoryPath({
   return Array.from(nextPaths);
 }
 
+/**
+ * Every strict ancestor directory of `entryPath`, root to leaf, excluding the entry itself —
+ * e.g. "a/b/c.ts" -> ["a", "a/b"]. Used to reveal a path: expand each ancestor (and the entry
+ * itself when it's a directory) before selecting and scrolling to it.
+ */
+export function collectExplorerAncestorPaths(entryPath: string): string[] {
+  if (!entryPath || entryPath === ".") {
+    return [];
+  }
+  const segments = entryPath.split("/").filter(Boolean);
+  const ancestors: string[] = [];
+  let current = "";
+  for (let index = 0; index < segments.length - 1; index += 1) {
+    current = current ? `${current}/${segments[index]}` : segments[index];
+    ancestors.push(current);
+  }
+  return ancestors;
+}
+
+interface RevealExplorerEntryInput {
+  entryPath: string;
+  directories: ReadonlyMap<string, ExplorerDirectory>;
+  workspaceStateKey: string;
+  requestDirectoryListing: (
+    path: string,
+    opts?: { recordHistory?: boolean; setCurrentPath?: boolean },
+  ) => Promise<ExplorerDirectory | null>;
+  setExpandedPathsForWorkspace: (
+    workspaceStateKey: string,
+    paths: string[] | ((currentPaths: string[]) => string[]),
+  ) => void;
+}
+
+/**
+ * First half of revealing a path (see the `explorerRevealRequest` effects in
+ * components/file-explorer-pane.tsx): loads every ancestor directory plus the entry itself — a
+ * known chain, not a search, so every listing can fire in parallel — then expands all of them in
+ * one update. The second half (select + scroll) runs once the listing lands and the row shows up
+ * in the pane's flattened rows.
+ */
+export async function revealExplorerEntry({
+  entryPath,
+  directories,
+  workspaceStateKey,
+  requestDirectoryListing,
+  setExpandedPathsForWorkspace,
+}: RevealExplorerEntryInput): Promise<void> {
+  const pathsToExpand = [...collectExplorerAncestorPaths(entryPath), entryPath];
+  await Promise.all(
+    pathsToExpand
+      .filter((path) => !directories.has(path))
+      .map((path) =>
+        requestDirectoryListing(path, { recordHistory: false, setCurrentPath: false }),
+      ),
+  );
+  setExpandedPathsForWorkspace(workspaceStateKey, (currentPaths) => {
+    const nextPaths = new Set(currentPaths);
+    for (const path of pathsToExpand) {
+      nextPaths.add(path);
+    }
+    return Array.from(nextPaths);
+  });
+}
+
 function rowsForDirectory(
   directory: ExplorerDirectory,
   depth: number,

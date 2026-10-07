@@ -1,14 +1,17 @@
-import { useMemo, type CSSProperties, type MouseEvent, type ReactNode } from "react";
+import { useCallback, useMemo, type CSSProperties, type MouseEvent, type ReactNode } from "react";
 import { Platform, Text, View, type StyleProp, type TextStyle, type ViewStyle } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 import { isNative, isWeb } from "@/constants/platform";
 import { MarkdownTextSpan } from "@/components/markdown-text";
 import { MarkdownLinkText } from "@/components/markdown/link-text";
+import { ContextMenu } from "@/components/ui/context-menu";
 import { AssistantLinkPressProvider, type AssistantLinkPress } from "./link-press-context";
+import { LinkActionsMenuContent, useLinkActionsMenuGesture } from "./link-actions-menu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { CODE_SURFACE_DATASET } from "@/styles/code-surface";
 import { markdownCopyDataSet } from "@/assistant-selection-copy/markup";
 import { useAssistantFileLinkResolverContext } from "./provider";
+import type { InlinePathTarget } from "./parse";
 import type { AssistantFileLinkSource } from "./resolver";
 import { formatFileLinkTooltipPath } from "./tooltip-path";
 import { useFileLink } from "./use-file-link";
@@ -31,16 +34,147 @@ export function AssistantMarkdownLink({
   monoSurface,
   children,
 }: AssistantMarkdownLinkProps) {
-  const { target, onHoverIn, onPress } = useFileLink(source);
+  const { target, onHoverIn, onPress, open } = useFileLink(source);
   const { configRef } = useAssistantFileLinkResolverContext();
   const workspaceRoot = configRef.current.workspaceRoot;
+  const serverId = configRef.current.serverId;
   const tooltipPath = useMemo(
     () => (target ? formatFileLinkTooltipPath({ target, workspaceRoot }) : null),
     [target, workspaceRoot],
   );
+  const handleOpenToSide = useCallback(() => open(source, "side"), [open, source]);
+
+  const linkRender = (
+    <AssistantMarkdownLinkRender
+      source={source}
+      style={style}
+      monoSurface={monoSurface}
+      tooltipPath={tooltipPath}
+      onPress={onPress}
+      onHoverIn={onHoverIn}
+    >
+      {children}
+    </AssistantMarkdownLinkRender>
+  );
+
+  // Only a resolved file/folder target gets the right-click/long-press actions menu — an
+  // external or unresolved link keeps its plain click behavior unchanged.
+  if (!target) {
+    return linkRender;
+  }
+
+  return (
+    <ContextMenu>
+      <AssistantFileLinkMenuMount
+        source={source}
+        style={style}
+        monoSurface={monoSurface}
+        tooltipPath={tooltipPath}
+        onPress={onPress}
+        onHoverIn={onHoverIn}
+        target={target}
+        serverId={serverId}
+        workspaceRoot={workspaceRoot}
+        onOpenToSide={handleOpenToSide}
+      >
+        {children}
+      </AssistantFileLinkMenuMount>
+    </ContextMenu>
+  );
+}
+
+interface AssistantFileLinkMenuMountProps {
+  source: AssistantFileLinkSource;
+  style: StyleProp<TextStyle>;
+  monoSurface?: boolean;
+  tooltipPath: string | null;
+  onPress: () => void;
+  onHoverIn: () => void;
+  target: InlinePathTarget;
+  serverId?: string;
+  workspaceRoot?: string;
+  onOpenToSide: () => void;
+  children: ReactNode;
+}
+
+/**
+ * Mounted only once a link resolves to a file/folder target, inside the `<ContextMenu>` this
+ * file renders around it. `useContextMenu()` needs that ancestor, which is why the gesture
+ * handlers live here rather than in `AssistantMarkdownLink` itself.
+ *
+ * This opens the menu by calling `setAnchorRect`/`setOpen` directly instead of rendering a
+ * `ContextMenuTrigger` around the link: that trigger wraps its children in a View, and on iOS the
+ * link is a UITextView leaf span that a wrapping View would break out of (see
+ * AssistantMarkdownLinkRender's native branch below) — the same hoisting failure mode a plain
+ * `<Text>` hits there.
+ */
+function AssistantFileLinkMenuMount({
+  source,
+  style,
+  monoSurface,
+  tooltipPath,
+  onPress,
+  onHoverIn,
+  target,
+  serverId,
+  workspaceRoot,
+  onOpenToSide,
+  children,
+}: AssistantFileLinkMenuMountProps) {
+  const { onLongPress, onContextMenu } = useLinkActionsMenuGesture();
+
+  return (
+    <>
+      <AssistantMarkdownLinkRender
+        source={source}
+        style={style}
+        monoSurface={monoSurface}
+        tooltipPath={tooltipPath}
+        onPress={onPress}
+        onHoverIn={onHoverIn}
+        onLongPress={isNative ? onLongPress : undefined}
+        onContextMenu={isWeb ? onContextMenu : undefined}
+      >
+        {children}
+      </AssistantMarkdownLinkRender>
+      <LinkActionsMenuContent
+        target={target}
+        serverId={serverId}
+        workspaceRoot={workspaceRoot}
+        onOpen={onPress}
+        onOpenToSide={onOpenToSide}
+        testIDPrefix="assistant-file-link"
+      />
+    </>
+  );
+}
+
+interface AssistantMarkdownLinkRenderProps {
+  source: AssistantFileLinkSource;
+  style: StyleProp<TextStyle>;
+  monoSurface?: boolean;
+  children: ReactNode;
+  tooltipPath: string | null;
+  onPress: () => void;
+  onHoverIn: () => void;
+  onLongPress?: (event: unknown) => void;
+  onContextMenu?: (event: unknown) => void;
+}
+
+function AssistantMarkdownLinkRender({
+  source,
+  style,
+  monoSurface,
+  children,
+  tooltipPath,
+  onPress,
+  onHoverIn,
+  onLongPress,
+  onContextMenu,
+}: AssistantMarkdownLinkRenderProps) {
   const linkPress = useMemo<AssistantLinkPress>(
-    () => ({ onPress, accessibilityRole: "link" }),
-    [onPress],
+    () => ({ onPress, onLongPress, accessibilityRole: "link" }),
+    [onPress, onLongPress],
   );
   const unwrapForMarkdownCopy = source.sourceType === "inline-code" || source.markup === "linkify";
 
@@ -57,12 +191,14 @@ export function AssistantMarkdownLink({
     // AssistantLinkPressProvider so each leaf text span re-attaches it to its
     // own string children, where the native tap recognizer can find it. iOS
     // only: Android forwards onPress through nested <Text> already, and web uses
-    // the <a> path below.
+    // the <a> path below. onLongPress (the link actions menu) rides the same
+    // leaf-span path as onPress for the same reason.
     const span = (
       <MarkdownTextSpan
         accessibilityRole="link"
         monoSurface={monoSurface}
         onPress={onPress}
+        onLongPress={onLongPress}
         style={style}
       >
         {children}
@@ -86,6 +222,7 @@ export function AssistantMarkdownLink({
       title={source.title}
       onClickCapture={preventAnchorNavigation}
       onAuxClickCapture={preventAnchorNavigation}
+      onContextMenu={onContextMenu}
       style={LINK_ANCHOR_STYLE}
     >
       <MarkdownLinkText

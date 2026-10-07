@@ -214,6 +214,11 @@ export const fr: TranslationResources = {
       title_mr: "Joindre le problème ou MR",
     },
   },
+  fileLinks: {
+    menu: {
+      open: "Ouvrir",
+    },
+  },
   agentHooks: {
     review: {
       button_one: "{{count}} crochet à vérifier",

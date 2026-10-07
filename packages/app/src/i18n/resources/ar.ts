@@ -210,6 +210,11 @@ export const ar: TranslationResources = {
       title_mr: "إرفاق المشكلة أو MR",
     },
   },
+  fileLinks: {
+    menu: {
+      open: "فتح",
+    },
+  },
   agentHooks: {
     review: {
       button_one: "{{count}} خطاف يحتاج إلى مراجعة",

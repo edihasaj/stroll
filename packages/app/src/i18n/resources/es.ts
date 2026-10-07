@@ -212,6 +212,11 @@ export const es: TranslationResources = {
       title_mr: "Adjuntar problema o MR",
     },
   },
+  fileLinks: {
+    menu: {
+      open: "Abrir",
+    },
+  },
   agentHooks: {
     review: {
       button_one: "{{count}} gancho por revisar",

@@ -11,6 +11,8 @@ describe("panel manifest", () => {
     expect(panelSupportsHost("agent", "main")).toBe(true);
     expect(panelSupportsHost("agent", "explorer")).toBe(true);
     expect(panelSupportsHost("file", "explorer")).toBe(true);
+    expect(panelSupportsHost("folder", "explorer")).toBe(true);
+    expect(panelSupportsHost("folder", "main")).toBe(true);
     expect(panelSupportsHost("working_diff", "explorer")).toBe(true);
     expect(panelSupportsHost("new_tab", "explorer")).toBe(true);
     expect(panelSupportsHost("files", "explorer")).toBe(true);
@@ -24,6 +26,7 @@ describe("panel manifest", () => {
     expect(getPanelManifest("agent").showCloseButton).toBe(true);
     expect(getPanelManifest("terminal").showCloseButton).toBe(true);
     expect(getPanelManifest("file").showCloseButton).toBe(true);
+    expect(getPanelManifest("folder").showCloseButton).toBe(true);
     expect(getPanelManifest("working_diff").showCloseButton).toBe(true);
   });
 
@@ -41,6 +44,9 @@ describe("panel manifest", () => {
     ).toBe(panelResourceKey({ kind: "working_diff", focusPath: "src/b.ts", focusRequestId: 2 }));
     expect(panelResourceKey({ kind: "file", path: "src/a.ts" })).not.toBe(
       panelResourceKey({ kind: "file", path: "src/b.ts" }),
+    );
+    expect(panelResourceKey({ kind: "folder", path: "/tmp/shots" })).not.toBe(
+      panelResourceKey({ kind: "file", path: "/tmp/shots" }),
     );
   });
 });

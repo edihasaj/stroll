@@ -98,10 +98,18 @@ import {
   type AssistantFileLinkSource,
   AssistantMarkdownCodeLink,
   AssistantMarkdownLink,
+  LinkActionsMenuContent,
   type InlinePathTarget,
+  splitTextIntoPathSegments,
+  type TextPathSegment,
   useAssistantFileLinkActions,
+  useAssistantFileLinkResolverContext,
   useAssistantLinkPress,
+  useFileLink,
+  useLinkActionsMenuGesture,
+  useOptionalAssistantFileLinkResolverContext,
 } from "@/assistant-file-links";
+import { ContextMenu } from "@/components/ui/context-menu";
 import { getCompactionMarkerLabel } from "./message-compaction-label";
 import { useAssistantImage } from "@/assistant-image/use-assistant-image";
 import {
@@ -446,6 +454,9 @@ const userMessageStylesheet = StyleSheet.create((theme) => ({
         }
       : {}),
   },
+  pathLink: {
+    textDecorationLine: "underline",
+  },
   imagePreviewContainer: {
     flexDirection: "row",
     gap: theme.spacing[2],
@@ -564,6 +575,25 @@ function useUserMessageHostBadge(input: {
   return badges.get(input.serverId ?? "") ?? null;
 }
 
+/**
+ * Splits a user message into path-linkable segments, or null when there's nothing to split:
+ * either the text has no path-shaped substrings, or — true everywhere today — no
+ * AssistantFileLinkResolverProvider is mounted around this message yet (see
+ * useOptionalAssistantFileLinkResolverContext's own comment). Null renders the plain message
+ * text exactly as before.
+ */
+function useUserMessagePathSegments(message: string, hasText: boolean): TextPathSegment[] | null {
+  const resolverContext = useOptionalAssistantFileLinkResolverContext();
+  const workspaceRoot = resolverContext?.configRef.current.workspaceRoot;
+  return useMemo(() => {
+    if (!hasText || !resolverContext) {
+      return null;
+    }
+    const segments = splitTextIntoPathSegments(message, { workspaceRoot });
+    return segments.some((segment) => segment.type === "path") ? segments : null;
+  }, [hasText, message, resolverContext, workspaceRoot]);
+}
+
 const MESSAGE_TEXT_DATASET = { messageText: "true" };
 // Shared stable reference (see CONTENT_SURFACE_DATASET's comment) carrying both the
 // prose font-routing tag and chat find's messageText tag on the same element.
@@ -598,6 +628,7 @@ export const UserMessage = memo(function UserMessage({
   );
   const resolvedDisableOuterSpacing = useDisableOuterSpacing(disableOuterSpacing);
   const hasText = message.trim().length > 0;
+  const pathSegments = useUserMessagePathSegments(message, hasText);
   const hasImages = images.length > 0;
   const hasAttachments = attachments.length > 0;
   const showTrailingRow = !isPending && hasText && (isCompact || isNative || isHovered);
@@ -702,7 +733,15 @@ export const UserMessage = memo(function UserMessage({
           ) : null}
           {hasText ? (
             <Text selectable dataSet={MESSAGE_PROSE_DATASET} style={userMessageStylesheet.text}>
-              {message}
+              {pathSegments
+                ? pathSegments.map((segment) =>
+                    segment.type === "path" ? (
+                      <UserMessagePathSegmentLink key={segment.start} raw={segment.raw} />
+                    ) : (
+                      segment.text
+                    ),
+                  )
+                : message}
             </Text>
           ) : null}
         </View>
@@ -736,6 +775,79 @@ export const UserMessage = memo(function UserMessage({
     </Animated.View>
   );
 });
+
+/**
+ * One path-shaped run inside a user message (see splitTextIntoPathSegments, called from
+ * UserMessage above only once a resolver context exists). Nested inside the message's own
+ * selectable <Text>, so the bubble stays one selectable/copyable block — only this run is also
+ * pressable. Reuses useFileLink for opening, the same hook every other file link goes through,
+ * so there's one open path, not two. Safe to call the throwing context hook here: this component
+ * mounts only when UserMessage already confirmed a provider is present.
+ */
+function UserMessagePathSegmentLink({ raw }: { raw: string }) {
+  const source = useMemo<AssistantFileLinkSource>(() => ({ href: raw, text: raw }), [raw]);
+  const { target, onPress, open } = useFileLink(source);
+  const { configRef } = useAssistantFileLinkResolverContext();
+  const handleOpenToSide = useCallback(() => open(source, "side"), [open, source]);
+
+  if (!target) {
+    return <Text>{raw}</Text>;
+  }
+
+  return (
+    <ContextMenu>
+      <UserMessagePathLinkMenuMount
+        raw={raw}
+        target={target}
+        serverId={configRef.current.serverId}
+        workspaceRoot={configRef.current.workspaceRoot}
+        onPress={onPress}
+        onOpenToSide={handleOpenToSide}
+      />
+    </ContextMenu>
+  );
+}
+
+interface UserMessagePathLinkMenuMountProps {
+  raw: string;
+  target: InlinePathTarget;
+  serverId?: string;
+  workspaceRoot?: string;
+  onPress: () => void;
+  onOpenToSide: () => void;
+}
+
+function UserMessagePathLinkMenuMount({
+  raw,
+  target,
+  serverId,
+  workspaceRoot,
+  onPress,
+  onOpenToSide,
+}: UserMessagePathLinkMenuMountProps) {
+  const { onLongPress, onContextMenu } = useLinkActionsMenuGesture();
+  return (
+    <>
+      <Text
+        style={userMessageStylesheet.pathLink}
+        onPress={onPress}
+        onLongPress={isNative ? onLongPress : undefined}
+        // @ts-ignore - onContextMenu is web-only and not in RN types.
+        onContextMenu={isWeb ? onContextMenu : undefined}
+      >
+        {raw}
+      </Text>
+      <LinkActionsMenuContent
+        target={target}
+        serverId={serverId}
+        workspaceRoot={workspaceRoot}
+        onOpen={onPress}
+        onOpenToSide={onOpenToSide}
+        testIDPrefix="user-message-file-link"
+      />
+    </>
+  );
+}
 
 /** Copy and fork stay visible under an answer; hovering brings them to full strength. */
 const IDLE_ACTIONS_OPACITY = 0.55;
@@ -1654,6 +1766,7 @@ function MarkdownInheritedText({
   // the leaf string children react-native-uitextview makes tappable. Null
   // outside a link (and on every other platform, where no provider mounts), so
   // ordinary text is unaffected. See assistant-file-links/link-press-context.
+  // onLongPress (the link actions menu) rides the same path.
   const linkPress = useAssistantLinkPress();
   return (
     <MarkdownTextSpan
@@ -1661,6 +1774,7 @@ function MarkdownInheritedText({
       copyTag={copyTag}
       style={style}
       onPress={linkPress?.onPress}
+      onLongPress={linkPress?.onLongPress}
       accessibilityRole={linkPress?.accessibilityRole}
     >
       {children}
@@ -1720,10 +1834,19 @@ export const AssistantMessage = memo(function AssistantMessage({
   const { t } = useTranslation();
   const { entering: entranceEntering, webStyle: entranceWebStyle } =
     useMessageEntranceAnimation(animateEntrance);
-  const markdownParser = useMemo(createAssistantMarkdownParser, []);
+  // Read by the parser's plain-prose file-link rule on every parse (not just at mount), so the
+  // one parser instance below keeps resolving relative paths against the current workspace even
+  // though it isn't recreated when workspaceRoot changes.
+  const workspaceRootRef = useRef(workspaceRoot);
+  workspaceRootRef.current = workspaceRoot;
+  const getWorkspaceRoot = useStableEvent(() => workspaceRootRef.current);
+  const markdownParser = useMemo(
+    () => createAssistantMarkdownParser({ getWorkspaceRoot }),
+    [getWorkspaceRoot],
+  );
   const streamingMarkdownParser = useMemo(
-    () => createAssistantMarkdownParser({ streaming: true }),
-    [],
+    () => createAssistantMarkdownParser({ streaming: true, getWorkspaceRoot }),
+    [getWorkspaceRoot],
   );
   const renderedMessage = useMemo(() => {
     const annotated = rewriteAssistantAnnotations(message);
