@@ -1,4 +1,8 @@
 import type { Agent } from "@/stores/session-store";
+import {
+  PARENT_COMPUTER_AGENT_LABEL,
+  PARENT_COMPUTER_LABEL,
+} from "@getpaseo/protocol/agent-labels";
 import type { SubagentRow } from "./select";
 
 export type ArchiveFinishedStatus =
@@ -18,9 +22,14 @@ export interface ArchiveFinishedOutcome {
   failures: Array<{ id: string; error: unknown }>;
 }
 
-export type ManagedSubagentSnapshot = Pick<Agent, "id" | "status" | "parentAgentId" | "archivedAt">;
+export type ManagedSubagentSnapshot = Pick<
+  Agent,
+  "id" | "status" | "parentAgentId" | "archivedAt" | "labels"
+>;
 
 export interface ArchiveFinishedSubagentsDeps {
+  /** The parent's own host — only needed to recognize a cross-host child by its labels. */
+  parentServerId: string;
   parentAgentId: string;
   getManagedSubagent: (id: string) => ManagedSubagentSnapshot | undefined;
   archiveManagedSubagent: (id: string) => Promise<void>;
@@ -42,14 +51,28 @@ export function isFinishedSubagent(row: SubagentRow): boolean {
   return row.status === "completed" || row.status === "failed" || row.status === "canceled";
 }
 
+/** Same-host via `parentAgentId`, or a cross-host child via its `stroll.parent.*` labels (peers.md). */
+function isManagedChildOfParent(
+  agent: ManagedSubagentSnapshot,
+  parentServerId: string,
+  parentAgentId: string,
+): boolean {
+  if (agent.parentAgentId === parentAgentId) return true;
+  return (
+    agent.labels[PARENT_COMPUTER_LABEL] === parentServerId &&
+    agent.labels[PARENT_COMPUTER_AGENT_LABEL] === parentAgentId
+  );
+}
+
 function canArchiveManagedSubagent(
   agent: ManagedSubagentSnapshot | undefined,
+  parentServerId: string,
   parentAgentId: string,
 ): boolean {
   return Boolean(
     agent &&
     !agent.archivedAt &&
-    agent.parentAgentId === parentAgentId &&
+    isManagedChildOfParent(agent, parentServerId, parentAgentId) &&
     (agent.status === "idle" || agent.status === "error"),
   );
 }
@@ -185,13 +208,25 @@ async function runArchiveFinished(
   }
 
   for (const id of paseoIds) {
-    if (canArchiveManagedSubagent(deps.getManagedSubagent(id), deps.parentAgentId)) {
+    if (
+      canArchiveManagedSubagent(
+        deps.getManagedSubagent(id),
+        deps.parentServerId,
+        deps.parentAgentId,
+      )
+    ) {
       try {
         await deps.archiveManagedSubagent(id);
         outcome.archivedPaseoIds.push(id);
       } catch (error) {
         outcome.failures.push({ id, error });
-        if (canArchiveManagedSubagent(deps.getManagedSubagent(id), deps.parentAgentId)) {
+        if (
+          canArchiveManagedSubagent(
+            deps.getManagedSubagent(id),
+            deps.parentServerId,
+            deps.parentAgentId,
+          )
+        ) {
           retryableFailureIds.add(managedRowIdentity(id));
         }
       }

@@ -86,6 +86,34 @@ Lists this computer (server id, hostname) and every configured peer (id, name, p
 `test: true` to also dial each peer and report reachable/latency/error, the same facts `paseo peer
 test` prints. Gated by the same per-provider tool policy as `create_agent` and `list_profiles`.
 
+## In the app
+
+The app's own host registry already keys sessions by `serverId`, and a remote child's labels
+carry its parent's `serverId` directly — so the client joins a parent to its cross-host children
+by scanning every connected host's agents for `stroll.parent.computer` == the parent's own
+`serverId` and `stroll.parent.agent` == the parent's agent id, no peer-id-to-serverId mapping
+needed. `findManagedChildren` in `packages/app/src/subagents/select.ts` does this alongside the
+existing same-host `parentAgentId` match, for both the flat subagent list and the nested track
+tree; a remote child's own children are found the same way, one level at a time, wherever they
+turn out to live. Every row — local or remote — carries a `hostServerId` so the rest of the app
+never has to guess which host owns it.
+
+Where a row's host differs from the parent's, its name shows next to the row — the Subagents
+panel row, the composer pill row, the chat summary card, and a transcript's `create_agent` row —
+resolved by `useHostDisplayNames` (`packages/app/src/hosts/use-host-badges.ts`), the plain-text
+counterpart to the sidebar's `useHostBadges`. Opening a row calls `navigateToAgent` with that
+row's own `hostServerId`, the same helper a notification or a plugin already uses to jump to an
+agent on another host; stop, archive, and archive-finished likewise resolve the owning host's
+client per row instead of assuming the parent's. A transcript's `create_agent` row resolves its
+child's host the same way when the agent isn't on the pane's own host:
+`findAgentHostServerId` scans every connected host's agent map for the id the tool call returned.
+
+**Not connected.** All of this runs on labels the app already has in its own session store, which
+only holds data for hosts it is connected to. A child spawned on a peer the app hasn't connected
+to cannot be matched — there are no labels to scan. Its row is simply absent from the parent's
+track and panel; a transcript's `create_agent` row still renders from the tool call itself, with
+no live status and no open action, the same as any other row whose agent cannot be found.
+
 ## Password at rest
 
 A `tcp://` target can carry a password: `tcp://host:port?password=…`. It is stored in

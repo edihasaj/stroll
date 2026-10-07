@@ -1,9 +1,10 @@
 # Proposal: subagents on any of your computers
 
-Status: step 1 (peers: config, connection pool, `paseo peer` commands) and step 2 (`create_agent`
-`computer`, `list_computers`, the remote-child watch and notifications, follow-up tool routing)
-built — see [peers.md](../peers.md). Builds on [agent-routing.md](agent-routing.md) and
-[agent-routes.md](../agent-routes.md).
+Status: step 1 (peers: config, connection pool, `paseo peer` commands), step 2 (`create_agent`
+`computer`, `list_computers`, the remote-child watch and notifications, follow-up tool routing),
+and step 4 (cross-host subagent rows, panel, and opening in the app) built — see
+[peers.md](../peers.md). Step 3 (route entries with `computer`) not yet built. Builds on
+[agent-routing.md](agent-routing.md) and [agent-routes.md](../agent-routes.md).
 
 The app can already start a chat on any computer it is connected to: the new-chat tray picks a
 folder and a computer, and the daemon on that computer runs the agent. An agent cannot do the same
@@ -62,11 +63,10 @@ computers.
 
 - The new-chat tray's computer chip lists This computer, then every other host the app is
   connected to (already built).
-- Subagent rows, the summary card, and the Subagents panel show a child's computer when it is not
-  the parent's. The app joins children across the hosts it is connected to by
-  `stroll.parent.computer` and the parent agent id. Clicking one opens it on its own host. When the
-  app is not connected to that host, the row shows the status the parent's daemon mirrors and offers
-  to add the host.
+- Subagent rows, the Subagents panel, the composer pill, the chat summary card, and a transcript's
+  `create_agent` row show a child's computer when it differs from the parent's, and open it on its
+  own host. See [peers.md](../peers.md#in-the-app) for how, and for the one thing it depends on —
+  the app has to be connected to the computer a child was spawned on to show it at all.
 
 ## Order of work
 

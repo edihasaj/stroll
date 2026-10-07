@@ -8,7 +8,7 @@ import {
   type ArchiveFinishedSubagents,
 } from "./archive-finished";
 import { useProviderSubagentStore } from "./provider-store";
-import type { SubagentRow } from "./select";
+import { findAgentHostServerId, type SubagentRow } from "./select";
 
 export type { ArchiveFinishedStatus } from "./archive-finished";
 
@@ -31,9 +31,18 @@ export function useArchiveFinishedSubagents({
   const archiveFinished = useMemo<ArchiveFinishedSubagents>(
     () =>
       createArchiveFinishedSubagents([], {
+        parentServerId: serverId,
         parentAgentId,
-        getManagedSubagent: (id) => useSessionStore.getState().sessions[serverId]?.agents.get(id),
-        archiveManagedSubagent: (id) => archiveAgent({ serverId, agentId: id }),
+        getManagedSubagent: (id) => {
+          const sessions = useSessionStore.getState().sessions;
+          const hostServerId = findAgentHostServerId(sessions, serverId, id) ?? serverId;
+          return sessions[hostServerId]?.agents.get(id);
+        },
+        archiveManagedSubagent: (id) => {
+          const hostServerId =
+            findAgentHostServerId(useSessionStore.getState().sessions, serverId, id) ?? serverId;
+          return archiveAgent({ serverId: hostServerId, agentId: id });
+        },
         dismissProviderSubagents: (ids) => {
           useProviderSubagentStore.getState().hideFromTrack(serverId, parentAgentId, ids);
         },

@@ -19,3 +19,23 @@ export function buildChatSummary(rows: readonly SubagentRow[]): ChatSummary | nu
   }
   return summary;
 }
+
+/**
+ * The host names to append to the summary line when one or more rows live on a connected host
+ * other than the parent's own (docs/peers.md "In the app") — `null` when every row is local.
+ * Lists every distinct remote host rather than a count, so "· MacBook" stays legible without a
+ * new translated phrase for "N computers".
+ */
+export function resolveRemoteHostSummaryLabel(
+  rows: readonly SubagentRow[],
+  parentServerId: string,
+  hostNames: ReadonlyMap<string, string>,
+): string | null {
+  const remoteHostServerIds = new Set(
+    rows.map((row) => row.hostServerId).filter((hostServerId) => hostServerId !== parentServerId),
+  );
+  if (remoteHostServerIds.size === 0) return null;
+  return Array.from(remoteHostServerIds)
+    .map((hostServerId) => hostNames.get(hostServerId) ?? hostServerId)
+    .join(", ");
+}

@@ -8,6 +8,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { useIsCompactFormFactor } from "@/constants/layout";
 import { isNative } from "@/constants/platform";
 import { useAuxClickRef } from "@/hooks/use-aux-click-ref";
+import { useHostDisplayNames } from "@/hosts/use-host-badges";
 import { usePaneContext } from "@/panels/pane-context";
 import { definePanel, type PanelPresentation } from "@/panels/panel-registry";
 import { useSessionStore } from "@/stores/session-store";
@@ -28,6 +29,8 @@ import { SubagentRowActions } from "@/subagents/track";
 import {
   buildSubagentRowPresentationData,
   isSubagentRowActive,
+  joinMeta,
+  resolveSubagentHostLabel,
 } from "@/subagents/track-presentation";
 import { useElapsedLabel } from "@/subagents/use-elapsed-label";
 import { useOpenSubagent } from "@/subagents/use-open-subagent";
@@ -74,6 +77,7 @@ function SubagentsPanel(): ReactElement {
   const { serverId, workspaceId, target } = usePaneContext();
   invariant(target.kind === "subagents", "SubagentsPanel requires a subagents target");
   const rows = useSubagentsForParent({ serverId, parentAgentId: target.parentAgentId });
+  const hostNames = useHostDisplayNames();
   const { active, done } = useMemo(() => {
     const activeRows: SubagentRow[] = [];
     const doneRows: SubagentRow[] = [];
@@ -81,7 +85,7 @@ function SubagentsPanel(): ReactElement {
     return { active: activeRows, done: doneRows };
   }, [rows]);
   const { openSubagent, openProviderSubagent } = useOpenSubagent({ serverId, workspaceId });
-  const archiveSubagent = useArchiveSubagent({ serverId });
+  const archiveSubagent = useArchiveSubagent({ serverId, rows });
   const detachSubagent = useDetachSubagent({ serverId });
   const canDetach = useSessionStore(
     (state) => state.sessions[serverId]?.serverInfo?.features?.agentDetach === true,
@@ -130,7 +134,14 @@ function SubagentsPanel(): ReactElement {
       {active.length === 0 ? (
         <Text style={styles.noneText}>{t("subagents.panel.noActive")}</Text>
       ) : (
-        active.map((row) => <SubagentPanelRow key={row.id} row={row} handlers={handlers} />)
+        active.map((row) => (
+          <SubagentPanelRow
+            key={row.id}
+            row={row}
+            handlers={handlers}
+            hostLabel={resolveSubagentHostLabel(row.hostServerId, serverId, hostNames)}
+          />
+        ))
       )}
       {done.length > 0 ? (
         <>
@@ -142,7 +153,12 @@ function SubagentsPanel(): ReactElement {
             />
           </GroupHeading>
           {done.map((row) => (
-            <SubagentPanelRow key={row.id} row={row} handlers={handlers} />
+            <SubagentPanelRow
+              key={row.id}
+              row={row}
+              handlers={handlers}
+              hostLabel={resolveSubagentHostLabel(row.hostServerId, serverId, hostNames)}
+            />
           ))}
         </>
       ) : null}
@@ -262,9 +278,12 @@ function ArchiveFinishedAction({
 const SubagentPanelRow = memo(function SubagentPanelRow({
   row,
   handlers,
+  hostLabel,
 }: {
   row: SubagentRow;
   handlers: SubagentRowHandlers;
+  /** The row's host name when it differs from the parent's (docs/peers.md "In the app"). */
+  hostLabel: string | null;
 }): ReactElement {
   const { t } = useTranslation();
   const isCompact = useIsCompactFormFactor();
@@ -313,7 +332,7 @@ const SubagentPanelRow = memo(function SubagentPanelRow({
             {label}
           </Text>
           <Text style={styles.meta} numberOfLines={1}>
-            {presentation.subtitle ? `${status} · ${presentation.subtitle}` : status}
+            {joinMeta([status, presentation.subtitle || null, hostLabel])}
           </Text>
         </View>
         {elapsed ? <Text style={styles.elapsed}>{elapsed}</Text> : null}

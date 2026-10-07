@@ -13,7 +13,10 @@ import {
   groupSubagentTopLevelNodes,
   isSubagentRowActive,
   resolveRowLabel,
+  resolveSubagentHostLabel,
 } from "./track-presentation";
+
+const SERVER_ID = "server-1";
 
 function row(
   overrides: Partial<PaseoSubagentRow> & Pick<PaseoSubagentRow, "id">,
@@ -21,6 +24,7 @@ function row(
   return {
     kind: "paseo",
     id: overrides.id,
+    hostServerId: overrides.hostServerId ?? SERVER_ID,
     provider: overrides.provider ?? "codex",
     title: overrides.title ?? `Agent ${overrides.id}`,
     description: null,
@@ -111,6 +115,7 @@ describe("countFinishedSubagents", () => {
     const providerRows: SubagentRow[] = [
       {
         kind: "provider",
+        hostServerId: SERVER_ID,
         id: "native-running",
         parentAgentId: "parent",
         provider: "claude",
@@ -124,6 +129,7 @@ describe("countFinishedSubagents", () => {
       },
       {
         kind: "provider",
+        hostServerId: SERVER_ID,
         id: "native-failed",
         parentAgentId: "parent",
         provider: "claude",
@@ -220,6 +226,7 @@ describe("buildSubagentRowPresentationData for provider rows", () => {
   function providerRow(overrides: Partial<ProviderSubagentRow> = {}): ProviderSubagentRow {
     return {
       kind: "provider",
+      hostServerId: SERVER_ID,
       id: overrides.id ?? "toolu_1",
       parentAgentId: "parent",
       provider: "claude",
@@ -275,6 +282,7 @@ describe("provider-owned row subtitles", () => {
   function providerRow(overrides: Partial<ProviderSubagentRow> = {}): ProviderSubagentRow {
     return {
       kind: "provider",
+      hostServerId: SERVER_ID,
       id: "toolu_1",
       parentAgentId: "parent",
       provider: "claude",
@@ -367,6 +375,7 @@ describe("buildSubagentRowPresentationData elapsed-time fields", () => {
     const updatedAt = new Date("2026-07-26T00:01:40.000Z");
     const presentation = buildSubagentRowPresentationData({
       kind: "provider",
+      hostServerId: SERVER_ID,
       id: "toolu_1",
       parentAgentId: "parent",
       provider: "claude",
@@ -386,6 +395,7 @@ describe("buildSubagentRowPresentationData elapsed-time fields", () => {
   it("reports a running provider row as running", () => {
     const presentation = buildSubagentRowPresentationData({
       kind: "provider",
+      hostServerId: SERVER_ID,
       id: "toolu_1",
       parentAgentId: "parent",
       provider: "claude",
@@ -430,6 +440,7 @@ describe("isSubagentRowActive", () => {
     expect(
       isSubagentRowActive({
         kind: "provider",
+        hostServerId: SERVER_ID,
         id: "toolu_1",
         parentAgentId: "parent",
         provider: "claude",
@@ -448,6 +459,7 @@ describe("isSubagentRowActive", () => {
     expect(
       isSubagentRowActive({
         kind: "provider",
+        hostServerId: SERVER_ID,
         id: "toolu_1",
         parentAgentId: "parent",
         provider: "claude",
@@ -466,6 +478,7 @@ describe("isSubagentRowActive", () => {
     expect(
       isSubagentRowActive({
         kind: "provider",
+        hostServerId: SERVER_ID,
         id: "toolu_1",
         parentAgentId: "parent",
         provider: "claude",
@@ -517,5 +530,24 @@ describe("groupSubagentTopLevelNodes", () => {
 
   it("returns empty groups for an empty tree", () => {
     expect(groupSubagentTopLevelNodes([])).toEqual({ active: [], done: [] });
+  });
+});
+
+describe("resolveSubagentHostLabel", () => {
+  const hostNames = new Map([
+    ["server-1", "This computer"],
+    ["server-2", "MacBook"],
+  ]);
+
+  it("returns null for a row on the parent's own host", () => {
+    expect(resolveSubagentHostLabel("server-1", "server-1", hostNames)).toBeNull();
+  });
+
+  it("returns the resolved friendly name for a row on another connected host", () => {
+    expect(resolveSubagentHostLabel("server-2", "server-1", hostNames)).toBe("MacBook");
+  });
+
+  it("falls back to the raw serverId when the host list has no name for it yet", () => {
+    expect(resolveSubagentHostLabel("server-3", "server-1", hostNames)).toBe("server-3");
   });
 });

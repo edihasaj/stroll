@@ -5,13 +5,18 @@ import { StyleSheet } from "react-native-unistyles";
 import { ComposerDiffStatPill } from "@/composer/diff-stat-pill";
 import { useVisibleWorkspaceDiffStat } from "@/composer/workspace-diff-stat";
 import { useIsCompactFormFactor } from "@/constants/layout";
+import { useHostDisplayNames } from "@/hosts/use-host-badges";
 import { useSettings } from "@/hooks/use-settings";
 import { usePaneContext } from "@/panels/pane-context";
 import { DEFAULT_CONTENT_MAX_WIDTH } from "@/styles/theme";
 import { buildWorkspaceTabPersistenceKey } from "@/workspace-tabs/model";
 import { openPreferredWorkspaceTarget } from "@/workspace-tabs/open-beside";
 import { openComposerChanges } from "@/workspace-tabs/open-supporting-view";
-import { buildChatSummary, type ChatSummary } from "./chat-summary-model";
+import {
+  buildChatSummary,
+  resolveRemoteHostSummaryLabel,
+  type ChatSummary,
+} from "./chat-summary-model";
 import type { SubagentRow } from "./select";
 import { SubagentGlyph } from "./subagent-glyph";
 import { subagentGlyphSeed } from "./subagent-glyph-model";
@@ -51,6 +56,8 @@ export const ChatSummaryCard = memo(function ChatSummaryCard({
   const [paneWidth, setPaneWidth] = useState(0);
   const workspaceKey = buildWorkspaceTabPersistenceKey({ serverId, workspaceId });
   const summary = buildChatSummary(subagentRows);
+  const hostNames = useHostDisplayNames();
+  const hostLabel = resolveRemoteHostSummaryLabel(subagentRows, serverId, hostNames);
 
   const handleLayout = useCallback(
     (event: LayoutChangeEvent) => setPaneWidth(event.nativeEvent.layout.width),
@@ -92,7 +99,12 @@ export const ChatSummaryCard = memo(function ChatSummaryCard({
       return (
         <View style={styles.card} testID="chat-summary-card">
           {summary ? (
-            <SubagentsSection summary={summary} rows={subagentRows} onPress={openSubagents} />
+            <SubagentsSection
+              summary={summary}
+              rows={subagentRows}
+              hostLabel={hostLabel}
+              onPress={openSubagents}
+            />
           ) : null}
           {summary && diffStat ? <View style={styles.divider} /> : null}
           {diffStat ? (
@@ -127,10 +139,13 @@ export const ChatSummaryCard = memo(function ChatSummaryCard({
 function SubagentsSection({
   summary,
   rows,
+  hostLabel,
   onPress,
 }: {
   summary: ChatSummary;
   rows: readonly SubagentRow[];
+  /** Distinct remote host names among `rows`, when any differ from the parent's own. */
+  hostLabel: string | null;
   onPress: () => void;
 }): ReactElement {
   const { t } = useTranslation();
@@ -138,6 +153,7 @@ function SubagentsSection({
     summary.needsYou > 0 ? t("subagents.summary.needsYou", { count: summary.needsYou }) : null,
     summary.working > 0 ? t("subagents.summary.working", { count: summary.working }) : null,
     summary.done > 0 ? t("subagents.summary.done", { count: summary.done }) : null,
+    hostLabel,
   ].filter((part): part is string => part !== null);
   return (
     <View style={styles.section}>

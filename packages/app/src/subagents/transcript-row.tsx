@@ -7,19 +7,22 @@ import { ROUTE_ID_LABEL } from "@getpaseo/protocol/agent-route";
 import type { ToolCallDetail } from "@getpaseo/protocol/agent-types";
 import { ToolCallDetailsContent } from "@/components/tool-call-details";
 import { useAuxClickRef } from "@/hooks/use-aux-click-ref";
+import { useHostDisplayNames } from "@/hosts/use-host-badges";
 import { getShortcutOs } from "@/utils/shortcut-platform";
 import { useSessionStore } from "@/stores/session-store";
 import type { Theme } from "@/styles/theme";
 import { isSubagentOpenAsTabClick, readSubagentClickModifiers } from "./open-gesture";
 import { providerSubagentKey, useProviderSubagentStore } from "./provider-store";
+import { findAgentHostServerId } from "./select";
 import {
   buildManagedSubagentRowPresentation,
   buildNativeSubagentRowPresentation,
+  joinMeta,
   type ManagedSubagentLiveFields,
   type SubagentToolCallRowPresentation,
 } from "./transcript-row-model";
 import type { SubagentToolCallLink } from "./tool-call-link";
-import { resolveManagedElapsedWindow } from "./track-presentation";
+import { resolveManagedElapsedWindow, resolveSubagentHostLabel } from "./track-presentation";
 import { useElapsedLabel } from "./use-elapsed-label";
 import { useOpenSubagent } from "./use-open-subagent";
 import { SubagentGlyph } from "./subagent-glyph";
@@ -51,13 +54,25 @@ export interface SubagentToolCallRowProps {
   disableOuterSpacing?: boolean;
 }
 
+/**
+ * Which host a managed agent id actually lives on — the pane's own host for an ordinary
+ * subagent, or another connected host for one spawned there via `create_agent` `computer`
+ * (docs/peers.md). `serverId` is still the right default when the id is unknown everywhere.
+ */
+function useResolvedAgentHostServerId(serverId: string, agentId: string | null): string {
+  return useSessionStore((state) => {
+    if (!agentId) return serverId;
+    return findAgentHostServerId(state.sessions, serverId, agentId) ?? serverId;
+  });
+}
+
 function useManagedAgentLiveFields(
-  serverId: string,
+  hostServerId: string,
   agentId: string | null,
 ): ManagedSubagentLiveFields | null {
   const agent = useSessionStore((state) => {
     if (!agentId) return undefined;
-    const session = state.sessions[serverId];
+    const session = state.sessions[hostServerId];
     return session?.agents.get(agentId) ?? session?.agentDetails.get(agentId);
   });
   if (!agent) {
@@ -131,19 +146,25 @@ function useSubagentToolCallPresentation(input: {
 }): SubagentToolCallPresentationResult {
   const { link, detail } = input;
   const managedAgentId = link.kind === "managed" ? link.agentId : null;
-  const managedFields = useManagedAgentLiveFields(input.serverId, managedAgentId);
+  const managedHostServerId = useResolvedAgentHostServerId(input.serverId, managedAgentId);
+  const managedFields = useManagedAgentLiveFields(managedHostServerId, managedAgentId);
+  const hostNames = useHostDisplayNames();
+  const hostLabel = managedAgentId
+    ? resolveSubagentHostLabel(managedHostServerId, input.serverId, hostNames)
+    : null;
   const nativeParentAgentId = link.kind === "native" ? input.parentAgentId : null;
   const nativeMappedId = link.kind === "native" ? link.mappedSubagentId : null;
   const descriptor = useNativeDescriptorFields(input.serverId, nativeParentAgentId, nativeMappedId);
 
   return useMemo(() => {
     if (link.kind === "managed") {
+      const basePresentation = buildManagedSubagentRowPresentation({
+        agentId: link.agentId,
+        agent: managedFields,
+        toolCallDescription: readCreateAgentPrompt(detail),
+      });
       return {
-        presentation: buildManagedSubagentRowPresentation({
-          agentId: link.agentId,
-          agent: managedFields,
-          toolCallDescription: readCreateAgentPrompt(detail),
-        }),
+        presentation: { ...basePresentation, meta: joinMeta([basePresentation.meta, hostLabel]) },
         iconProvider: managedFields?.provider ?? "",
       };
     }
@@ -162,6 +183,7 @@ function useSubagentToolCallPresentation(input: {
   }, [
     link,
     managedFields,
+    hostLabel,
     nativeParentAgentId,
     nativeMappedId,
     descriptor,

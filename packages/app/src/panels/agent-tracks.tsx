@@ -58,7 +58,7 @@ export const AgentTracks = memo(function AgentTracks({
   const canDetachSubagents = useSessionStore(
     (state) => state.sessions[serverId]?.serverInfo?.features?.agentDetach === true,
   );
-  const archiveSubagent = useArchiveSubagent({ serverId });
+  const archiveSubagent = useArchiveSubagent({ serverId, rows: subagentRows });
   const detachSubagent = useDetachSubagent({ serverId });
   const { stopSubagent, stopAllActive } = useStopSubagents({ serverId, rows: subagentRows });
   const { openSubagent, openProviderSubagent } = useOpenSubagent({ serverId, workspaceId });

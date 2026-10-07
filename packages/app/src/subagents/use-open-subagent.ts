@@ -4,6 +4,7 @@ import { usePaneContext } from "@/panels/pane-context";
 import { useSettings } from "@/hooks/use-settings";
 import { useSessionStore } from "@/stores/session-store";
 import { navigateToAgent } from "@/utils/navigate-to-agent";
+import { findAgentHostServerId } from "./select";
 import { buildWorkspaceTabPersistenceKey } from "@/workspace-tabs/model";
 import type { WorkspaceTabTarget } from "@/workspace-tabs/model";
 import {
@@ -54,8 +55,19 @@ export function useOpenSubagent(input: UseOpenSubagentInput): UseOpenSubagentRes
 
   const openSubagent = useCallback(
     (subagentId: string, options?: OpenSubagentOptions) => {
-      const session = useSessionStore.getState().sessions[serverId];
+      const sessions = useSessionStore.getState().sessions;
+      const session = sessions[serverId];
       const agent = session?.agents.get(subagentId) ?? session?.agentDetails.get(subagentId);
+      if (!agent) {
+        // Not on the parent's own host — a subagent spawned on another computer (docs/peers.md).
+        // Resolve where it actually lives and open it there directly; the pane-splitting below
+        // only makes sense within one host's own tab layout.
+        const remoteHostServerId = findAgentHostServerId(sessions, serverId, subagentId);
+        if (remoteHostServerId && remoteHostServerId !== serverId) {
+          navigateToAgent({ serverId: remoteHostServerId, agentId: subagentId });
+          return;
+        }
+      }
       if (agent?.workspaceId && agent.workspaceId !== workspaceId) {
         navigateToAgent({ serverId, agentId: subagentId });
         return;

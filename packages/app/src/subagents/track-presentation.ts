@@ -211,3 +211,23 @@ export function resolveRowLabel(title: string | null | undefined): string | null
   }
   return normalized;
 }
+
+/**
+ * The host suffix to show beside a row whose agent lives on a different connected host than the
+ * parent pane's own (docs/peers.md "In the app") — `null` for a local row, so callers can skip
+ * the "· Host" segment entirely instead of rendering an empty one. Falls back to the raw
+ * serverId when the host list hasn't resolved a friendly name yet, rather than showing nothing.
+ */
+export function resolveSubagentHostLabel(
+  rowHostServerId: string,
+  parentServerId: string,
+  hostNames: ReadonlyMap<string, string>,
+): string | null {
+  if (rowHostServerId === parentServerId) return null;
+  return hostNames.get(rowHostServerId) ?? rowHostServerId;
+}
+
+/** Joins meta-line segments with the app's " · " separator, dropping empty or absent ones. */
+export function joinMeta(parts: ReadonlyArray<string | null>): string {
+  return parts.filter((part): part is string => Boolean(part)).join(" · ");
+}

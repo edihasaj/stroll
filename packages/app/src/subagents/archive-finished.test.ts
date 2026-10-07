@@ -1,11 +1,18 @@
 import { describe, expect, it } from "vitest";
+import {
+  PARENT_COMPUTER_AGENT_LABEL,
+  PARENT_COMPUTER_LABEL,
+} from "@getpaseo/protocol/agent-labels";
 import { createArchiveFinishedSubagents, type ManagedSubagentSnapshot } from "./archive-finished";
 import type { PaseoSubagentRow, ProviderSubagentRow } from "./select";
+
+const SERVER_ID = "server-1";
 
 function paseo(id: string, status: PaseoSubagentRow["status"] = "idle"): PaseoSubagentRow {
   return {
     kind: "paseo",
     id,
+    hostServerId: SERVER_ID,
     provider: "codex",
     title: id,
     description: null,
@@ -28,6 +35,7 @@ function provider(
   return {
     kind: "provider",
     id,
+    hostServerId: SERVER_ID,
     parentAgentId: "parent",
     provider: "codex",
     title: id,
@@ -50,6 +58,7 @@ function managed(
     status,
     parentAgentId: "parent",
     archivedAt: null,
+    labels: {},
     ...overrides,
   };
 }
@@ -77,6 +86,7 @@ describe("createArchiveFinishedSubagents", () => {
     const archive = createArchiveFinishedSubagents(
       [provider("native"), paseo("first"), paseo("second", "error"), paseo("resumed")],
       {
+        parentServerId: SERVER_ID,
         parentAgentId: "parent",
         getManagedSubagent: (id) => current.get(id),
         archiveManagedSubagent: (id) => {
@@ -131,6 +141,7 @@ describe("createArchiveFinishedSubagents", () => {
     const responses = [first.promise, second.promise, retry.promise];
     const calls: string[] = [];
     const archive = createArchiveFinishedSubagents([paseo("first"), paseo("second")], {
+      parentServerId: SERVER_ID,
       parentAgentId: "parent",
       getManagedSubagent: (id) => current.get(id),
       archiveManagedSubagent: (id) => {
@@ -205,6 +216,7 @@ describe("createArchiveFinishedSubagents", () => {
       ["second", managed("second")],
     ]);
     const archive = createArchiveFinishedSubagents([paseo("first"), paseo("second")], {
+      parentServerId: SERVER_ID,
       parentAgentId: "parent",
       getManagedSubagent: (id) => current.get(id),
       archiveManagedSubagent: async (id) => {
@@ -231,6 +243,7 @@ describe("createArchiveFinishedSubagents", () => {
   it("clears retry state when the authoritative failed child is running", async () => {
     const current = new Map([["failed", managed("failed")]]);
     const archive = createArchiveFinishedSubagents([paseo("failed")], {
+      parentServerId: SERVER_ID,
       parentAgentId: "parent",
       getManagedSubagent: (id) => current.get(id),
       archiveManagedSubagent: async () => {
@@ -257,6 +270,7 @@ describe("createArchiveFinishedSubagents", () => {
   it("clears retry state when the authoritative failed child is initializing", async () => {
     const current = new Map([["failed", managed("failed")]]);
     const archive = createArchiveFinishedSubagents([paseo("failed")], {
+      parentServerId: SERVER_ID,
       parentAgentId: "parent",
       getManagedSubagent: (id) => current.get(id),
       archiveManagedSubagent: async () => {
@@ -298,6 +312,7 @@ describe("createArchiveFinishedSubagents", () => {
       const error = new Error("archive failed");
       const current = new Map([["failed", managed("failed")]]);
       const archive = createArchiveFinishedSubagents([paseo("failed")], {
+        parentServerId: SERVER_ID,
         parentAgentId: "parent",
         getManagedSubagent: (id) => current.get(id),
         archiveManagedSubagent: async () => {
@@ -326,6 +341,7 @@ describe("createArchiveFinishedSubagents", () => {
     ]);
     const calls: string[] = [];
     const archive = createArchiveFinishedSubagents([paseo("first"), paseo("second")], {
+      parentServerId: SERVER_ID,
       parentAgentId: "parent",
       getManagedSubagent: (id) => current.get(id),
       archiveManagedSubagent: async (id) => {
@@ -385,6 +401,7 @@ describe("createArchiveFinishedSubagents", () => {
     ]);
     const archived: string[] = [];
     const archive = createArchiveFinishedSubagents(rows, {
+      parentServerId: SERVER_ID,
       parentAgentId: "parent",
       getManagedSubagent: (id) => current.get(id),
       archiveManagedSubagent: async (id) => {
@@ -414,6 +431,7 @@ describe("createArchiveFinishedSubagents", () => {
     ]);
     const dismissed: string[][] = [];
     const archive = createArchiveFinishedSubagents([...descriptors.values()], {
+      parentServerId: SERVER_ID,
       parentAgentId: "parent",
       getManagedSubagent: () => undefined,
       archiveManagedSubagent: async () => undefined,
@@ -430,5 +448,42 @@ describe("createArchiveFinishedSubagents", () => {
     expect(dismissed).toEqual([["finished"]]);
     expect(descriptors.get("finished")).toBe(finished);
     expect(descriptors.get("running")).toBe(running);
+  });
+
+  it("archives a cross-host finished child identified by its parent-computer labels, not parentAgentId", async () => {
+    // A child spawned with `create_agent` `computer` never gets `parentAgentId` stamped
+    // (docs/peers.md) — only the `stroll.parent.*` labels name its parent.
+    const remote: ManagedSubagentSnapshot = {
+      id: "remote-child",
+      status: "idle",
+      parentAgentId: null,
+      archivedAt: null,
+      labels: {
+        [PARENT_COMPUTER_LABEL]: SERVER_ID,
+        [PARENT_COMPUTER_AGENT_LABEL]: "parent",
+      },
+    };
+    const current = new Map([["remote-child", remote]]);
+    const archived: string[] = [];
+    const archive = createArchiveFinishedSubagents(
+      [{ ...paseo("remote-child"), hostServerId: "macbook" }],
+      {
+        parentServerId: SERVER_ID,
+        parentAgentId: "parent",
+        getManagedSubagent: (id) => current.get(id),
+        archiveManagedSubagent: async (id) => {
+          archived.push(id);
+        },
+        dismissProviderSubagents: () => undefined,
+      },
+    );
+
+    await expect(archive.archiveFinished()).resolves.toEqual({
+      archivedPaseoIds: ["remote-child"],
+      dismissedProviderIds: [],
+      skippedPaseoIds: [],
+      failures: [],
+    });
+    expect(archived).toEqual(["remote-child"]);
   });
 });

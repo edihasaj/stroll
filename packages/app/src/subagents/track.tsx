@@ -10,6 +10,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { useIsCompactFormFactor } from "@/constants/layout";
 import { isNative } from "@/constants/platform";
 import { useAgentQueuePrompts } from "@/agent-queue/use-agent-queue";
+import { useHostDisplayNames } from "@/hosts/use-host-badges";
 import { useSessionStore } from "@/stores/session-store";
 import { type WorkspaceTabPresentation } from "@/screens/workspace/workspace-tab-presentation";
 import type { Theme } from "@/styles/theme";
@@ -27,6 +28,8 @@ import {
   buildSubagentRowPresentationData,
   countFinishedSubagents,
   groupSubagentTopLevelNodes,
+  joinMeta,
+  resolveSubagentHostLabel,
   type SubagentRowPresentationData,
 } from "./track-presentation";
 
@@ -108,8 +111,10 @@ const ROW_ICON_SIZE = 14;
 type SubagentRowPresentation = WorkspaceTabPresentation &
   Pick<SubagentRowPresentationData, "startedAt" | "isRunning" | "endedAt">;
 
-function useRowPresentation(row: SubagentRow, serverId: string): SubagentRowPresentation {
-  const icon = useProviderIcon(row.provider, serverId);
+function useRowPresentation(row: SubagentRow): SubagentRowPresentation {
+  // The row's own host, not necessarily the pane's — a custom provider's icon is only ever
+  // registered under the host that actually runs it (docs/peers.md).
+  const icon = useProviderIcon(row.provider, row.hostServerId);
   const data = buildSubagentRowPresentationData(row);
   return {
     ...data,
@@ -134,6 +139,7 @@ export function SubagentsTrack({
   onStopAllActive,
 }: SubagentsTrackProps): ReactElement | null {
   const { t } = useTranslation();
+  const hostNames = useHostDisplayNames();
   const [collapsedKeys, setCollapsedKeys] = useState<Set<string>>(new Set());
   const [expandedFinishedKeys, setExpandedFinishedKeys] = useState<Set<string>>(new Set());
   const [doneGroupExpanded, setDoneGroupExpanded] = useState(false);
@@ -195,11 +201,11 @@ export function SubagentsTrack({
       <Fragment key={node.key}>
         <SubagentsTrackRow
           row={node.row}
-          serverId={serverId}
           node={node}
           depth={node.depth}
           hasChildren={node.children.length > 0}
           expanded={expanded}
+          hostLabel={resolveSubagentHostLabel(node.row.hostServerId, serverId, hostNames)}
           onToggleExpanded={toggleExpanded}
           onOpenSubagent={onOpenSubagent}
           onOpenProviderSubagent={onOpenProviderSubagent}
@@ -458,12 +464,13 @@ function QueuedPromptTrackRow({
 }
 
 interface SubagentsTrackRowProps {
-  serverId: string;
   row: SubagentRow;
   node: SubagentTreeNode;
   depth: number;
   hasChildren: boolean;
   expanded: boolean;
+  /** The row's host name when it differs from the parent's (docs/peers.md "In the app"). */
+  hostLabel: string | null;
   onToggleExpanded: (node: SubagentTreeNode, expanded: boolean) => void;
   onOpenSubagent: (id: string, options?: OpenSubagentOptions) => void;
   onOpenProviderSubagent: (
@@ -477,12 +484,12 @@ interface SubagentsTrackRowProps {
 }
 
 function SubagentsTrackRow({
-  serverId,
   row,
   node,
   depth,
   hasChildren,
   expanded,
+  hostLabel,
   onToggleExpanded,
   onOpenSubagent,
   onOpenProviderSubagent,
@@ -492,7 +499,8 @@ function SubagentsTrackRow({
 }: SubagentsTrackRowProps): ReactElement {
   const { t } = useTranslation();
   const isCompact = useIsCompactFormFactor();
-  const presentation = useRowPresentation(row, serverId);
+  const presentation = useRowPresentation(row);
+  const trailingText = joinMeta([presentation.subtitle || null, hostLabel]);
   const elapsedLabel = useElapsedLabel({
     startedAt: presentation.startedAt,
     isRunning: presentation.isRunning,
@@ -573,9 +581,9 @@ function SubagentsTrackRow({
         <Text style={styles.rowLabel} numberOfLines={1}>
           {displayLabel}
         </Text>
-        {presentation.subtitle ? (
+        {trailingText ? (
           <Text style={styles.rowTrailing} numberOfLines={1}>
-            {presentation.subtitle}
+            {trailingText}
           </Text>
         ) : null}
         {elapsedLabel ? (
@@ -620,11 +628,11 @@ function SubagentsTrackRow({
       onDetachSubagent,
       handleStopPress,
       handleToggleExpanded,
-      presentation,
       row.kind,
       row.id,
       row.status,
       runningDescendantCount,
+      trailingText,
     ],
   );
 

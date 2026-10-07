@@ -73,7 +73,7 @@ export function firstLine(text: string | null | undefined): string | null {
   return newlineIndex === -1 ? trimmed : trimmed.slice(0, newlineIndex).trim();
 }
 
-function joinMeta(parts: ReadonlyArray<string | null>): string {
+export function joinMeta(parts: ReadonlyArray<string | null>): string {
   return parts.filter((part): part is string => Boolean(part)).join(" · ");
 }
 
