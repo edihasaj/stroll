@@ -32,9 +32,30 @@ export async function reloadAgent(page: Page): Promise<void> {
   await expectComposerVisible(page);
 }
 
+/**
+ * The meter sits in its own fixed slot but is `pointer-events: none` until the controls row
+ * itself is hovered on desktop web (docs/design.md §16 — the ring left the always-visible
+ * composer row). Playwright's locator `.hover()` refuses to dispatch anything at all against a
+ * target that would not receive the event, so it retries forever without ever moving the
+ * pointer. A raw `page.mouse.move()` is not gated by that actionability check: it lands on
+ * whatever the controls row's own background renders underneath the meter, which arms
+ * `isControlsRowHovered` and flips the meter back to `pointer-events: auto` for the real hover
+ * that follows.
+ */
+export async function revealContextWindowMeter(page: Page, name = METER_NAME): Promise<Locator> {
+  const meter = page.getByRole("img", { name, exact: true });
+  const box = await meter.boundingBox();
+  if (!box) {
+    throw new Error("Context window meter must be on screen before it can be revealed.");
+  }
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  return meter;
+}
+
 /** Wide screens show the meter's details in a hover card while the pointer is on it. */
 export async function hoverContextWindowMeter(page: Page, name = METER_NAME): Promise<Locator> {
-  await page.getByRole("img", { name, exact: true }).hover({ timeout: 30_000 });
+  const meter = await revealContextWindowMeter(page, name);
+  await meter.hover({ timeout: 30_000 });
   const card = contextWindowDetails(page);
   await expect(card).toBeVisible();
   await expect(card).toBeInViewport();

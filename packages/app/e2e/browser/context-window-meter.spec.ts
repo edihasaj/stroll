@@ -23,6 +23,7 @@ import {
   qaScreenshot,
   refreshUsageCard,
   reloadAgent,
+  revealContextWindowMeter,
   scriptAgentUsage,
   seedAgentWithContextWindow,
   usageCard,
@@ -99,6 +100,9 @@ test.describe("context window meter", () => {
       await expectComposerVisible(page);
       const meter = page.getByTestId("context-window-meter");
       await expect(meter).toHaveAccessibleName(/25%/, { timeout: 30_000 });
+      // The ring is pointer-events:none and opacity:0 until the controls row is hovered
+      // (docs/design.md §16); reveal it before screenshotting, or every pixel is transparent.
+      await revealContextWindowMeter(page);
 
       const centroid = await progressArcCentroid(meter);
       expect(centroid.x).toBeGreaterThan(1);
