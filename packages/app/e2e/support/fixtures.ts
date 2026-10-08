@@ -123,6 +123,20 @@ const test = daemonTest.extend<{
         );
       }
 
+      // Keep `getShortcutOs()` deterministic across host machines. The "browser" project's
+      // `devices["Desktop Chrome"]` overrides `navigator.userAgent` to a Windows string, but
+      // leaves `navigator.platform` at the real host's value. `isMacUserAgent()` (mac-user-agent.ts)
+      // falls back to `platform` when the user agent string doesn't say Mac, so a suite run on
+      // a Mac host leaks "MacIntel" through and renders Cmd chords ("⌘N") instead of the Ctrl
+      // chords every spec asserts. A test that wants genuine Mac behavior (e.g.
+      // sidebar-help.spec.ts's "searches keyboard shortcuts") overrides `platform` again itself
+      // afterwards, which still wins — `addInitScript` runs each registered script in order.
+      // `configurable: true` matters: a property defined without it cannot be redefined, and
+      // that test's own override would throw `TypeError: Cannot redefine property: platform`.
+      await page.addInitScript(() => {
+        Object.defineProperty(navigator, "platform", { get: () => "Win32", configurable: true });
+      });
+
       // Hard guardrail: never allow tests to hit the developer's default daemon.
       // This blocks both HTTP and WS attempts to :6767 (before any navigation).
       await page.route(/:(6767)\b/, (route) => route.abort());
