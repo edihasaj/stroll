@@ -30,6 +30,27 @@ async function typeComposerTextAndMeasureNextPaint(page: Page, text: string): Pr
   return readNextComposerPaintHeight(page);
 }
 
+// `.fill()` sets the value directly rather than dispatching the per-character key events
+// `.press()`/`.pressSequentially()` do, so it does not reliably fire the `input` event the
+// next-paint probe above listens for. Settle on the measured height by polling until two
+// consecutive reads agree, instead of tying the wait to an event that may not arrive.
+async function waitForStableComposerHeight(page: Page, timeoutMs = 10_000): Promise<number> {
+  const intervalMs = 100;
+  const deadline = Date.now() + timeoutMs;
+  let previous = await composerHeight(page);
+  while (Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+    const current = await composerHeight(page);
+    if (Math.abs(current - previous) < 0.01) {
+      return current;
+    }
+    previous = current;
+  }
+  throw new Error(
+    `Composer height did not stabilize within ${timeoutMs}ms (last measured: ${previous})`,
+  );
+}
+
 async function installNextComposerPaintProbe(page: Page): Promise<void> {
   await composerLocator(page).evaluate((element) => {
     Reflect.set(
@@ -79,9 +100,16 @@ test("blank composer lines remain present and keep their measured height", async
     });
 
     await test.step("grow the composer with blank lines followed by text", async () => {
+      // `collapsedHeight` is a floor, not a signal that this fill has landed: the previous
+      // step already left the composer taller than collapsed (it only returns the viewport
+      // to 1280x720, it never clears the wrapped sentence), so a bare "greater than collapsed"
+      // poll can resolve on that leftover height before this fill's own text has been
+      // measured and painted. Wait for the height to stop changing instead of a one-shot
+      // threshold check.
       await composer.fill(`${blankLines}x`);
       await expect(composer).toHaveValue(`${blankLines}x`);
-      await expect.poll(() => composerHeight(page)).toBeGreaterThan(collapsedHeight);
+      const expandedHeight = await waitForStableComposerHeight(page);
+      expect(expandedHeight).toBeGreaterThan(collapsedHeight);
     });
 
     await test.step("delete only the text without losing the blank lines or height", async () => {
