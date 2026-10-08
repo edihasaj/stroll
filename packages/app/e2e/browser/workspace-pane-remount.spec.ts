@@ -21,6 +21,29 @@ import {
 } from "../support/helpers/workspace-tabs";
 import { expectTerminalSurfaceVisible } from "../support/helpers/terminal-perf";
 
+/**
+ * Every row (user message or one assistant Markdown block) wraps in its own
+ * `[data-history-row-id]` div (strategy-web.tsx); a settled assistant response splits into one
+ * row per block (presentation.ts's `nativeBlocks` — "streamed messages always behaved this way;
+ * history now matches them") rather than one row for the whole response. Returns every block
+ * row belonging to `turnRow`'s turn: siblings after it, stopping before the next row that
+ * itself contains a user-message (the start of the next turn), or the end of the list if this
+ * is the last turn.
+ */
+async function assistantBlockRowsForTurn(turnRow: Locator, page: Page): Promise<Locator> {
+  const laterRows = turnRow.locator("xpath=following-sibling::*[@data-history-row-id]");
+  const nextTurnRow = laterRows.filter({ has: page.getByTestId("user-message") }).first();
+  if ((await nextTurnRow.count()) === 0) {
+    return laterRows;
+  }
+  const boundaryIndex = await nextTurnRow.evaluate((element) =>
+    Array.prototype.indexOf.call(element.parentElement!.children, element),
+  );
+  return turnRow.locator(
+    `xpath=following-sibling::*[@data-history-row-id][count(preceding-sibling::*) < ${boundaryIndex}]`,
+  );
+}
+
 async function captureRenderedNode(locator: Locator) {
   await expect(locator).toBeVisible({ timeout: 30_000 });
   const node = await locator.elementHandle();
@@ -217,7 +240,11 @@ test.describe("Workspace pane mounting", () => {
       "Repeating this analysis across turns builds up enough scrollback for the test.",
     ].join("\n");
     const turnPrompt = (index: number) => `reading-position-turn-${String(index).padStart(2, "0")}`;
-    const anchorPrompt = turnPrompt(20);
+    // A settled assistant response now renders one row per Markdown block instead of one row
+    // for the whole response (presentation.ts's nativeBlocks), so fewer turns fit in the
+    // virtualizer's fixed overscan window than before; anchor closer to the live tail so this
+    // turn is still mounted.
+    const anchorPrompt = turnPrompt(27);
 
     try {
       const agent = await workspace.client.createAgent({
@@ -256,9 +283,10 @@ test.describe("Workspace pane mounting", () => {
       const anchorRow = page
         .locator("[data-history-row-id]")
         .filter({ has: page.getByTestId("user-message").filter({ hasText: anchorPrompt }) });
-      const anchorAssistantRow = anchorRow.locator(
-        "xpath=following-sibling::*[@data-history-row-id][1]",
-      );
+      // The settled response's three file links each sit in their own block row now
+      // (assistantBlockRowsForTurn's doc comment); span every block row this turn renders,
+      // bounded to before the next turn's prompt, rather than just the immediate sibling.
+      const anchorAssistantRow = await assistantBlockRowsForTurn(anchorRow, page);
 
       const fileTabs = page.locator('[data-testid^="workspace-tab-file_"]');
       for (const [index, fileName] of fileNames.entries()) {
