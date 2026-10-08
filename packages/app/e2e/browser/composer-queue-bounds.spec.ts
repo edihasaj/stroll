@@ -12,6 +12,15 @@ const QUEUED_COUNT = 8;
 async function queueMessage(page: Page, prompt: string): Promise<void> {
   await fillComposerDraft(page, prompt);
   await sendDraftToQueue(page);
+  // Queueing is a daemon round trip (composer/index.tsx's queueMessage awaits
+  // client.createAgentQueuePrompt before clearing the draft), not a local, synchronous update.
+  // Wait for this row to land before queueing the next one, or a fast loop can fire the next
+  // Control+Enter while this request is still in flight and lose a message. The row the scroll
+  // stays pinned away from (the track does not auto-scroll to new entries) is still attached, so
+  // assert presence rather than viewport visibility.
+  await expect(
+    page.getByTestId("composer-queue-track").getByText(prompt, { exact: true }),
+  ).toBeAttached();
 }
 
 test("a long queue is bounded and scrolls instead of growing without end", async ({
