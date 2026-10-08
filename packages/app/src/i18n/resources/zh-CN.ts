@@ -2402,7 +2402,7 @@ export const zhCN: TranslationResources = {
         },
         footer: {
           title: "底部",
-          description: "选择侧边栏底部显示的行及其顺序。添加项目和图标行始终显示",
+          description: "选择侧边栏底部显示的行及其顺序。你的主机、帮助、用量和设置始终显示",
         },
         moveUp: "上移",
         moveDown: "下移",

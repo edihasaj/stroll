@@ -2481,7 +2481,7 @@ export const es: TranslationResources = {
         footer: {
           title: "Pie",
           description:
-            "Elige qué filas aparecen en la parte inferior de la barra lateral y en qué orden. Añadir proyecto y la fila de iconos siempre se muestran",
+            "Elige qué filas aparecen en la parte inferior de la barra lateral y en qué orden. Tu host, Ayuda, Uso y Ajustes siempre se muestran",
         },
         moveUp: "Mover hacia arriba",
         moveDown: "Mover hacia abajo",

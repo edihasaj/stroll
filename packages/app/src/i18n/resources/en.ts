@@ -2552,7 +2552,7 @@ export const en = {
         footer: {
           title: "Footer",
           description:
-            "Choose which rows appear at the bottom of the sidebar and in what order. Add project and the icon row always show",
+            "Choose which rows appear at the bottom of the sidebar and in what order. Your host, Help, Usage, and Settings always show",
         },
         moveUp: "Move up",
         moveDown: "Move down",
