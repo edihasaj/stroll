@@ -81,6 +81,15 @@ export async function openSidebarNavSettings(page: Page): Promise<void> {
 
 export async function leaveSettings(page: Page): Promise<void> {
   await clickSettingsBackToWorkspace(page);
+  // Unlike every sibling navigation helper here (openSettingsSection polls the resulting
+  // route, openSidebarNavSettings polls for the section header), this click triggers a
+  // router.replace/dismissTo whose destination varies by caller state (navigateToLastWorkspace
+  // picks the last workspace route, or falls back to the open-project route) — there is no
+  // single expected route to poll for generically. Waiting for the settings panel itself to
+  // unmount is the route-agnostic equivalent: it is the one signal that holds regardless of
+  // where "back to workspace" lands, so a caller that asserts on sidebar rows right after this
+  // never races the panel still being there mid-navigation.
+  await expect(page.getByTestId("settings-sidebar")).toHaveCount(0);
 }
 
 export async function moveSidebarNavItemUp(page: Page, key: SidebarNavKey): Promise<void> {
