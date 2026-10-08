@@ -382,8 +382,10 @@ async function expectSourceHierarchy(page: Page, description: string, source: st
     Number.parseFloat(getComputedStyle(element).fontSize),
   );
   expect(sourceSize).toBeLessThan(descriptionSize);
-  await expect(sourceText).toHaveCSS("color", "rgb(161, 161, 170)");
-  await expect(descriptionText).toHaveCSS("color", "rgb(113, 113, 122)");
+  // Codex monochrome palette (8e71dbc71): foregroundExtraMuted #8f8f8f, foregroundMuted #5d5d5d —
+  // not upstream's zinc-400/zinc-500.
+  await expect(sourceText).toHaveCSS("color", "rgb(143, 143, 143)");
+  await expect(descriptionText).toHaveCSS("color", "rgb(93, 93, 93)");
 }
 
 async function installLocalPluginWithStatusExamples(
