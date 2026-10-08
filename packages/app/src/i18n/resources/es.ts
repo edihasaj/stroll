@@ -329,6 +329,7 @@ export const es: TranslationResources = {
     archived: {
       callout: "Este agente está archivado.",
       unarchive: "Desarchivar",
+      delete: "Eliminar chat",
     },
   },
   agentRoutes: {
@@ -788,6 +789,7 @@ export const es: TranslationResources = {
         reloadAgent: "Recargar agente",
         reloadAgentTooltip:
           "Vuelva a cargar el agente para actualizar habilidades, MCP o estado de inicio de sesión.",
+        deleteChat: "Eliminar chat",
         close: "Cerrar",
         renameTerminal: "Cambiar nombre de terminal",
         renameAgent: "Cambiar nombre del agente",
@@ -826,6 +828,7 @@ export const es: TranslationResources = {
         reloadingAgent: "Agente de recarga...",
         reloadedAgent: "Agente recargado",
         failedToReloadAgent: "No se pudo recargar el agente",
+        failedToDeleteChat: "No se pudo eliminar el chat",
         failedToCloseAgent: "No se pudo cerrar el agente",
       },
       confirmations: {
@@ -844,6 +847,10 @@ export const es: TranslationResources = {
         archiveRunningAgentTitle: "¿Agente de ejecución de archivos?",
         archiveRunningAgentMessage:
           "Este agente todavía está ejecutándose. Archivarlo detendrá al agente y cerrará la pestaña.",
+        deleteChat: "Eliminar",
+        deleteChatTitle: "¿Eliminar el chat?",
+        deleteChatMessage:
+          "Esto elimina el chat de este host de forma permanente. No se puede deshacer.",
         closeTabsLeftTitle: "¿Cerrar pestañas a la izquierda?",
         closeTabsRightTitle: "¿Cerrar pestañas a la derecha?",
         closeOtherTabsTitle: "¿Cerrar otras pestañas?",

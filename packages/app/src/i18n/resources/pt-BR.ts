@@ -328,6 +328,7 @@ export const ptBR: TranslationResources = {
     archived: {
       callout: "Este agente está arquivado",
       unarchive: "Desarquivar",
+      delete: "Excluir chat",
     },
   },
   agentRoutes: {
@@ -786,6 +787,7 @@ export const ptBR: TranslationResources = {
         moveToMain: "Mover para o painel principal",
         reloadAgent: "Recarregar agente",
         reloadAgentTooltip: "Recarregue o agente para atualizar skills, MCPs ou status de login.",
+        deleteChat: "Excluir chat",
         close: "Fechar",
         renameTerminal: "Renomear terminal",
         renameAgent: "Renomear agente",
@@ -824,6 +826,7 @@ export const ptBR: TranslationResources = {
         reloadingAgent: "Recarregando agente...",
         reloadedAgent: "Agente recarregado",
         failedToReloadAgent: "Falha ao recarregar agente",
+        failedToDeleteChat: "Falha ao excluir o chat",
         failedToCloseAgent: "Falha ao fechar agente",
       },
       confirmations: {
@@ -841,6 +844,10 @@ export const ptBR: TranslationResources = {
         archiveRunningAgentTitle: "Arquivar agente em execução?",
         archiveRunningAgentMessage:
           "Este agente ainda está em execução. Arquivá-lo interromperá o agente e fechará a aba.",
+        deleteChat: "Excluir",
+        deleteChatTitle: "Excluir chat?",
+        deleteChatMessage:
+          "Isso exclui o chat deste host permanentemente. Não é possível desfazer.",
         closeTabsLeftTitle: "Fechar abas à esquerda?",
         closeTabsRightTitle: "Fechar abas à direita?",
         closeOtherTabsTitle: "Fechar outras abas?",

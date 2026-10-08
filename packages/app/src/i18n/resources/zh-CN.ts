@@ -324,6 +324,7 @@ export const zhCN: TranslationResources = {
     archived: {
       callout: "此 Agent 已归档",
       unarchive: "取消归档",
+      delete: "删除聊天",
     },
   },
   agentRoutes: {
@@ -781,6 +782,7 @@ export const zhCN: TranslationResources = {
         moveToMain: "移至主面板",
         reloadAgent: "重新加载 Agent",
         reloadAgentTooltip: "重新加载 Agent 以更新 skills、MCPs 或登录状态。",
+        deleteChat: "删除聊天",
         close: "关闭",
         renameTerminal: "重命名 Terminal",
         renameAgent: "重命名 Agent",
@@ -819,6 +821,7 @@ export const zhCN: TranslationResources = {
         reloadingAgent: "正在重新加载 Agent...",
         reloadedAgent: "已重新加载 Agent",
         failedToReloadAgent: "重新加载 Agent 失败",
+        failedToDeleteChat: "删除聊天失败",
         failedToCloseAgent: "关闭 Agent 失败",
       },
       confirmations: {
@@ -833,6 +836,9 @@ export const zhCN: TranslationResources = {
         closeTerminalMessage: "此 Terminal 中任何正在运行的进程都会立即停止。",
         archiveRunningAgentTitle: "归档正在运行的 Agent？",
         archiveRunningAgentMessage: "此 Agent 仍在运行。归档会停止该 Agent 并关闭标签。",
+        deleteChat: "删除",
+        deleteChatTitle: "删除聊天？",
+        deleteChatMessage: "这将从此主机永久删除该聊天，且无法撤销。",
         closeTabsLeftTitle: "关闭左侧标签？",
         closeTabsRightTitle: "关闭右侧标签？",
         closeOtherTabsTitle: "关闭其他标签？",

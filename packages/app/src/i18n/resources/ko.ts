@@ -325,6 +325,7 @@ export const ko: TranslationResources = {
     archived: {
       callout: "이 에이전트는 보관되었습니다",
       unarchive: "보관 해제",
+      delete: "채팅 삭제",
     },
   },
   agentRoutes: {
@@ -783,6 +784,7 @@ export const ko: TranslationResources = {
         reloadAgent: "에이전트 다시 로드",
         reloadAgentTooltip:
           "스킬, MCP 또는 로그인 상태를 업데이트하려면 에이전트를 다시 로드하세요.",
+        deleteChat: "채팅 삭제",
         close: "닫기",
         renameTerminal: "터미널 이름 변경",
         renameAgent: "에이전트 이름 변경",
@@ -821,6 +823,7 @@ export const ko: TranslationResources = {
         reloadingAgent: "에이전트 다시 로드 중...",
         reloadedAgent: "에이전트를 다시 로드했습니다",
         failedToReloadAgent: "에이전트를 다시 로드하지 못했습니다",
+        failedToDeleteChat: "채팅을 삭제하지 못했습니다",
         failedToCloseAgent: "에이전트를 닫지 못했습니다",
       },
       confirmations: {
@@ -837,6 +840,9 @@ export const ko: TranslationResources = {
         archiveRunningAgentTitle: "실행 중인 에이전트를 보관할까요?",
         archiveRunningAgentMessage:
           "이 에이전트는 아직 실행 중입니다. 보관하면 에이전트가 중지되고 탭이 닫힙니다.",
+        deleteChat: "삭제",
+        deleteChatTitle: "채팅을 삭제할까요?",
+        deleteChatMessage: "이 호스트에서 채팅이 영구적으로 삭제됩니다. 되돌릴 수 없습니다.",
         closeTabsLeftTitle: "왼쪽 탭을 닫을까요?",
         closeTabsRightTitle: "오른쪽 탭을 닫을까요?",
         closeOtherTabsTitle: "다른 탭을 닫을까요?",

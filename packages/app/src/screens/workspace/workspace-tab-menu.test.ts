@@ -37,6 +37,7 @@ describe("buildWorkspaceTabMenuEntries", () => {
       onCopyTerminalId: vi.fn(),
       onCopyFilePath,
       onReloadAgent,
+      onDeleteAgent: vi.fn(),
       onRenameTab,
       onCloseTab,
       onCloseTabsBefore,
@@ -53,6 +54,7 @@ describe("buildWorkspaceTabMenuEntries", () => {
       "Close other tabs",
       "Reload agent",
       "Close",
+      "Delete chat",
     ]);
   });
 
@@ -68,6 +70,7 @@ describe("buildWorkspaceTabMenuEntries", () => {
       onCopyTerminalId: vi.fn(),
       onCopyFilePath: vi.fn(),
       onReloadAgent: vi.fn(),
+      onDeleteAgent: vi.fn(),
       onRenameTab: vi.fn(),
       onCloseTab: vi.fn(),
       onCloseTabsBefore: vi.fn(),
@@ -84,6 +87,7 @@ describe("buildWorkspaceTabMenuEntries", () => {
       "Close other tabs",
       "Reload agent",
       "Close",
+      "Delete chat",
     ]);
   });
 
@@ -104,6 +108,7 @@ describe("buildWorkspaceTabMenuEntries", () => {
       onCopyTerminalId: vi.fn(),
       onCopyFilePath: vi.fn(),
       onReloadAgent: vi.fn(),
+      onDeleteAgent: vi.fn(),
       onRenameTab: vi.fn(),
       onCloseTab: vi.fn(),
       onCloseTabsBefore: vi.fn(),
@@ -133,6 +138,7 @@ describe("buildWorkspaceTabMenuEntries", () => {
       onCopyTerminalId: vi.fn(),
       onCopyFilePath: vi.fn(),
       onReloadAgent: vi.fn(),
+      onDeleteAgent: vi.fn(),
       onRenameTab: vi.fn(),
       onCloseTab: vi.fn(),
       onCloseTabsBefore: vi.fn(),
@@ -149,6 +155,53 @@ describe("buildWorkspaceTabMenuEntries", () => {
     );
   });
 
+  it("offers a destructive delete chat entry on agent tabs only", () => {
+    const onDeleteAgent = vi.fn();
+    const base = {
+      surface: "desktop" as const,
+      index: 0,
+      tabCount: 1,
+      menuTestIDBase: "workspace-tab-context-agent_123",
+      onCopyResumeCommand: vi.fn(),
+      onCopyAgentId: vi.fn(),
+      onCopyTerminalId: vi.fn(),
+      onCopyFilePath: vi.fn(),
+      onReloadAgent: vi.fn(),
+      onDeleteAgent,
+      onRenameTab: vi.fn(),
+      onCloseTab: vi.fn(),
+      onCloseTabsBefore: vi.fn(),
+      onCloseTabsAfter: vi.fn(),
+      onCloseOtherTabs: vi.fn(),
+    };
+
+    const agentEntries = buildWorkspaceTabMenuEntries({ ...base, tab: createAgentTab() });
+    const deleteEntry = agentEntries.find(
+      (entry) => entry.kind === "item" && entry.key === "delete-agent",
+    );
+    if (deleteEntry?.kind !== "item") {
+      throw new Error("expected a delete chat entry");
+    }
+    expect(deleteEntry).toMatchObject({
+      label: "Delete chat",
+      destructive: true,
+      testID: "workspace-tab-context-agent_123-delete-agent",
+    });
+    deleteEntry.onSelect();
+    expect(onDeleteAgent).toHaveBeenCalledWith({ agentId: "agent-123", tabId: "agent_123" });
+
+    const terminalEntries = buildWorkspaceTabMenuEntries({
+      ...base,
+      tab: {
+        key: "terminal_1",
+        tabId: "terminal_1",
+        kind: "terminal",
+        target: { kind: "terminal", terminalId: "terminal-1" },
+      },
+    });
+    expect(terminalEntries.some((entry) => entry.key === "delete-agent")).toBe(false);
+  });
+
   it("invokes onRenameTab when the rename entry is selected for agent tabs", () => {
     const onRenameTab = vi.fn();
     const tab = createAgentTab();
@@ -163,6 +216,7 @@ describe("buildWorkspaceTabMenuEntries", () => {
       onCopyTerminalId: vi.fn(),
       onCopyFilePath: vi.fn(),
       onReloadAgent: vi.fn(),
+      onDeleteAgent: vi.fn(),
       onRenameTab,
       onCloseTab: vi.fn(),
       onCloseTabsBefore: vi.fn(),
@@ -199,6 +253,7 @@ describe("buildWorkspaceTabMenuEntries", () => {
       onCopyTerminalId,
       onCopyFilePath: vi.fn(),
       onReloadAgent: vi.fn(),
+      onDeleteAgent: vi.fn(),
       onRenameTab,
       onCloseTab: vi.fn(),
       onCloseTabsBefore: vi.fn(),
@@ -250,6 +305,7 @@ describe("buildWorkspaceTabMenuEntries", () => {
       onCopyTerminalId: vi.fn(),
       onCopyFilePath,
       onReloadAgent: vi.fn(),
+      onDeleteAgent: vi.fn(),
       onRenameTab: vi.fn(),
       onCloseTab: vi.fn(),
       onCloseTabsBefore: vi.fn(),
@@ -293,6 +349,7 @@ describe("buildWorkspaceTabMenuEntries", () => {
       onCopyTerminalId: vi.fn(),
       onCopyFilePath: vi.fn(),
       onReloadAgent: vi.fn(),
+      onDeleteAgent: vi.fn(),
       onRenameTab: vi.fn(),
       onCloseTab: vi.fn(),
       onCloseTabsToLeft: vi.fn(),
@@ -324,6 +381,7 @@ describe("buildWorkspaceTabMenuEntries", () => {
       onCopyTerminalId: vi.fn(),
       onCopyFilePath: vi.fn(),
       onReloadAgent: vi.fn(),
+      onDeleteAgent: vi.fn(),
       onRenameTab: vi.fn(),
       onCloseTab: vi.fn(),
       onCloseTabsBefore: vi.fn(),

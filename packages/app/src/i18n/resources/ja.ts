@@ -329,6 +329,7 @@ export const ja: TranslationResources = {
     archived: {
       callout: "このエージェントはアーカイブされています",
       unarchive: "アーカイブ解除",
+      delete: "チャットを削除",
     },
   },
   agentRoutes: {
@@ -788,6 +789,7 @@ export const ja: TranslationResources = {
         reloadAgent: "エージェントを再読み込み",
         reloadAgentTooltip:
           "スキル、MCP、ログイン状態を更新するためにエージェントを再読み込みします。",
+        deleteChat: "チャットを削除",
         close: "閉じる",
         renameTerminal: "ターミナルの名前を変更",
         renameAgent: "エージェントの名前を変更",
@@ -826,6 +828,7 @@ export const ja: TranslationResources = {
         reloadingAgent: "エージェントを再読み込み中...",
         reloadedAgent: "エージェントを再読み込みしました",
         failedToReloadAgent: "エージェントの再読み込みに失敗しました",
+        failedToDeleteChat: "チャットを削除できませんでした",
         failedToCloseAgent: "エージェントを閉じられませんでした",
       },
       confirmations: {
@@ -841,6 +844,9 @@ export const ja: TranslationResources = {
         archiveRunningAgentTitle: "実行中のエージェントをアーカイブしますか？",
         archiveRunningAgentMessage:
           "このエージェントはまだ実行中です。アーカイブするとエージェントが停止してタブが閉じられます。",
+        deleteChat: "削除",
+        deleteChatTitle: "チャットを削除しますか？",
+        deleteChatMessage: "このホストからチャットを完全に削除します。この操作は元に戻せません。",
         closeTabsLeftTitle: "左のタブを閉じますか？",
         closeTabsRightTitle: "右のタブを閉じますか？",
         closeOtherTabsTitle: "他のタブを閉じますか？",

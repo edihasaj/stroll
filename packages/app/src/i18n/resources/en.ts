@@ -321,6 +321,7 @@ export const en = {
     archived: {
       callout: "This agent is archived",
       unarchive: "Unarchive",
+      delete: "Delete chat",
     },
   },
   agentRoutes: {
@@ -778,6 +779,7 @@ export const en = {
         moveToMain: "Move to main panel",
         reloadAgent: "Reload agent",
         reloadAgentTooltip: "Reload agent to update skills, MCPs or login status.",
+        deleteChat: "Delete chat",
         close: "Close",
         renameTerminal: "Rename terminal",
         renameAgent: "Rename agent",
@@ -816,6 +818,7 @@ export const en = {
         reloadingAgent: "Reloading agent...",
         reloadedAgent: "Reloaded agent",
         failedToReloadAgent: "Failed to reload agent",
+        failedToDeleteChat: "Failed to delete chat",
         failedToCloseAgent: "Failed to close agent",
       },
       confirmations: {
@@ -832,6 +835,10 @@ export const en = {
         archiveRunningAgentTitle: "Archive running agent?",
         archiveRunningAgentMessage:
           "This agent is still running. Archiving it will stop the agent and close the tab.",
+        deleteChat: "Delete",
+        deleteChatTitle: "Delete chat?",
+        deleteChatMessage:
+          "This permanently deletes the chat from this host. This can't be undone.",
         closeTabsLeftTitle: "Close tabs to the left?",
         closeTabsRightTitle: "Close tabs to the right?",
         closeOtherTabsTitle: "Close other tabs?",

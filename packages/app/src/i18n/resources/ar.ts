@@ -324,6 +324,7 @@ export const ar: TranslationResources = {
     archived: {
       callout: "تمت أرشفة هذا الوكيل",
       unarchive: "إلغاء الأرشفة",
+      delete: "حذف الدردشة",
     },
   },
   agentRoutes: {
@@ -781,6 +782,7 @@ export const ar: TranslationResources = {
         moveToMain: "Move to main panel",
         reloadAgent: "إعادة تحميل الوكيل",
         reloadAgentTooltip: "قم بإعادة تحميل الوكيل لتحديث المهارات أو MCPs أو حالة تسجيل الدخول.",
+        deleteChat: "حذف الدردشة",
         close: "يغلق",
         renameTerminal: "إعادة تسمية المحطة",
         renameAgent: "إعادة تسمية الوكيل",
@@ -819,6 +821,7 @@ export const ar: TranslationResources = {
         reloadingAgent: "وكيل إعادة التحميل...",
         reloadedAgent: "وكيل إعادة تحميل",
         failedToReloadAgent: "فشل في إعادة تحميل الوكيل",
+        failedToDeleteChat: "تعذر حذف الدردشة",
         failedToCloseAgent: "فشل في إغلاق الوكيل",
       },
       confirmations: {
@@ -836,6 +839,9 @@ export const ar: TranslationResources = {
         archiveRunningAgentTitle: "وكيل تشغيل الأرشيف؟",
         archiveRunningAgentMessage:
           "هذا الوكيل لا يزال قيد التشغيل. ستؤدي أرشفته إلى إيقاف الوكيل وإغلاق علامة التبويب.",
+        deleteChat: "حذف",
+        deleteChatTitle: "حذف الدردشة؟",
+        deleteChatMessage: "سيؤدي هذا إلى حذف الدردشة نهائيًا من هذا المضيف. لا يمكن التراجع عن ذلك.",
         closeTabsLeftTitle: "هل تريد إغلاق علامات التبويب على اليسار؟",
         closeTabsRightTitle: "هل تريد إغلاق علامات التبويب على اليمين؟",
         closeOtherTabsTitle: "هل تريد إغلاق علامات التبويب الأخرى؟",

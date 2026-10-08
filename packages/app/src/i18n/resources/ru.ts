@@ -328,6 +328,7 @@ export const ru: TranslationResources = {
     archived: {
       callout: "Этот агент находится в архиве",
       unarchive: "Разархивировать",
+      delete: "Удалить чат",
     },
   },
   agentRoutes: {
@@ -788,6 +789,7 @@ export const ru: TranslationResources = {
         moveToMain: "Переместить на основную панель",
         reloadAgent: "Перезагрузить агента",
         reloadAgentTooltip: "Перезагрузите агента, чтобы обновить навыки, MCP или статус входа.",
+        deleteChat: "Удалить чат",
         close: "Закрыть",
         renameTerminal: "Переименовать терминал",
         renameAgent: "Переименовать агента",
@@ -826,6 +828,7 @@ export const ru: TranslationResources = {
         reloadingAgent: "Перезагрузка агента...",
         reloadedAgent: "Агент перезагружен",
         failedToReloadAgent: "Не удалось перезагрузить агента",
+        failedToDeleteChat: "Не удалось удалить чат",
         failedToCloseAgent: "Не удалось закрыть агента",
       },
       confirmations: {
@@ -844,6 +847,10 @@ export const ru: TranslationResources = {
         archiveRunningAgentTitle: "Архивировать работающего агента?",
         archiveRunningAgentMessage:
           "Этот агент всё ещё работает. При архивировании агент будет остановлен, а вкладка закрыта.",
+        deleteChat: "Удалить",
+        deleteChatTitle: "Удалить чат?",
+        deleteChatMessage:
+          "Чат будет безвозвратно удалён с этого хоста. Это действие нельзя отменить.",
         closeTabsLeftTitle: "Закрыть вкладки слева?",
         closeTabsRightTitle: "Закрыть вкладки справа?",
         closeOtherTabsTitle: "Закрыть другие вкладки?",

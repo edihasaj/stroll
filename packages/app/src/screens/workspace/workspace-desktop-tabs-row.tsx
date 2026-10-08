@@ -20,11 +20,13 @@ import {
   Maximize,
   Minimize,
   Plus,
+  Trash2,
   X,
 } from "lucide-react-native";
 import { StyleSheet, UnistylesRuntime, withUnistyles } from "react-native-unistyles";
 import Animated from "react-native-reanimated";
 import { useTranslation } from "react-i18next";
+import { useDeleteChat, type DeleteChatInput } from "@/hooks/use-delete-chat";
 import { SortableInlineList } from "@/components/sortable-inline-list";
 import type {
   DraggableListDragHandleProps,
@@ -111,6 +113,7 @@ const TAB_LABEL_LAYOUT_ALLOWANCE = 4;
 const AGENT_TOOLTIP_TITLE_MAX_LENGTH = 80;
 
 const ThemedLoadingSpinner = withUnistyles(LoadingSpinner);
+const ThemedTrash2 = withUnistyles(Trash2);
 const ThemedX = withUnistyles(X);
 const ThemedCopy = withUnistyles(Copy);
 
@@ -124,6 +127,7 @@ const ThemedMaximize = withUnistyles(Maximize);
 const ThemedMinimize = withUnistyles(Minimize);
 const foregroundColorMapping = (theme: Theme) => ({ color: theme.colors.foreground });
 const mutedColorMapping = (theme: Theme) => ({ color: theme.colors.foregroundMuted });
+const destructiveColorMapping = (theme: Theme) => ({ color: theme.colors.destructive });
 const extraMutedColorMapping = (theme: Theme) => ({ color: theme.colors.foregroundExtraMuted });
 
 function updateMeasuredWidth(
@@ -362,6 +366,8 @@ function TabContextMenuItem({
         return <ThemedCopyX size={16} uniProps={mutedColorMapping} />;
       case "pencil":
         return <ThemedPencil size={16} uniProps={mutedColorMapping} />;
+      case "trash":
+        return <ThemedTrash2 size={16} uniProps={destructiveColorMapping} />;
       case "x":
         return <ThemedX size={16} uniProps={mutedColorMapping} />;
       default:
@@ -984,6 +990,10 @@ function ResolvedWorkspaceDesktopTabsRow({
   onExitFocusMode,
 }: ResolvedWorkspaceDesktopTabsRowProps) {
   const { t } = useTranslation();
+  const onDeleteAgent = useDeleteChat({
+    serverId: normalizedServerId,
+    workspaceId: normalizedWorkspaceId,
+  });
   const newTabKeys = useShortcutKeys("workspace-tab-new");
   const [tabsContainerWidth, setTabsContainerWidth] = useState<number>(0);
   const [exitFocusModeWidth, setExitFocusModeWidth] = useState<number>(0);
@@ -1051,6 +1061,7 @@ function ResolvedWorkspaceDesktopTabsRow({
       closeOthers: t("workspace.tabs.menu.closeOthers"),
       reloadAgent: t("workspace.tabs.menu.reloadAgent"),
       reloadAgentTooltip: t("workspace.tabs.menu.reloadAgentTooltip"),
+      deleteChat: t("workspace.tabs.menu.deleteChat"),
       close: t("workspace.tabs.menu.close"),
     }),
     [t],
@@ -1223,6 +1234,7 @@ function ResolvedWorkspaceDesktopTabsRow({
           onCopyTerminalId={onCopyTerminalId}
           onCopyFilePath={onCopyFilePath}
           onReloadAgent={onReloadAgent}
+          onDeleteAgent={onDeleteAgent}
           onRenameTab={onRenameTab}
           onCloseTabsToLeft={onCloseTabsToLeft}
           onCloseTabsToRight={onCloseTabsToRight}
@@ -1255,6 +1267,7 @@ function ResolvedWorkspaceDesktopTabsRow({
       onCopyFilePath,
       onCopyResumeCommand,
       onNavigateTab,
+      onDeleteAgent,
       onReloadAgent,
       onRenameTab,
       setHoveredCloseTabKey,
@@ -1373,6 +1386,7 @@ function ResolvedDesktopTabChip({
   onCopyTerminalId,
   onCopyFilePath,
   onReloadAgent,
+  onDeleteAgent,
   onRenameTab,
   onCloseTabsToLeft,
   onCloseTabsToRight,
@@ -1399,6 +1413,7 @@ function ResolvedDesktopTabChip({
   onCopyTerminalId: (terminalId: string) => Promise<void> | void;
   onCopyFilePath: (path: string) => Promise<void> | void;
   onReloadAgent: (agentId: string) => Promise<void> | void;
+  onDeleteAgent: (input: DeleteChatInput) => Promise<void> | void;
   onRenameTab: (tab: WorkspaceTabDescriptor) => void;
   onCloseTabsToLeft: (tabId: string) => Promise<void> | void;
   onCloseTabsToRight: (tabId: string) => Promise<void> | void;
@@ -1427,6 +1442,7 @@ function ResolvedDesktopTabChip({
         onCopyTerminalId,
         onCopyFilePath,
         onReloadAgent,
+        onDeleteAgent,
         onRenameTab,
         onCloseTab,
         onCloseTabsToLeft,
@@ -1446,6 +1462,7 @@ function ResolvedDesktopTabChip({
       onCopyFilePath,
       onCopyResumeCommand,
       labels,
+      onDeleteAgent,
       onReloadAgent,
       onRenameTab,
       tabCount,

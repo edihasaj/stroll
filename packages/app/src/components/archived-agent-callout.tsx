@@ -6,6 +6,8 @@ import { FOOTER_HEIGHT } from "@/constants/layout";
 import { useHostRuntimeClient, useHostRuntimeIsConnected } from "@/runtime/host-runtime";
 import { KeyboardTranslateView } from "@/keyboard/shift";
 import { Button } from "@/components/ui/button";
+import { useDeleteChat } from "@/hooks/use-delete-chat";
+import { usePaneContext } from "@/panels/pane-context";
 import type { Theme } from "@/styles/theme";
 import { toErrorMessage } from "@/utils/error-messages";
 
@@ -20,6 +22,8 @@ export function ArchivedAgentCallout({ serverId, agentId }: ArchivedAgentCallout
   const isConnected = useHostRuntimeIsConnected(serverId);
   const [isUnarchiving, setIsUnarchiving] = useState(false);
   const [unarchiveError, setUnarchiveError] = useState<string | null>(null);
+  const { workspaceId, tabId } = usePaneContext();
+  const deleteChat = useDeleteChat({ serverId, workspaceId });
 
   const handleUnarchive = useCallback(async () => {
     if (!client || !isConnected || isUnarchiving) return;
@@ -32,6 +36,10 @@ export function ArchivedAgentCallout({ serverId, agentId }: ArchivedAgentCallout
       setIsUnarchiving(false);
     }
   }, [client, isConnected, isUnarchiving, agentId]);
+
+  const handleDelete = useCallback(() => {
+    void deleteChat({ agentId, tabId });
+  }, [deleteChat, agentId, tabId]);
 
   return (
     <KeyboardTranslateView style={styles.container}>
@@ -47,6 +55,15 @@ export function ArchivedAgentCallout({ serverId, agentId }: ArchivedAgentCallout
                 disabled={!isConnected || isUnarchiving}
               >
                 {t("agentPanel.archived.unarchive")}
+              </Button>
+              <Button
+                size="sm"
+                variant="destructive"
+                onPress={handleDelete}
+                disabled={!isConnected || isUnarchiving}
+                testID="agent-delete-chat"
+              >
+                {t("agentPanel.archived.delete")}
               </Button>
             </View>
             {unarchiveError ? (
@@ -81,6 +98,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   callout: {
     flexDirection: "row",
+    flexWrap: "wrap",
     alignItems: "center",
     justifyContent: "center",
     gap: theme.spacing[3],

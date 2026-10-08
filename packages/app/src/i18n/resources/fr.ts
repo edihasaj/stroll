@@ -330,6 +330,7 @@ export const fr: TranslationResources = {
     archived: {
       callout: "Cet agent est archivé",
       unarchive: "Désarchiver",
+      delete: "Supprimer la conversation",
     },
   },
   agentRoutes: {
@@ -788,6 +789,7 @@ export const fr: TranslationResources = {
         reloadAgent: "Agent de rechargement",
         reloadAgentTooltip:
           "Rechargez l'agent pour mettre à jour les compétences, les MCP ou le statut de connexion.",
+        deleteChat: "Supprimer la conversation",
         close: "Fermer",
         renameTerminal: "Renommer le terminal",
         renameAgent: "Renommer l'agent",
@@ -826,6 +828,7 @@ export const fr: TranslationResources = {
         reloadingAgent: "Agent de rechargement...",
         reloadedAgent: "Agent rechargé",
         failedToReloadAgent: "Échec du rechargement de l'agent",
+        failedToDeleteChat: "Échec de la suppression de la conversation",
         failedToCloseAgent: "Échec de la fermeture de l'agent",
       },
       confirmations: {
@@ -844,6 +847,10 @@ export const fr: TranslationResources = {
         archiveRunningAgentTitle: "Archiver l'agent en cours d'exécution?",
         archiveRunningAgentMessage:
           "Cet agent est toujours en cours d'exécution. L'archiver arrêtera l'agent et fermera l'onglet.",
+        deleteChat: "Supprimer",
+        deleteChatTitle: "Supprimer la conversation ?",
+        deleteChatMessage:
+          "Cette action supprime définitivement la conversation de cet hôte. Elle est irréversible.",
         closeTabsLeftTitle: "Fermer les onglets à gauche?",
         closeTabsRightTitle: "Fermer les onglets à droite?",
         closeOtherTabsTitle: "Fermer les autres onglets?",
