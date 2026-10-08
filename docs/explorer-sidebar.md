@@ -48,8 +48,8 @@ hide their close buttons through the panel manifest; close them from the tab con
 Other tabs reveal the close control on hover. The + menu opens compatible panels in the dock and
 omits Agent and terminal profiles. Agents and terminals can still be dragged into Explorer.
 Bulk-close actions apply only to the dock's tabs. Explorer tabs can be reordered and dragged
-between compatible panes, but the dock cannot be split or maximized. Selecting an Explorer tab
-does not change workspace focus.
+between compatible panes, but the dock cannot be split or put in Full view. Selecting an Explorer
+tab does not change workspace focus.
 
 Cmd+E shows or hides Explorer without changing its selected view. Compact layouts use the combined
 full-screen Explorer overlay for Changes, Files, and pull requests, and close it after a file opens. Compact Changes has no tree rail; its overview is the Jump to file action (`packages/app/src/git/jump-to-file/`), a sheet over the same changed-files tree the desktop rail renders.
@@ -82,16 +82,40 @@ Placement intent still controls existing tabs:
 Explicit **Open to Side** uses `pane`. Implicit opens use `prefer`, so a preference affects only a
 new target and never yanks an existing tab out of a user-selected pane.
 
+### Full view
+
+Full view gives one pane the whole workspace canvas and hides the rest. The Explorer dock stays. The
+pane toolbar button, the Command Center, and `Cmd+Shift+B` (`Ctrl+Shift+B` elsewhere) toggle it
+through the same state in `packages/app/src/stores/workspace-full-view-store.ts`.
+
+The toolbar button covers the canvas with its own pane. The shortcut and the Command Center cover it
+with the side pane, the one `ensureSidePane` would reuse, and focus that pane. A workspace with one
+visible pane has nothing to cover, so the action does nothing. Pressing it again restores the layout.
+
+The state is per workspace and never persisted, so it stays out of the saved layout schema and a
+restart shows the layout as saved. It ends on its own in focus mode, when one visible pane is left,
+and when its pane is removed (`shouldExitFullView` in `split-container-focus.ts`).
+
+`Cmd+Shift+B` used to open a new browser. New browser is now `Cmd+Alt+B` (`Ctrl+Alt+B`) under new
+binding ids, so shortcut overrides stored against the old ids no longer apply.
+
 ## Routing preferences
 
 Desktop **Settings → Layout → Open location** has independent Main panel or On the side choices for
-Explorer Files, diffs, chat files, files opened from diffs, and subagents. They default to Main
-panel. Mobile ignores them.
+Explorer Files, diffs, chat files, files opened from diffs, subagents, and browser tabs. Subagents
+and browser tabs default to On the side; the rest default to Main panel. Mobile ignores them.
+
+Browser tabs follow their choice from every entry point that does not name a pane: the header menu
+and the New browser shortcut, links and service URLs opened in the app, tabs an agent opens through
+the browser MCP, and the plugin `navigation.openBrowser`. The agent and plugin opens add the tab
+beside your work without moving focus. Choosing Browser in a pane's + menu still opens it in that
+pane. Compact layouts have no side pane and keep opening browser tabs where they always did.
 
 Pull requests have a three-way open location: Main panel, On the side, or Explorer sidebar. Explorer
 sidebar is the default. Compact layouts always open pull requests in Explorer regardless of this
 desktop preference.
 
 Panels request an implicit open through the narrow `openPreferredTarget(target, source)` pane
-contract. Entry points outside panels use `openPreferredWorkspaceTarget`. Do not branch on a
+contract. Entry points outside panels use `openPreferredWorkspaceTarget`, or
+`resolvePreferredSidePanePlacement` when the caller opens the tab itself. Do not branch on a
 specific shell inside a panel.

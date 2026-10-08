@@ -68,7 +68,7 @@ is added there.
 ## Phases
 
 1. Right panel: one panel with a switcher, Full view and its shortcut, browser in the panel by
-   default.
+   default. Done.
 2. One chat in the main view: remove the tab row and splits, the layout v3 migration, explicit
    archive, back and forward.
 3. Settings: the merges and the two additions.
