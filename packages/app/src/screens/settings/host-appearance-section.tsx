@@ -9,6 +9,7 @@ import { DropdownTrigger } from "@/components/ui/dropdown-trigger";
 import { AdaptiveRenameModal } from "@/components/rename-modal";
 import { WorkspaceMetaRow } from "@/components/sidebar/workspace-meta-row";
 import { useToast } from "@/contexts/toast-context";
+import { friendlyHostDisplayName } from "@/hosts/display-name";
 import { SettingsSection } from "@/components/settings/headings/settings-section";
 import {
   HOST_BADGE_DISPLAYS,
@@ -217,11 +218,11 @@ function BadgePreview({
         ? null
         : {
             serverId: host.serverId,
-            label: host.label,
+            label: friendlyHostDisplayName(host),
             color: host.appearance.color,
             showLabel: badgeDisplay === "name",
           },
-    [badgeDisplay, host.serverId, host.label, host.appearance.color],
+    [badgeDisplay, host],
   );
   // The real sidebar row, so the preview can't drift from what the setting actually does.
   return (

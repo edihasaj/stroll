@@ -92,12 +92,16 @@ test("customizes a host badge and preserves its appearance after reload", async 
     serverId: twoHostSidebar.secondaryServerId,
     workspaceId: twoHostSidebar.secondaryWorkspaceId,
   };
-  const hostName = "Developer MacBook Pro.local";
+  // Friendly host display names (86973575b) strip a raw hostname's trailing mDNS/LAN suffix
+  // (.local/.lan/.home here) everywhere a user sees one, including the badge — so what renders
+  // is "Developer MacBook Pro", not the ".local" string typed into the rename field.
+  const typedHostName = "Developer MacBook Pro.local";
+  const hostName = "Developer MacBook Pro";
 
   await test.step("rename the host and use its available sidebar width", async () => {
     await expectHostBadgeName(page, { ...badge, hostName: SECONDARY_HOST_LABEL });
     await openHostAppearanceSettings(page, badge.serverId);
-    await renameHostFromSettings(page, hostName);
+    await renameHostFromSettings(page, typedHostName);
     await leaveHostAppearanceSettings(page);
     await expectHostBadgeName(page, { ...badge, hostName });
 

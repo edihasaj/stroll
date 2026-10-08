@@ -117,7 +117,11 @@ export async function waitForConnectedHost(
   input: { serverId: string; endpoint: string },
 ): Promise<void> {
   await page.getByTestId("sidebar-hosts-trigger").click();
-  const host = page.getByTestId(`sidebar-host-row-${input.serverId}`);
+  // The desktop Codex-style icon rail + panel sidebar (749c80043) renders this trigger's host
+  // picker through sidebar-panel-footer.tsx, whose rows carry the sidebar-panel-host-row- prefix
+  // — a different id than the compact/mobile sidebar's sidebar-host-row- (left-sidebar.tsx,
+  // still exercised by startup-dsl.ts's "Open menu" flow).
+  const host = page.getByTestId(`sidebar-panel-host-row-${input.serverId}`);
   await expect(host).toContainText(input.endpoint, { timeout: 30_000 });
   await page.keyboard.press("Escape");
   await expect(host).not.toBeVisible();
