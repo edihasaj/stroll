@@ -2,6 +2,7 @@ import type { Page } from "@playwright/test";
 import { test, expect } from "../../app/e2e/support/fixtures";
 import { gotoAppShell, openSettings } from "../../app/e2e/support/helpers/app";
 import { openSettingsSection } from "../../app/e2e/support/helpers/settings";
+import { openSidebarHelpMenu } from "../../app/e2e/support/helpers/sidebar";
 
 // Settings > Keyboard Shortcuts is desktop-only (`desktopOnly` in
 // settings-screen.tsx), and the gate reads `getIsElectronRuntime()`, which only
@@ -54,11 +55,15 @@ async function openRowMenu(page: Page) {
   await expect(page.getByTestId(`shortcut-bind-${SHORTCUTS_ROW}`)).toBeVisible();
 }
 
-/** Reachable from the sidebar even when the cheat sheet's own shortcut is gone. */
+/**
+ * Reachable from the sidebar even when the cheat sheet's own shortcut is gone. This
+ * desktop-sized renderer shows the rail, so Help lives behind the rail's More overflow
+ * (`sidebar-rail-more`), not the mobile-only `sidebar-help` trigger -
+ * `openSidebarHelpMenu` resolves whichever of the two is visible.
+ */
 async function openCheatSheet(page: Page) {
   await gotoAppShell(page);
-  await page.getByTestId("sidebar-help").click();
-  await expect(page.getByTestId("sidebar-help-menu")).toBeVisible();
+  await openSidebarHelpMenu(page);
   await page.getByTestId("sidebar-help-shortcuts").click();
   const dialog = page.getByTestId("keyboard-shortcuts-dialog");
   await expect(dialog).toBeVisible({ timeout: 10_000 });
