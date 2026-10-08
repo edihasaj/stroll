@@ -17,9 +17,6 @@ import {
   Copy,
   Pencil,
   RotateCw,
-  Columns2,
-  Rows2,
-  Ellipsis,
   Maximize,
   Minimize,
   Plus,
@@ -41,13 +38,12 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
+import { DropdownMenu } from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useShortcutKeys } from "@/hooks/use-shortcut-keys";
 import { WORKSPACE_SECONDARY_HEADER_HEIGHT, useIsCompactFormFactor } from "@/constants/layout";
 import { buttonControlHeight } from "@/components/ui/control-geometry";
 import type { ShortcutKey } from "@/utils/format-shortcut";
-import { Shortcut } from "@/components/ui/shortcut";
 import { useWorkspaceTabLayout } from "@/screens/workspace/use-workspace-tab-layout";
 import { retainWorkspaceTabMeasuredWidth } from "@/screens/workspace/workspace-tab-layout";
 import {
@@ -89,14 +85,13 @@ import { useSessionStore } from "@/stores/session-store";
 
 const DROPDOWN_WIDTH = 220;
 const DEFAULT_INLINE_ADD_BUTTON_RESERVED_WIDTH = 36;
-const PANE_SPLIT_ACTIONS_HORIZONTAL_PADDING = 2;
-const PANE_SPLIT_ACTIONS_OUTER_MARGIN =
-  paneContentToolbarTrailingPadding(false, "glyph") - PANE_SPLIT_ACTIONS_HORIZONTAL_PADDING;
-const PANE_SPLIT_ACTIONS_RESERVED_WIDTH =
+const PANE_TOOLBAR_HORIZONTAL_PADDING = 2;
+const PANE_TOOLBAR_OUTER_MARGIN =
+  paneContentToolbarTrailingPadding(false, "glyph") - PANE_TOOLBAR_HORIZONTAL_PADDING;
+const PANE_MAXIMIZE_ACTION_RESERVED_WIDTH =
   smallIconButtonChromeFrameSize(false) +
-  PANE_SPLIT_ACTIONS_HORIZONTAL_PADDING * 2 +
-  PANE_SPLIT_ACTIONS_OUTER_MARGIN;
-const PANE_MAXIMIZE_ACTION_RESERVED_WIDTH = smallIconButtonChromeFrameSize(false) + 1;
+  PANE_TOOLBAR_HORIZONTAL_PADDING * 2 +
+  PANE_TOOLBAR_OUTER_MARGIN;
 // Chip geometry. `layoutMetrics` measures tabs from these same numbers, so a chip that changes
 // shape without changing them mis-measures and drops the row into the overflow-scroll fallback at
 // the wrong width. Keep them together.
@@ -125,9 +120,6 @@ const ThemedArrowRightToLine = withUnistyles(ArrowRightToLine);
 const ThemedCopyX = withUnistyles(CopyX);
 const ThemedPencil = withUnistyles(Pencil);
 const ThemedPlus = withUnistyles(Plus);
-const ThemedColumns2 = withUnistyles(Columns2);
-const ThemedRows2 = withUnistyles(Rows2);
-const ThemedEllipsis = withUnistyles(Ellipsis);
 const ThemedMaximize = withUnistyles(Maximize);
 const ThemedMinimize = withUnistyles(Minimize);
 const foregroundColorMapping = (theme: Theme) => ({ color: theme.colors.foreground });
@@ -263,56 +255,31 @@ function WorkspacePaneToolbarActions({
   host,
   launchPurpose,
   showNewTabButton,
-  showSplitActions,
   showMaximizeAction,
   paneMaximized,
   serverId,
   paneId,
   newTabShortcutKeys,
-  onSplitRight,
-  onSplitDown,
   onTogglePaneMaximized,
 }: {
   panePanelKinds: PanePanelKinds;
   host: PaneHost;
   launchPurpose: WorkspaceTabLaunchPurpose;
   showNewTabButton: boolean;
-  showSplitActions: boolean;
   showMaximizeAction: boolean;
   paneMaximized: boolean;
   serverId: string;
   paneId?: string;
   newTabShortcutKeys: ShortcutKey[][] | null;
-  onSplitRight?: () => void;
-  onSplitDown?: () => void;
   onTogglePaneMaximized?: () => void;
 }) {
   const { t } = useTranslation();
-  const splitRightKeys = useShortcutKeys("workspace-pane-split-right");
-  const splitDownKeys = useShortcutKeys("workspace-pane-split-down");
   const fullViewKeys = useShortcutKeys("toggle-full-view");
-  const splitActionsVisible = showSplitActions && Boolean(onSplitRight && onSplitDown);
-  const splitRightLeading = useMemo(
-    () => <ThemedColumns2 size={14} uniProps={extraMutedColorMapping} />,
-    [],
-  );
-  const splitDownLeading = useMemo(
-    () => <ThemedRows2 size={14} uniProps={extraMutedColorMapping} />,
-    [],
-  );
-  const splitRightTrailing = useMemo(
-    () => (splitRightKeys ? <Shortcut chord={splitRightKeys} /> : null),
-    [splitRightKeys],
-  );
-  const splitDownTrailing = useMemo(
-    () => (splitDownKeys ? <Shortcut chord={splitDownKeys} /> : null),
-    [splitDownKeys],
-  );
   const maximizeActionVisible = showMaximizeAction && Boolean(onTogglePaneMaximized);
-  if (!showNewTabButton && !splitActionsVisible && !maximizeActionVisible) return null;
+  if (!showNewTabButton && !maximizeActionVisible) return null;
 
   return (
-    <ToolbarControls style={styles.paneSplitActions}>
+    <ToolbarControls style={styles.paneToolbar}>
       {showNewTabButton ? (
         <WorkspaceNewTabButton
           panePanelKinds={panePanelKinds}
@@ -342,41 +309,6 @@ function WorkspacePaneToolbarActions({
             <ThemedMaximize size={14} uniProps={extraMutedColorMapping} />
           )}
         </ToolbarButton>
-      ) : null}
-      {splitActionsVisible && onSplitRight && onSplitDown ? (
-        <DropdownMenu>
-          <ToolbarButton
-            kind="menu"
-            label={t("workspace.git.actions.moreActions")}
-            testID="workspace-split-pane-menu"
-          >
-            <ThemedEllipsis size={14} uniProps={extraMutedColorMapping} />
-          </ToolbarButton>
-          <DropdownMenuContent
-            side="bottom"
-            align="end"
-            offset={4}
-            width={220}
-            testID="workspace-split-pane-menu-content"
-          >
-            <DropdownMenuItem
-              leading={splitRightLeading}
-              trailing={splitRightTrailing}
-              testID="workspace-split-pane-right"
-              onSelect={onSplitRight}
-            >
-              {t("workspace.tabs.actions.splitRight")}
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              leading={splitDownLeading}
-              trailing={splitDownTrailing}
-              testID="workspace-split-pane-down"
-              onSelect={onSplitDown}
-            >
-              {t("workspace.tabs.actions.splitDown")}
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
       ) : null}
     </ToolbarControls>
   );
@@ -540,12 +472,9 @@ export interface WorkspaceDesktopTabsRowProps {
   externalDndContext?: boolean;
   activeDragTabId?: string | null;
   tabDropPreviewIndex?: number | null;
-  showPaneSplitActions?: boolean;
   showPaneMaximizeAction?: boolean;
   paneMaximized?: boolean;
   onTogglePaneMaximized?: () => void;
-  onSplitRight?: () => void;
-  onSplitDown?: () => void;
   focusModeEnabled: boolean;
   onExitFocusMode: () => void;
 }
@@ -1048,12 +977,9 @@ function ResolvedWorkspaceDesktopTabsRow({
   externalDndContext = false,
   activeDragTabId = null,
   tabDropPreviewIndex = null,
-  showPaneSplitActions = false,
   showPaneMaximizeAction = false,
   paneMaximized = false,
   onTogglePaneMaximized,
-  onSplitRight,
-  onSplitDown,
   focusModeEnabled,
   onExitFocusMode,
 }: ResolvedWorkspaceDesktopTabsRowProps) {
@@ -1082,7 +1008,6 @@ function ResolvedWorkspaceDesktopTabsRow({
         0,
         DEFAULT_INLINE_ADD_BUTTON_RESERVED_WIDTH +
           (focusModeEnabled ? exitFocusModeWidth : 0) +
-          (showPaneSplitActions ? PANE_SPLIT_ACTIONS_RESERVED_WIDTH : 0) +
           (showPaneMaximizeAction ? PANE_MAXIMIZE_ACTION_RESERVED_WIDTH : 0),
       ),
       rowPaddingHorizontal: TAB_ROW_PADDING_HORIZONTAL,
@@ -1094,7 +1019,7 @@ function ResolvedWorkspaceDesktopTabsRow({
       tabHorizontalPadding: TAB_CHIP_HORIZONTAL_PADDING,
       closeButtonWidth: TAB_CLOSE_BUTTON_RESERVED_WIDTH,
     }),
-    [exitFocusModeWidth, focusModeEnabled, showPaneMaximizeAction, showPaneSplitActions],
+    [exitFocusModeWidth, focusModeEnabled, showPaneMaximizeAction],
   );
 
   const panePanelKinds = useMemo(() => tabs.map(({ tab }) => tab.kind), [tabs]);
@@ -1424,14 +1349,11 @@ function ResolvedWorkspaceDesktopTabsRow({
         host={host}
         launchPurpose={launchPurpose}
         showNewTabButton={layout.requiresHorizontalScrollFallback}
-        showSplitActions={showPaneSplitActions}
         showMaximizeAction={showPaneMaximizeAction}
         paneMaximized={paneMaximized}
         serverId={normalizedServerId}
         paneId={paneId}
         newTabShortcutKeys={newTabKeys}
-        onSplitRight={onSplitRight}
-        onSplitDown={onSplitDown}
         onTogglePaneMaximized={onTogglePaneMaximized}
       />
     </View>
@@ -1622,9 +1544,9 @@ const styles = StyleSheet.create((theme) => ({
     width: buttonControlHeight.xs,
     height: buttonControlHeight.xs,
   },
-  paneSplitActions: {
-    paddingHorizontal: PANE_SPLIT_ACTIONS_HORIZONTAL_PADDING,
-    marginRight: PANE_SPLIT_ACTIONS_OUTER_MARGIN,
+  paneToolbar: {
+    paddingHorizontal: PANE_TOOLBAR_HORIZONTAL_PADDING,
+    marginRight: PANE_TOOLBAR_OUTER_MARGIN,
   },
   tab: {
     height: buttonControlHeight.xs,

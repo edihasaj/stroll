@@ -261,42 +261,6 @@ describe("keyboard-shortcuts", () => {
       action: "command-center.toggle",
     },
     {
-      name: "matches Cmd+Backslash to split pane right on macOS",
-      event: { key: "\\", code: "Backslash", metaKey: true },
-      context: { isMac: true },
-      action: "workspace.pane.split.right",
-    },
-    {
-      name: "matches Cmd+Shift+Backslash to split pane down on macOS",
-      event: { key: "|", code: "Backslash", metaKey: true, shiftKey: true },
-      context: { isMac: true },
-      action: "workspace.pane.split.down",
-    },
-    {
-      name: "matches Cmd+Shift+ArrowRight to focus pane right on macOS",
-      event: { key: "ArrowRight", code: "ArrowRight", metaKey: true, shiftKey: true },
-      context: { isMac: true },
-      action: "workspace.pane.focus.right",
-    },
-    {
-      name: "matches Cmd+Shift+Alt+ArrowDown to move tab down on macOS",
-      event: {
-        key: "ArrowDown",
-        code: "ArrowDown",
-        metaKey: true,
-        shiftKey: true,
-        altKey: true,
-      },
-      context: { isMac: true },
-      action: "workspace.pane.move-tab.down",
-    },
-    {
-      name: "matches Cmd+Shift+W to close pane on macOS",
-      event: { key: "W", code: "KeyW", metaKey: true, shiftKey: true },
-      context: { isMac: true },
-      action: "workspace.pane.close",
-    },
-    {
       name: "matches Cmd+B sidebar toggle on macOS",
       event: { key: "b", code: "KeyB", metaKey: true },
       context: { isMac: true },
@@ -504,6 +468,26 @@ describe("keyboard-shortcuts", () => {
       context: { isMac: false, focusScope: "message-input" },
     },
     {
+      name: "does not bind Cmd+Backslash now that panes cannot be split",
+      event: { key: "\\", code: "Backslash", metaKey: true },
+      context: { isMac: true },
+    },
+    {
+      name: "does not bind Cmd+Shift+Backslash now that panes cannot be split",
+      event: { key: "|", code: "Backslash", metaKey: true, shiftKey: true },
+      context: { isMac: true },
+    },
+    {
+      name: "does not bind Cmd+Shift+W to close a pane",
+      event: { key: "W", code: "KeyW", metaKey: true, shiftKey: true },
+      context: { isMac: true },
+    },
+    {
+      name: "leaves Cmd+Shift+ArrowRight to text selection and the page",
+      event: { key: "ArrowRight", code: "ArrowRight", metaKey: true, shiftKey: true },
+      context: { isMac: true },
+    },
+    {
       name: "does not interrupt agent when terminal is focused",
       event: { key: "Escape", code: "Escape" },
       context: { focusScope: "terminal" },
@@ -512,21 +496,6 @@ describe("keyboard-shortcuts", () => {
       name: "does not interrupt agent when command center is open",
       event: { key: "Escape", code: "Escape" },
       context: { commandCenterOpen: true },
-    },
-    {
-      name: "does not bind pane shortcuts on non-mac platforms",
-      event: { key: "\\", code: "Backslash", ctrlKey: true },
-      context: { isMac: false },
-    },
-    {
-      name: "keeps Cmd+Shift+ArrowRight available for message input selection",
-      event: { key: "ArrowRight", code: "ArrowRight", metaKey: true, shiftKey: true },
-      context: { isMac: true, focusScope: "message-input" },
-    },
-    {
-      name: "keeps Cmd+Shift+ArrowLeft available for generic editable selection",
-      event: { key: "ArrowLeft", code: "ArrowLeft", metaKey: true, shiftKey: true },
-      context: { isMac: true, focusScope: "editable" },
     },
     {
       name: "keeps space typing available in message input",
@@ -550,36 +519,6 @@ describe("keyboard-shortcuts", () => {
 
   it.each(nonMatchingCases)("$name", ({ event, context }) => {
     expectNoShortcutResolution({ event, context });
-  });
-
-  // A rebound pane-focus shortcut has to fire wherever the user is typing.
-  // Its default combo carries `editable: false` so that Cmd+Shift+Arrow keeps
-  // selecting text (the two cases above), and that guard describes the default
-  // combo rather than the action, so it must not survive the rebind.
-  describe("a rebound pane-focus shortcut", () => {
-    const PANE_FOCUS_DOWN_BINDING = "workspace-pane-focus-down-cmd-shift-down";
-    // macOS emits U+2206 for Option+J; the stored combo comes from the code.
-    const altJ = { key: "\u2206", code: "KeyJ", altKey: true };
-
-    it.each(["message-input", "editable"] as const)("fires with %s focused", (focusScope) => {
-      const result = resolveShortcut({
-        event: altJ,
-        context: { isMac: true, focusScope },
-        bindings: buildEffectiveBindings({ [PANE_FOCUS_DOWN_BINDING]: "Alt+J" }),
-      });
-
-      expect(result.match?.action).toBe("workspace.pane.focus.down");
-    });
-
-    it("still fires outside a text field", () => {
-      const result = resolveShortcut({
-        event: altJ,
-        context: { isMac: true, focusScope: "other" },
-        bindings: buildEffectiveBindings({ [PANE_FOCUS_DOWN_BINDING]: "Alt+J" }),
-      });
-
-      expect(result.match?.action).toBe("workspace.pane.focus.down");
-    });
   });
 
   it("prefers advancing chord candidates over single-combo matches on the same prefix", () => {
@@ -708,8 +647,6 @@ describe("keyboard-shortcut help sections", () => {
         "workspace-jump-index": ["alt", "1-9"],
         "workspace-tab-jump-index": ["alt", "shift", "1-9"],
         "workspace-tab-close-current": ["alt", "shift", "W"],
-        "workspace-pane-split-right": ["mod", "\\"],
-        "workspace-pane-close": ["mod", "shift", "W"],
         "cycle-agent-mode": ["shift", "Tab"],
       },
     },
@@ -727,8 +664,6 @@ describe("keyboard-shortcut help sections", () => {
         // `formatShortcut` renders both as ⌘, so the badge is unchanged — see
         // the render assertion below.
         "workspace-tab-close-current": ["mod", "W"],
-        "workspace-pane-split-right": ["mod", "\\"],
-        "workspace-pane-close": ["mod", "shift", "W"],
       },
     },
     {
@@ -765,7 +700,6 @@ describe("keyboard-shortcut help sections", () => {
     const macDesktop = { isMac: true, isDesktop: true };
     const NEW_WORKSPACE_BINDING = "workspace-new-cmd-n-mac";
     const MAC_INDEX_BINDING = "workspace-navigate-index-cmd-digit-mac";
-    const PANE_FOCUS_LEFT_BINDING = "workspace-pane-focus-left-cmd-shift-left";
     const SHOW_SHORTCUTS_BINDING = "shortcuts-dialog-toggle-question-mark";
 
     function rowChord(overrides: ShortcutOverrides, id: string) {
@@ -806,10 +740,7 @@ describe("keyboard-shortcut help sections", () => {
     // An arrow override used to render as the raw `ARROWLEFT` code, because the
     // display path uppercased key names past the table that maps them to arrows.
     it("renders an arrow override as an arrow", () => {
-      const chord = rowChord(
-        { [PANE_FOCUS_LEFT_BINDING]: "Cmd+Alt+ArrowLeft" },
-        "workspace-pane-focus-left",
-      );
+      const chord = rowChord({ [NEW_WORKSPACE_BINDING]: "Cmd+Alt+ArrowLeft" }, "new-workspace");
       expect(chord).toEqual([["mod", "alt", "Left"]]);
       expect(formatShortcut(chord?.[0] ?? [], "mac")).toBe("⌥⌘←");
     });

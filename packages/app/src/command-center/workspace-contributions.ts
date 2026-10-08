@@ -20,8 +20,6 @@ export interface WorkspaceCommandCenterLabels {
   newAgent: string;
   newTerminal: string;
   newBrowser: string;
-  splitRight: string;
-  splitDown: string;
   changes: string;
   files: string;
   pullRequest: string;
@@ -38,15 +36,6 @@ export interface WorkspaceCommandCenterLabels {
   closeTabsLeft: string;
   closeTabsRight: string;
   closeOtherTabs: string;
-  focusPaneLeft: string;
-  focusPaneRight: string;
-  focusPaneUp: string;
-  focusPaneDown: string;
-  moveTabLeft: string;
-  moveTabRight: string;
-  moveTabUp: string;
-  moveTabDown: string;
-  closePane: string;
   toggleFocusMode: string;
   toggleFullView: string;
   toggleExplorerSidebar: string;
@@ -64,8 +53,6 @@ export interface WorkspaceCommandCenterIcons {
   newAgent?: CommandCenterIcon;
   newTerminal?: CommandCenterIcon;
   newBrowser?: CommandCenterIcon;
-  splitRight?: CommandCenterIcon;
-  splitDown?: CommandCenterIcon;
   changes?: CommandCenterIcon;
   files?: CommandCenterIcon;
   pullRequest?: CommandCenterIcon;
@@ -75,8 +62,6 @@ export interface WorkspaceCommandCenterIcons {
   rename?: CommandCenterIcon;
   reload?: CommandCenterIcon;
   copy?: CommandCenterIcon;
-  focusPane?: CommandCenterIcon;
-  moveTab?: CommandCenterIcon;
   focusMode?: CommandCenterIcon;
   fullView?: CommandCenterIcon;
   explorerSidebar?: CommandCenterIcon;
@@ -94,13 +79,10 @@ export interface WorkspaceCommandCenterIcons {
 export interface WorkspaceCommandCenterShortcuts {
   newAgent?: ShortcutKey[][];
   newTerminal?: ShortcutKey[][];
-  splitRight?: ShortcutKey[][];
-  splitDown?: ShortcutKey[][];
   archiveWorkspace?: ShortcutKey[][];
   previousTab?: ShortcutKey[][];
   nextTab?: ShortcutKey[][];
   closeCurrentTab?: ShortcutKey[][];
-  closePane?: ShortcutKey[][];
   toggleFocusMode?: ShortcutKey[][];
   toggleFullView?: ShortcutKey[][];
   toggleExplorerSidebar?: ShortcutKey[][];
@@ -113,7 +95,7 @@ export interface WorkspaceCommandCenterSource {
   icons: WorkspaceCommandCenterIcons;
   shortcuts: WorkspaceCommandCenterShortcuts;
   capabilities: {
-    canSplitPanes: boolean;
+    hasDesktopPanes: boolean;
     canOpenBrowserTabs: boolean;
     isGit: boolean;
     /** Host supports the `workspacePinning` feature. */
@@ -236,7 +218,7 @@ function buildPanelContributions(
         },
       }),
     );
-    if (!source.capabilities.canSplitPanes) continue;
+    if (!source.capabilities.hasDesktopPanes) continue;
     if (panel.target !== "pull-request") continue;
     const placements = ["side-pane", "focused-pane"] as const;
     for (const [placementIndex, placement] of placements.entries()) {
@@ -398,97 +380,6 @@ function buildPaneContributions(source: WorkspaceCommandCenterSource): CommandCe
     shortcutKeys?: ShortcutKey[][];
   }> = [
     {
-      id: "pane:split-right",
-      rank: 50,
-      title: source.labels.splitRight,
-      keywords: ["split", "pane", "vertical"],
-      icon: source.icons.splitRight,
-      shortcutKeys: source.shortcuts.splitRight,
-      action: { id: "workspace.pane.split.right", scope: "workspace" },
-    },
-    {
-      id: "pane:split-down",
-      rank: 51,
-      title: source.labels.splitDown,
-      keywords: ["split", "pane", "horizontal"],
-      icon: source.icons.splitDown,
-      shortcutKeys: source.shortcuts.splitDown,
-      action: { id: "workspace.pane.split.down", scope: "workspace" },
-    },
-    {
-      id: "pane:focus-left",
-      rank: 52,
-      title: source.labels.focusPaneLeft,
-      keywords: ["pane", "focus", "left"],
-      icon: source.icons.focusPane,
-      action: { id: "workspace.pane.focus.left", scope: "workspace" },
-    },
-    {
-      id: "pane:focus-right",
-      rank: 53,
-      title: source.labels.focusPaneRight,
-      keywords: ["pane", "focus", "right"],
-      icon: source.icons.focusPane,
-      action: { id: "workspace.pane.focus.right", scope: "workspace" },
-    },
-    {
-      id: "pane:focus-up",
-      rank: 54,
-      title: source.labels.focusPaneUp,
-      keywords: ["pane", "focus", "up"],
-      icon: source.icons.focusPane,
-      action: { id: "workspace.pane.focus.up", scope: "workspace" },
-    },
-    {
-      id: "pane:focus-down",
-      rank: 55,
-      title: source.labels.focusPaneDown,
-      keywords: ["pane", "focus", "down"],
-      icon: source.icons.focusPane,
-      action: { id: "workspace.pane.focus.down", scope: "workspace" },
-    },
-    {
-      id: "pane:move-tab-left",
-      rank: 56,
-      title: source.labels.moveTabLeft,
-      keywords: ["pane", "tab", "move", "left"],
-      icon: source.icons.moveTab,
-      action: { id: "workspace.pane.move-tab.left", scope: "workspace" },
-    },
-    {
-      id: "pane:move-tab-right",
-      rank: 57,
-      title: source.labels.moveTabRight,
-      keywords: ["pane", "tab", "move", "right"],
-      icon: source.icons.moveTab,
-      action: { id: "workspace.pane.move-tab.right", scope: "workspace" },
-    },
-    {
-      id: "pane:move-tab-up",
-      rank: 58,
-      title: source.labels.moveTabUp,
-      keywords: ["pane", "tab", "move", "up"],
-      icon: source.icons.moveTab,
-      action: { id: "workspace.pane.move-tab.up", scope: "workspace" },
-    },
-    {
-      id: "pane:move-tab-down",
-      rank: 59,
-      title: source.labels.moveTabDown,
-      keywords: ["pane", "tab", "move", "down"],
-      icon: source.icons.moveTab,
-      action: { id: "workspace.pane.move-tab.down", scope: "workspace" },
-    },
-    {
-      id: "pane:close",
-      rank: 60,
-      title: source.labels.closePane,
-      keywords: ["pane", "close"],
-      icon: source.icons.close,
-      shortcutKeys: source.shortcuts.closePane,
-      action: { id: "workspace.pane.close", scope: "workspace" },
-    },
-    {
       id: "pane:focus-mode-toggle",
       rank: 62,
       title: source.labels.toggleFocusMode,
@@ -590,7 +481,7 @@ export function buildWorkspaceCommandCenterContributions(
     ...buildCreationContributions(source),
     ...buildPanelContributions(source),
     ...buildActiveTabContributions(source),
-    ...(source.capabilities.canSplitPanes ? buildPaneContributions(source) : []),
+    ...(source.capabilities.hasDesktopPanes ? buildPaneContributions(source) : []),
   ];
 
   const primary = source.gitActions.primary;
@@ -689,9 +580,9 @@ export function buildWorkspaceCommandCenterContributions(
   );
 
   // `buildPaneContributions` already dispatches this same `workspace.focus.toggle` action as
-  // `pane:focus-mode-toggle` once split panes are available, so only add the standalone entry
+  // `pane:focus-mode-toggle` once the desktop pane layout is available, so only add the standalone entry
   // where that function is skipped — otherwise the palette lists "Toggle focus mode" twice.
-  if (!source.capabilities.canSplitPanes) {
+  if (!source.capabilities.hasDesktopPanes) {
     contributions.push(
       buildWorkspaceAction({
         source,

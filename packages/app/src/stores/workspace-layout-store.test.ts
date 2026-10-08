@@ -210,6 +210,40 @@ function createWorkspaceKey(): string {
   return key as string;
 }
 
+/**
+ * Builds a multi-pane layout the way an older version of the app persisted one.
+ * Users can no longer create splits, but saved layouts that have them must keep
+ * rendering and closing, so the tests still need the shape.
+ */
+function splitPane(
+  workspaceKey: string,
+  input: { tabId: string; targetPaneId: string; position: "left" | "right" | "top" | "bottom" },
+): string | null {
+  const layout = workspaceLayoutStore.getState().layoutByWorkspace[workspaceKey];
+  if (!layout || !findPaneById(layout.root, input.targetPaneId)) {
+    return null;
+  }
+  const knownPaneIds = new Set(collectAllPanes(layout.root).map((pane) => pane.id));
+  const root = insertSplit(
+    layout.root,
+    input.targetPaneId,
+    input.tabId,
+    input.position,
+    workspaceLayoutIds.createNodeId,
+  );
+  const created = collectAllPanes(root).find((pane) => !knownPaneIds.has(pane.id));
+  if (!created) {
+    return null;
+  }
+  workspaceLayoutStore.setState((state) => ({
+    layoutByWorkspace: {
+      ...state.layoutByWorkspace,
+      [workspaceKey]: { ...layout, root, focusedPaneId: created.id },
+    },
+  }));
+  return created.id;
+}
+
 function collectTabIds(root: SplitNode): string[] {
   return collectAllTabs(root).map((tab) => tab.tabId);
 }
@@ -2025,7 +2059,7 @@ describe("workspace-layout-store actions", () => {
       },
       intent: "reveal",
     });
-    const splitPaneId = store.splitPane(workspaceKey, {
+    const splitPaneId = splitPane(workspaceKey, {
       tabId: secondTabId!,
       targetPaneId: "main",
       position: "right",
@@ -2282,7 +2316,7 @@ describe("workspace-layout-store actions", () => {
       target: { kind: "draft", draftId: "draft-1" },
       intent: "reveal",
     });
-    store.splitPane(workspaceKey, {
+    splitPane(workspaceKey, {
       tabId: firstTabId!,
       targetPaneId: "main",
       position: "right",
@@ -2445,7 +2479,7 @@ describe("workspace-layout-store actions", () => {
       },
       intent: "reveal",
     });
-    const splitPaneId = store.splitPane(workspaceKey, {
+    const splitPaneId = splitPane(workspaceKey, {
       tabId: terminalTabId!,
       targetPaneId: "main",
       position: "right",
@@ -2524,7 +2558,7 @@ describe("workspace-layout-store actions", () => {
       target: { kind: "draft", draftId: "draft-2" },
       intent: "reveal",
     });
-    const splitPaneId = store.splitPane(workspaceKey, {
+    const splitPaneId = splitPane(workspaceKey, {
       tabId: secondTabId!,
       targetPaneId: "main",
       position: "right",
@@ -2532,12 +2566,12 @@ describe("workspace-layout-store actions", () => {
 
     const nextTabId = store.convertDraftToAgent(workspaceKey, secondTabId!, "agent-1");
     const layout = workspaceLayoutStore.getState().layoutByWorkspace[workspaceKey];
-    const splitPane = findPaneById(layout.root, splitPaneId);
+    const createdPane = findPaneById(layout.root, splitPaneId);
     const convertedTab = collectAllTabs(layout.root).find((tab) => tab.tabId === nextTabId);
 
     expect(splitPaneId).toBe("pane_12121212-1212-1212-1212-121212121212");
     expect(nextTabId).toBe("agent_agent-1");
-    expect(splitPane?.tabIds).toEqual(["agent_agent-1"]);
+    expect(createdPane?.tabIds).toEqual(["agent_agent-1"]);
     expect(findPaneContainingTab(layout.root, "agent_agent-1")?.id).toBe(splitPaneId);
     expect(convertedTab).toEqual({
       tabId: "agent_agent-1",
@@ -2624,7 +2658,7 @@ describe("workspace-layout-store actions", () => {
       target: { kind: "draft", draftId: "draft-dup" },
       intent: "reveal",
     });
-    const splitPaneId = store.splitPane(workspaceKey, {
+    const splitPaneId = splitPane(workspaceKey, {
       tabId: draftTabId!,
       targetPaneId: "main",
       position: "right",
@@ -2781,7 +2815,7 @@ describe("workspace-layout-store actions", () => {
       },
       intent: "reveal",
     });
-    const splitPaneId = store.splitPane(workspaceKey, {
+    const splitPaneId = splitPane(workspaceKey, {
       tabId: thirdTabId!,
       targetPaneId: "main",
       position: "right",
@@ -2831,7 +2865,7 @@ describe("workspace-layout-store actions", () => {
       },
       intent: "reveal",
     });
-    const splitPaneId = store.splitPane(workspaceKey, {
+    const splitPaneId = splitPane(workspaceKey, {
       tabId: secondTabId!,
       targetPaneId: "main",
       position: "right",
@@ -2887,7 +2921,7 @@ describe("workspace-layout-store actions", () => {
       },
       intent: "reveal",
     });
-    const splitPaneId = store.splitPane(workspaceKey, {
+    const splitPaneId = splitPane(workspaceKey, {
       tabId: secondTabId!,
       targetPaneId: "main",
       position: "right",
@@ -2901,7 +2935,7 @@ describe("workspace-layout-store actions", () => {
     expect(collectAllPanes(layout.root).map((pane) => pane.id)).toEqual(["main"]);
   });
 
-  it("splitPane preserves four user-created levels beneath the explorer split", () => {
+  it("a saved layout preserves four split levels beneath the explorer split", () => {
     useWorkspaceLayoutIds(
       "11111111-1111-1111-1111-111111111111",
       "22222222-2222-2222-2222-222222222222",
@@ -2942,22 +2976,22 @@ describe("workspace-layout-store actions", () => {
     });
 
     expect(a).toBeTruthy();
-    const pane1 = store.splitPane(workspaceKey, {
+    const pane1 = splitPane(workspaceKey, {
       tabId: b!,
       targetPaneId: "main",
       position: "right",
     });
-    const pane2 = store.splitPane(workspaceKey, {
+    const pane2 = splitPane(workspaceKey, {
       tabId: c!,
       targetPaneId: pane1!,
       position: "bottom",
     });
-    const pane3 = store.splitPane(workspaceKey, {
+    const pane3 = splitPane(workspaceKey, {
       tabId: d!,
       targetPaneId: pane2!,
       position: "right",
     });
-    const pane4 = store.splitPane(workspaceKey, {
+    const pane4 = splitPane(workspaceKey, {
       tabId: e!,
       targetPaneId: pane3!,
       position: "bottom",
@@ -2994,7 +3028,7 @@ describe("workspace-layout-store actions", () => {
       },
       intent: "reveal",
     });
-    const splitPaneId = store.splitPane(workspaceKey, {
+    const splitPaneId = splitPane(workspaceKey, {
       tabId: rightTabId!,
       targetPaneId: "main",
       position: "right",
@@ -3088,12 +3122,12 @@ describe("workspace-layout-store actions", () => {
       },
       intent: "reveal",
     });
-    const paneBId = store.splitPane(workspaceKey, {
+    const paneBId = splitPane(workspaceKey, {
       tabId: secondTabId!,
       targetPaneId: "main",
       position: "right",
     });
-    const paneCId = store.splitPane(workspaceKey, {
+    const paneCId = splitPane(workspaceKey, {
       tabId: thirdTabId!,
       targetPaneId: paneBId!,
       position: "bottom",
@@ -3128,7 +3162,7 @@ describe("workspace-layout-store actions", () => {
       },
       intent: "reveal",
     });
-    const splitPaneId = store.splitPane(workspaceKey, {
+    const splitPaneId = splitPane(workspaceKey, {
       tabId: secondTabId!,
       targetPaneId: "main",
       position: "right",
@@ -3282,12 +3316,12 @@ describe("workspace-layout-store actions", () => {
     });
 
     expect(a).toBeTruthy();
-    const rightPaneId = store.splitPane(workspaceKey, {
+    const rightPaneId = splitPane(workspaceKey, {
       tabId: b!,
       targetPaneId: "main",
       position: "right",
     });
-    const farRightPaneId = store.splitPane(workspaceKey, {
+    const farRightPaneId = splitPane(workspaceKey, {
       tabId: c!,
       targetPaneId: rightPaneId!,
       position: "bottom",
@@ -3444,7 +3478,7 @@ describe("workspace-layout-store actions", () => {
       target: { kind: "agent", agentId: "agent-1" },
       intent: "reveal",
     });
-    const splitPaneId = store.splitPane(workspaceKey, {
+    const splitPaneId = splitPane(workspaceKey, {
       tabId: agentTabId!,
       targetPaneId: "main",
       position: "right",
@@ -4120,7 +4154,7 @@ describe("workspace-layout-store actions", () => {
       intent: "reveal",
     });
     useWorkspaceLayoutIds("split", "group-1");
-    const splitPaneId = store.splitPane(workspaceKey, {
+    const splitPaneId = splitPane(workspaceKey, {
       tabId: keptTabId as string,
       targetPaneId: "main",
       position: "right",
@@ -4155,7 +4189,7 @@ describe("workspace-layout-store actions", () => {
       intent: "reveal",
     });
     useWorkspaceLayoutIds("split", "group-1");
-    const splitPaneId = store.splitPane(workspaceKey, {
+    const splitPaneId = splitPane(workspaceKey, {
       tabId: keptTabId as string,
       targetPaneId: "main",
       position: "right",

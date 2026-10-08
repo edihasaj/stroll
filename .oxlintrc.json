@@ -268,7 +268,6 @@
         "packages/app/src/components/settings-textarea.tsx",
         "packages/app/src/components/sidebar-callout.tsx",
         "packages/app/src/components/split-container.tsx",
-        "packages/app/src/components/split-drop-zone.tsx",
         "packages/app/src/components/terminal-pane.tsx",
         "packages/app/src/components/toast-host.tsx",
         "packages/app/src/components/tool-call-sheet.tsx",

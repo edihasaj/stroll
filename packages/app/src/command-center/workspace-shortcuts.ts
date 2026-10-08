@@ -18,10 +18,6 @@ export function resolveWorkspaceCommandCenterShortcuts({
       resolveShortcutKeysForAction("workspace-tab-target-agent", overrides, platform) ?? undefined,
     newTerminal:
       resolveShortcutKeysForAction("workspace-terminal-new", overrides, platform) ?? undefined,
-    splitRight:
-      resolveShortcutKeysForAction("workspace-pane-split-right", overrides, platform) ?? undefined,
-    splitDown:
-      resolveShortcutKeysForAction("workspace-pane-split-down", overrides, platform) ?? undefined,
     archiveWorkspace:
       resolveShortcutKeysForAction("archive-workspace", overrides, platform) ?? undefined,
     previousTab:
@@ -29,8 +25,6 @@ export function resolveWorkspaceCommandCenterShortcuts({
     nextTab: resolveShortcutKeysForAction("workspace-tab-next", overrides, platform) ?? undefined,
     closeCurrentTab:
       resolveShortcutKeysForAction("workspace-tab-close-current", overrides, platform) ?? undefined,
-    closePane:
-      resolveShortcutKeysForAction("workspace-pane-close", overrides, platform) ?? undefined,
     toggleFocusMode: resolveShortcutKeysForAction("toggle-focus", overrides, platform) ?? undefined,
     toggleFullView:
       resolveShortcutKeysForAction("toggle-full-view", overrides, platform) ?? undefined,

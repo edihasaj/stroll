@@ -48,7 +48,6 @@ import {
   selectTabInPaneInLayout,
   splitPaneEmptyInLayout,
   splitWorkspaceRootRightInLayout,
-  splitPaneInLayout,
   stripEphemeralTabsFromLayout,
   type SplitGroup,
   type SplitNode,
@@ -148,14 +147,6 @@ interface WorkspaceLayoutStore {
   reconcileTabs: (workspaceKey: string, snapshot: WorkspaceTabSnapshot) => void;
   reorderTabs: (workspaceKey: string, tabIds: string[]) => void;
   getWorkspaceTabs: (workspaceKey: string) => WorkspaceTab[];
-  splitPane: (
-    workspaceKey: string,
-    input: {
-      tabId: string;
-      targetPaneId: string;
-      position: "left" | "right" | "top" | "bottom";
-    },
-  ) => string | null;
   splitPaneEmpty: (
     workspaceKey: string,
     input: {
@@ -1317,58 +1308,6 @@ export function createWorkspaceLayoutStore(
           return collectAllTabs(
             getWorkspaceLayout(get().layoutByWorkspace, normalizedWorkspaceKey).root,
           );
-        },
-        splitPane: (workspaceKey, input) => {
-          const normalizedWorkspaceKey = trimNonEmpty(workspaceKey);
-          const normalizedTabId = trimNonEmpty(input.tabId);
-          const normalizedTargetPaneId = trimNonEmpty(input.targetPaneId);
-          if (!normalizedWorkspaceKey || !normalizedTabId || !normalizedTargetPaneId) {
-            return null;
-          }
-
-          const currentLayout = getWorkspaceLayout(get().layoutByWorkspace, normalizedWorkspaceKey);
-          const explorerSidebarPaneId = resolveExplorerSidebarPaneId(
-            currentLayout,
-            get().explorerSidebarPaneIdByWorkspace[normalizedWorkspaceKey],
-          );
-          if (normalizedTargetPaneId === explorerSidebarPaneId) {
-            return null;
-          }
-          const movingTab = collectAllTabs(currentLayout.root).find(
-            (tab) => tab.tabId === normalizedTabId,
-          );
-          if (
-            !movingTab ||
-            !panelTargetSupportsHostForWorkspaceKey(
-              normalizedWorkspaceKey,
-              movingTab.target,
-              "main",
-            )
-          ) {
-            return null;
-          }
-
-          const result = splitPaneInLayout({
-            layout: currentLayout,
-            tabId: normalizedTabId,
-            targetPaneId: normalizedTargetPaneId,
-            position: input.position,
-            maxTreeDepth: MAX_TREE_DEPTH,
-            createNodeId: ids.createNodeId,
-          });
-          if (!result) {
-            return null;
-          }
-
-          set((state) => ({
-            ...withoutFocusRestoration(state, normalizedWorkspaceKey),
-            layoutByWorkspace: {
-              ...state.layoutByWorkspace,
-              [normalizedWorkspaceKey]: result.layout,
-            },
-          }));
-
-          return result.paneId;
         },
         splitPaneEmpty: (workspaceKey, input) => {
           const normalizedWorkspaceKey = trimNonEmpty(workspaceKey);

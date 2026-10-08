@@ -4,7 +4,11 @@ import {
   parseBrowserShortcutInput,
   shouldPublishBrowserShortcutPolicy,
 } from "./shortcuts";
-import { buildEffectiveBindings, resolveKeyboardShortcut } from "../../keyboard/keyboard-shortcuts";
+import {
+  buildEffectiveBindings,
+  parseBindingChord,
+  resolveKeyboardShortcut,
+} from "../../keyboard/keyboard-shortcuts";
 
 describe("buildBrowserKeyboardPolicy", () => {
   it("publishes only chord starts while no browser chord is pending", () => {
@@ -200,7 +204,16 @@ describe("buildBrowserKeyboardPolicy", () => {
   });
 
   it("marks editable-only exclusions for enforcement inside the guest", () => {
-    const bindings = buildEffectiveBindings({});
+    const [template] = buildEffectiveBindings({});
+    if (!template) throw new Error("expected at least one default binding");
+    // No default binding carries `editable: false` today, so build one.
+    const editableGuarded = {
+      ...template,
+      combo: "Cmd+Shift+ArrowLeft",
+      parsedChord: parseBindingChord("Cmd+Shift+ArrowLeft"),
+      when: { mac: true, editable: false as const },
+    };
+    const bindings = [editableGuarded];
     const policy = buildBrowserKeyboardPolicy({ bindings, isMac: true, isDesktop: true });
 
     expect(policy.prefixes).toContainEqual({

@@ -210,15 +210,6 @@ interface ClosePaneInLayoutInput {
   explorerSidebarPaneId?: string | null;
 }
 
-interface SplitPaneInLayoutInput {
-  layout: WorkspaceLayout;
-  tabId: string;
-  targetPaneId: string;
-  position: "left" | "right" | "top" | "bottom";
-  createNodeId: (prefix: WorkspaceLayoutNodeIdPrefix) => string;
-  maxTreeDepth: number;
-}
-
 interface SplitPaneInLayoutResult {
   layout: WorkspaceLayout;
   paneId: string;
@@ -1945,36 +1936,6 @@ export function reorderFocusedPaneTabsInLayout(
     focusedPaneId: layout.focusedPaneId,
     parentTabIdByTabId: input.layout.parentTabIdByTabId,
   });
-}
-
-export function splitPaneInLayout(input: SplitPaneInLayoutInput): SplitPaneInLayoutResult | null {
-  const layout = asInternalLayout(input.layout);
-  if (!findPaneById(layout.root, input.targetPaneId)) {
-    return null;
-  }
-  if (!findPaneContainingTab(layout.root, input.tabId)) {
-    return null;
-  }
-
-  const result = insertSplitInternal({
-    root: layout.root,
-    targetPaneId: input.targetPaneId,
-    tabId: input.tabId,
-    position: input.position,
-    createNodeId: input.createNodeId,
-  });
-  if (getTreeDepth(result.root) > input.maxTreeDepth) {
-    return null;
-  }
-
-  return {
-    paneId: result.newPaneId,
-    layout: withNormalizedParentTabMap({
-      root: result.root,
-      focusedPaneId: result.newPaneId,
-      parentTabIdByTabId: input.layout.parentTabIdByTabId,
-    }),
-  };
 }
 
 export function splitPaneEmptyInLayout(

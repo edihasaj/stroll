@@ -181,17 +181,6 @@ export const SHORTCUT_HELP_ROW_ORDER: Record<ShortcutSectionId, readonly string[
     "workspace-tab-jump-index",
     "workspace-tab-prev",
     "workspace-tab-next",
-    "workspace-pane-split-right",
-    "workspace-pane-split-down",
-    "workspace-pane-focus-left",
-    "workspace-pane-focus-right",
-    "workspace-pane-focus-up",
-    "workspace-pane-focus-down",
-    "workspace-pane-move-tab-left",
-    "workspace-pane-move-tab-right",
-    "workspace-pane-move-tab-up",
-    "workspace-pane-move-tab-down",
-    "workspace-pane-close",
   ],
   layout: [
     "toggle-left-sidebar",
@@ -227,17 +216,6 @@ const SHORTCUT_HELP_LABEL_KEYS: Record<string, string> = {
   "workspace-next": "settings.shortcuts.help.nextWorkspace",
   "workspace-tab-prev": "settings.shortcuts.help.previousTab",
   "workspace-tab-next": "settings.shortcuts.help.nextTab",
-  "workspace-pane-split-right": "settings.shortcuts.help.splitPaneRight",
-  "workspace-pane-split-down": "settings.shortcuts.help.splitPaneDown",
-  "workspace-pane-focus-left": "settings.shortcuts.help.focusPaneLeft",
-  "workspace-pane-focus-right": "settings.shortcuts.help.focusPaneRight",
-  "workspace-pane-focus-up": "settings.shortcuts.help.focusPaneUp",
-  "workspace-pane-focus-down": "settings.shortcuts.help.focusPaneDown",
-  "workspace-pane-move-tab-left": "settings.shortcuts.help.moveTabLeft",
-  "workspace-pane-move-tab-right": "settings.shortcuts.help.moveTabRight",
-  "workspace-pane-move-tab-up": "settings.shortcuts.help.moveTabUp",
-  "workspace-pane-move-tab-down": "settings.shortcuts.help.moveTabDown",
-  "workspace-pane-close": "settings.shortcuts.help.closePane",
   "workspace-terminal-new": "settings.shortcuts.help.newTerminal",
   "search-files": "settings.shortcuts.help.searchFiles",
   "toggle-command-center": "settings.shortcuts.help.toggleCommandCenter",
@@ -723,128 +701,6 @@ const SHORTCUT_BINDINGS: readonly ShortcutBinding[] = [
     },
   },
 
-  // --- Pane management (mac only) ---
-  {
-    id: "workspace-pane-split-right-cmd-backslash",
-    action: "workspace.pane.split.right",
-    combo: "Cmd+\\",
-    when: { mac: true, commandCenter: false },
-    help: {
-      id: "workspace-pane-split-right",
-      section: "tabs-panes",
-      label: "Split pane right",
-    },
-  },
-  {
-    id: "workspace-pane-split-down-cmd-shift-backslash",
-    action: "workspace.pane.split.down",
-    combo: "Cmd+Shift+\\",
-    when: { mac: true, commandCenter: false },
-    help: {
-      id: "workspace-pane-split-down",
-      section: "tabs-panes",
-      label: "Split pane down",
-    },
-  },
-  {
-    id: "workspace-pane-focus-left-cmd-shift-left",
-    action: "workspace.pane.focus.left",
-    combo: "Cmd+Shift+ArrowLeft",
-    when: { mac: true, commandCenter: false, editable: false },
-    help: {
-      id: "workspace-pane-focus-left",
-      section: "tabs-panes",
-      label: "Focus pane left",
-    },
-  },
-  {
-    id: "workspace-pane-focus-right-cmd-shift-right",
-    action: "workspace.pane.focus.right",
-    combo: "Cmd+Shift+ArrowRight",
-    when: { mac: true, commandCenter: false, editable: false },
-    help: {
-      id: "workspace-pane-focus-right",
-      section: "tabs-panes",
-      label: "Focus pane right",
-    },
-  },
-  {
-    id: "workspace-pane-focus-up-cmd-shift-up",
-    action: "workspace.pane.focus.up",
-    combo: "Cmd+Shift+ArrowUp",
-    when: { mac: true, commandCenter: false, editable: false },
-    help: {
-      id: "workspace-pane-focus-up",
-      section: "tabs-panes",
-      label: "Focus pane up",
-    },
-  },
-  {
-    id: "workspace-pane-focus-down-cmd-shift-down",
-    action: "workspace.pane.focus.down",
-    combo: "Cmd+Shift+ArrowDown",
-    when: { mac: true, commandCenter: false, editable: false },
-    help: {
-      id: "workspace-pane-focus-down",
-      section: "tabs-panes",
-      label: "Focus pane down",
-    },
-  },
-  {
-    id: "workspace-pane-move-tab-left-cmd-shift-alt-left",
-    action: "workspace.pane.move-tab.left",
-    combo: "Cmd+Alt+Shift+ArrowLeft",
-    when: { mac: true, commandCenter: false },
-    help: {
-      id: "workspace-pane-move-tab-left",
-      section: "tabs-panes",
-      label: "Move tab left",
-    },
-  },
-  {
-    id: "workspace-pane-move-tab-right-cmd-shift-alt-right",
-    action: "workspace.pane.move-tab.right",
-    combo: "Cmd+Alt+Shift+ArrowRight",
-    when: { mac: true, commandCenter: false },
-    help: {
-      id: "workspace-pane-move-tab-right",
-      section: "tabs-panes",
-      label: "Move tab right",
-    },
-  },
-  {
-    id: "workspace-pane-move-tab-up-cmd-shift-alt-up",
-    action: "workspace.pane.move-tab.up",
-    combo: "Cmd+Alt+Shift+ArrowUp",
-    when: { mac: true, commandCenter: false },
-    help: {
-      id: "workspace-pane-move-tab-up",
-      section: "tabs-panes",
-      label: "Move tab up",
-    },
-  },
-  {
-    id: "workspace-pane-move-tab-down-cmd-shift-alt-down",
-    action: "workspace.pane.move-tab.down",
-    combo: "Cmd+Alt+Shift+ArrowDown",
-    when: { mac: true, commandCenter: false },
-    help: {
-      id: "workspace-pane-move-tab-down",
-      section: "tabs-panes",
-      label: "Move tab down",
-    },
-  },
-  {
-    id: "workspace-pane-close-cmd-shift-w",
-    action: "workspace.pane.close",
-    combo: "Cmd+Shift+W",
-    when: { mac: true, commandCenter: false },
-    help: {
-      id: "workspace-pane-close",
-      section: "tabs-panes",
-      label: "Close pane",
-    },
-  },
   // --- New terminal ---
   {
     id: "workspace-terminal-new-cmd-shift-t-mac",
@@ -1274,11 +1130,11 @@ export function buildEffectiveBindings(overrides: ShortcutOverrides): ParsedShor
 
 /**
  * `editable: false` is a statement about a binding's *default* combo, not
- * about its action: the pane-focus defaults carry it so that Cmd+Shift+Arrow
- * keeps selecting text in a field instead of moving pane focus. An override
- * replaces that combo, so the guard no longer describes anything and has to
- * go, the same way `defaultDisplayKeys` does — otherwise the combo the user
- * picked in Settings silently refuses to fire wherever they are typing.
+ * about its action: it keeps a combo such as Cmd+Shift+Arrow selecting text in
+ * a field instead of firing the action. An override replaces that combo, so the
+ * guard no longer describes anything and has to go, the same way
+ * `defaultDisplayKeys` does — otherwise the combo the user picked in Settings
+ * silently refuses to fire wherever they are typing.
  *
  * The other guards stay. Platform, command center, terminal and focus scope
  * are properties of the action and of where it makes sense, and none of them

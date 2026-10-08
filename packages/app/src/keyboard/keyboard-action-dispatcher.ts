@@ -31,17 +31,6 @@ export type KeyboardActionId =
   | "workspace.tab.close-left"
   | "workspace.tab.close-right"
   | "workspace.tab.close-others"
-  | "workspace.pane.split.right"
-  | "workspace.pane.split.down"
-  | "workspace.pane.focus.left"
-  | "workspace.pane.focus.right"
-  | "workspace.pane.focus.up"
-  | "workspace.pane.focus.down"
-  | "workspace.pane.move-tab.left"
-  | "workspace.pane.move-tab.right"
-  | "workspace.pane.move-tab.up"
-  | "workspace.pane.move-tab.down"
-  | "workspace.pane.close"
   | "workspace.focus.toggle"
   | "workspace.full-view.toggle"
   | "workspace.terminal.new"
@@ -90,17 +79,6 @@ export type KeyboardActionDefinition =
   | { id: "workspace.tab.close-left"; scope: KeyboardActionScope }
   | { id: "workspace.tab.close-right"; scope: KeyboardActionScope }
   | { id: "workspace.tab.close-others"; scope: KeyboardActionScope }
-  | { id: "workspace.pane.split.right"; scope: KeyboardActionScope }
-  | { id: "workspace.pane.split.down"; scope: KeyboardActionScope }
-  | { id: "workspace.pane.focus.left"; scope: KeyboardActionScope }
-  | { id: "workspace.pane.focus.right"; scope: KeyboardActionScope }
-  | { id: "workspace.pane.focus.up"; scope: KeyboardActionScope }
-  | { id: "workspace.pane.focus.down"; scope: KeyboardActionScope }
-  | { id: "workspace.pane.move-tab.left"; scope: KeyboardActionScope }
-  | { id: "workspace.pane.move-tab.right"; scope: KeyboardActionScope }
-  | { id: "workspace.pane.move-tab.up"; scope: KeyboardActionScope }
-  | { id: "workspace.pane.move-tab.down"; scope: KeyboardActionScope }
-  | { id: "workspace.pane.close"; scope: KeyboardActionScope }
   | { id: "workspace.focus.toggle"; scope: KeyboardActionScope }
   | { id: "workspace.full-view.toggle"; scope: KeyboardActionScope }
   | { id: "workspace.terminal.new"; scope: KeyboardActionScope }
