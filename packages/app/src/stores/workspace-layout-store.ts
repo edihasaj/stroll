@@ -849,6 +849,25 @@ export function createWorkspaceLayoutStore(
             return rememberedPane.id;
           }
 
+          // A pane created outside this helper (manual "Split pane right", a restored
+          // layout from before this workspace ever called ensureSidePane, ...) is
+          // already a side pane in truth, even though sidePaneIdByWorkspace never
+          // recorded it. Reuse the first ordinary non-main pane instead of splitting
+          // again, which would otherwise fragment the layout into a third pane no
+          // caller asked for every time memory is stale.
+          const existingSidePane = collectAllPanes(layout.root).find(
+            (pane) => pane.id !== DEFAULT_PANE_ID && pane.id !== explorerPaneId,
+          );
+          if (existingSidePane) {
+            set((state) => ({
+              sidePaneIdByWorkspace: {
+                ...state.sidePaneIdByWorkspace,
+                [normalizedWorkspaceKey]: existingSidePane.id,
+              },
+            }));
+            return existingSidePane.id;
+          }
+
           const result = splitWorkspaceRootRightInLayout({
             layout,
             maxTreeDepth: MAX_TREE_DEPTH,

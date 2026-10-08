@@ -725,6 +725,47 @@ describe("workspace-layout-store tree transforms", () => {
     });
   });
 
+  it("ensureSidePane reuses an existing ordinary pane instead of splitting again", () => {
+    // A pane created outside ensureSidePane (the "Split pane right" command, a layout
+    // restored from before this workspace ever called ensureSidePane, ...) never
+    // recorded itself into sidePaneIdByWorkspace. ensureSidePane must still treat it as
+    // the side pane instead of splitting the root again and fragmenting the layout into
+    // a third pane.
+    const store = createWorkspaceLayoutStore(createDeterministicWorkspaceLayoutIds());
+    const workspaceKey = createWorkspaceKey();
+    const manuallySplitPaneId = "manually-split-pane";
+    store.setState({
+      layoutByWorkspace: {
+        [workspaceKey]: {
+          root: {
+            kind: "group",
+            group: {
+              id: "workspace-root",
+              direction: "horizontal",
+              sizes: [0.5, 0.5],
+              children: [
+                createPane({ id: "main", tabIds: ["tab-main"] }),
+                createPane({ id: manuallySplitPaneId, tabIds: ["tab-agent"] }),
+              ],
+            },
+          },
+          focusedPaneId: "main",
+        },
+      },
+      sidePaneIdByWorkspace: {},
+    });
+
+    const paneId = store.getState().ensureSidePane(workspaceKey);
+
+    expect(paneId).toBe(manuallySplitPaneId);
+    const layout = store.getState().layoutByWorkspace[workspaceKey];
+    expect(collectAllPanes(layout.root).map((pane) => pane.id)).toEqual([
+      "main",
+      manuallySplitPaneId,
+    ]);
+    expect(store.getState().sidePaneIdByWorkspace[workspaceKey]).toBe(manuallySplitPaneId);
+  });
+
   it("removePaneFromTree unwraps single-child groups and renormalizes siblings", () => {
     const root: SplitNode = {
       kind: "group",
