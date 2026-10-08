@@ -374,7 +374,16 @@ test("copying an assistant selection preserves Markdown structure and links", as
   page,
 }) => {
   await page.addInitScript(() => {
-    localStorage.setItem("@paseo:app-settings", JSON.stringify({ uiFontFamily: "serif" }));
+    // The dedicated "Prose font" setting is `proseFont`, not `uiFontFamily` (the interface font).
+    // Only `proseFont: "serif"` resolves through DEFAULT_SERIF_FONT_STACK below. The
+    // prose-font-modern migration (hooks/use-settings/migrations.ts) flips a stored "serif" back
+    // to "system" the first time settings load, to tell an old materialized default apart from a
+    // deliberate pick; mark it already applied so this explicit pick sticks.
+    localStorage.setItem("@paseo:app-settings", JSON.stringify({ proseFont: "serif" }));
+    localStorage.setItem(
+      "@paseo:settings-migrations",
+      JSON.stringify({ applied: ["prose-font-modern"] }),
+    );
   });
   const agent = await seedMockAgentWorkspace({
     repoPrefix: "assistant-selection-copy-",
@@ -649,7 +658,7 @@ test("copying an assistant selection preserves Markdown structure and links", as
     const typescriptFence = assistantMessage.locator('[data-paseo-markdown-language="typescript"]');
     // The button is opacity 0 / pointerEvents none until the fence is hovered.
     await typescriptFence.hover();
-    await typescriptFence.locator("[data-paseo-markdown-ignore]").click();
+    await typescriptFence.getByRole("button", { name: "Copy code" }).click();
 
     expect(await readPlainClipboard(page)).toBe('const answer = "yes";\n  return answer;');
 
@@ -657,7 +666,7 @@ test("copying an assistant selection preserves Markdown structure and links", as
     // so stripping only the terminal one still hands the terminal an executable line.
     const bashFence = assistantMessage.locator('[data-paseo-markdown-language="bash"]');
     await bashFence.hover();
-    await bashFence.locator("[data-paseo-markdown-ignore]").click();
+    await bashFence.getByRole("button", { name: "Copy code" }).click();
 
     expect(await readPlainClipboard(page)).toBe("echo trailing");
   } finally {
