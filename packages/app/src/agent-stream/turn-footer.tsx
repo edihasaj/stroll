@@ -148,26 +148,37 @@ const WorkingIndicator = memo(function WorkingIndicator({
 }) {
   const { t } = useTranslation();
   const active = useRetainedPanelActive();
+  // `RunningTurnFooter` only mounts this while the turn is already running, so the shimmer
+  // label itself never waits on `inFlightTurnStartedAt` — only the elapsed-time half does.
+  // A brand-new agent's first prompt goes active the instant the user submits it, before the
+  // daemon's `turn_started` round trip supplies a real `startedAt` ("keeps submission-only
+  // activity untimed", turn-liveness.test.ts); gating the whole row on that timestamp left
+  // the footer painted-but-empty for the frames in between (the "footer-ownership race").
+  // Showing the label right away and fading in "· <elapsed>" once the timestamp lands keeps
+  // both invariants: the running indicator appears atomically, and the clock stays untimed
+  // until the server confirms when the turn actually started.
   return (
     <View style={stylesheet.turnFooterContent}>
       {/* Match the completed-turn footer: actions precede timing metadata. The shimmer text
           itself is the running indicator — no separate spinner (docs/design.md §4/§16's
           "Codex parity" live-footer shape). */}
       {onForkInFlightTurn ? <AssistantForkMenu onFork={onForkInFlightTurn} /> : null}
-      {inFlightTurnStartedAt ? (
-        <View style={stylesheet.workingStatus}>
-          <WorkingShimmerText style={stylesheet.workingLabel}>
-            {formatLiveActivity(t, activity)}
-          </WorkingShimmerText>
-          <Text style={stylesheet.workingDot}>·</Text>
-          <LiveElapsed
-            startedAt={inFlightTurnStartedAt}
-            active={active}
-            style={stylesheet.workingElapsed}
-            testID="turn-working-elapsed"
-          />
-        </View>
-      ) : null}
+      <View style={stylesheet.workingStatus}>
+        <WorkingShimmerText style={stylesheet.workingLabel}>
+          {formatLiveActivity(t, activity)}
+        </WorkingShimmerText>
+        {inFlightTurnStartedAt ? (
+          <>
+            <Text style={stylesheet.workingDot}>·</Text>
+            <LiveElapsed
+              startedAt={inFlightTurnStartedAt}
+              active={active}
+              style={stylesheet.workingElapsed}
+              testID="turn-working-elapsed"
+            />
+          </>
+        ) : null}
+      </View>
     </View>
   );
 });
