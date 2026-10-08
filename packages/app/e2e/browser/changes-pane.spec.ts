@@ -779,9 +779,12 @@ test("Changes keeps review navigation and controls inside its workspace tab", as
   await expect(diffHeaderForPath(visiblePanel, "src/zz-deleted.ts")).toHaveAccessibleName(
     "src/zz-deleted.ts, +0, -1",
   );
-  await expect(visiblePanel.getByTestId("changes-primary-cta")).toHaveCount(0);
-  await expect(page.getByTestId("changes-primary-cta")).toHaveCount(1);
-  await expect(page.getByTestId("changes-primary-cta")).toContainText("Commit");
+  // The primary Commit CTA moved out of the diff panel onto the workspace header as an
+  // accent-filled pill (e4f20bae7); the diff panel's own split button stays menuOnly so Commit
+  // isn't shown twice (actions-split-button.tsx).
+  await expect(visiblePanel.getByTestId("workspace-header-commit-pill")).toHaveCount(0);
+  await expect(page.getByTestId("workspace-header-commit-pill")).toHaveCount(1);
+  await expect(page.getByTestId("workspace-header-commit-pill")).toContainText("Commit");
   await expect(visiblePanel.getByTestId("diff-file-0-body")).toBeVisible();
   await visiblePanel.getByTestId("diff-file-0-toggle").click();
   await expect(visiblePanel.getByTestId("diff-file-0-body")).not.toBeVisible();
