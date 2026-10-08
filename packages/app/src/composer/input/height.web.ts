@@ -133,7 +133,13 @@ export function useComposerHeight({
   // Reanimated shared value, since the card's height here is a DOM box size RN Web already
   // renders as a CSS `height`, not an entering/exiting surface. `useAppReducedMotion()` still
   // gates it — zero duration collapses it back to the instant behavior this hook always had.
-  const style = useMemo(() => ({ height, minHeight, maxHeight }), [height, maxHeight, minHeight]);
+  // `flexShrink: 0` keeps that promise: the textarea's own style shrinks by default, so without
+  // it the easing wrapper squeezes the textarea back to the old height for the whole ease and
+  // the new line scrolls out of view until the card catches up.
+  const style = useMemo(
+    () => ({ height, minHeight, maxHeight, flexShrink: 0 }),
+    [height, maxHeight, minHeight],
+  );
   const wrapperStyle = useMemo<TextStyle>(
     () =>
       ({

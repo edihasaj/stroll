@@ -120,8 +120,10 @@ test("blank composer lines remain present and keep their measured height", async
     });
 
     await test.step("grow on the first paint of a newline and stay stable when it receives a glyph", async () => {
+      // Same race as the step above: read the height only once this fill has been measured.
       await composer.fill("alpha\nbeta");
-      const filledLineHeight = await composerHeight(page);
+      await expect(composer).toHaveValue("alpha\nbeta");
+      const filledLineHeight = await waitForStableComposerHeight(page);
       const trailingLineHeight = await pressComposerKeyAndMeasureNextPaint(page, "Shift+Enter");
       expect(trailingLineHeight).toBeGreaterThan(filledLineHeight);
 

@@ -110,6 +110,8 @@ describe("useComposerHeight (web)", () => {
     // The textarea and its wrapper always target the same height — only the wrapper eases into
     // it. See the module comment on `wrapperStyle` in height.web.ts.
     expect(after.wrapperStyle?.height).toBe(after.style.height);
+    // The easing wrapper must not squeeze the textarea back to its old height.
+    expect(after.style.flexShrink).toBe(0);
   });
 
   it("does not touch height when the new text measures to the same bounded height (the no-jank gate)", () => {
