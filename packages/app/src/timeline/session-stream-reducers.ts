@@ -736,6 +736,17 @@ function mergeOlderTimelinePage(input: {
   startSeq: number;
   endSeq: number;
 }): StreamItem[] {
+  // selectEntriesOwnedByTimelinePage's COMPAT(projectedBeforePageOwnership) shim can
+  // filter a projected "before" page's own entries down to fewer than its declared
+  // [startSeq, endSeq] range covers. An existing tail item whose seq falls in that
+  // declared range is only safe to drop here when the incoming page actually supplies a
+  // replacement at that seq - otherwise the range claims coverage the page never
+  // delivered, and dropping unconditionally loses the item instead of superseding it.
+  const pageSeqs = new Set(
+    input.page
+      .map((item) => item.timelineCursor?.seq)
+      .filter((seq): seq is number => seq !== undefined),
+  );
   const retainedBefore: StreamItem[] = [];
   const currentAtOrAfterPage: StreamItem[] = [];
   for (const item of input.currentTail) {
@@ -744,7 +755,7 @@ function mergeOlderTimelinePage(input: {
       currentAtOrAfterPage.push(item);
     } else if (cursor.seq < input.startSeq) {
       retainedBefore.push(item);
-    } else if (cursor.seq > input.endSeq) {
+    } else if (cursor.seq > input.endSeq || !pageSeqs.has(cursor.seq)) {
       currentAtOrAfterPage.push(item);
     }
   }

@@ -2655,6 +2655,53 @@ describe("processTimelineResponse", () => {
     expect(result.older).toBe("available");
   });
 
+  it("keeps an already-loaded item an older projected page's declared range does not actually supply", () => {
+    // An old daemon's "projected before page" pagination can declare a wider
+    // [startCursor, endCursor] range than the entries it actually delivers for that
+    // page (selectEntriesOwnedByTimelinePage's COMPAT(projectedBeforePageOwnership)
+    // shim filters the rest out). An already-loaded tail item whose seq falls inside
+    // that declared range must survive unless this page actually supplies a
+    // replacement at that exact seq - otherwise the range's claimed coverage silently
+    // deletes it instead of superseding it.
+    const currentTail: StreamItem[] = [
+      {
+        kind: "assistant_message",
+        id: "assistant-50",
+        messageId: "assistant-50",
+        text: "older assistant block",
+        timestamp: new Date(50000),
+        timelineCursor: { epoch: "epoch-1", seq: 50 },
+      },
+      {
+        kind: "user_message",
+        id: "current-81",
+        text: "current-81",
+        timestamp: new Date(81000),
+        timelineCursor: { epoch: "epoch-1", seq: 81 },
+      },
+    ];
+
+    const result = processTimelineResponse({
+      ...baseTimelineInput,
+      currentTail,
+      currentCursor: { epoch: "epoch-1", startSeq: 81, endSeq: 100 },
+      payload: {
+        ...baseTimelineInput.payload,
+        direction: "before",
+        projection: "projected",
+        epoch: "epoch-1",
+        startCursor: { seq: 41 },
+        endCursor: { seq: 80 },
+        hasOlder: true,
+        entries: [makeTimelineEntry(45, "owned by this page", "user_message")],
+      },
+    });
+
+    expect(getAssistantTexts(result.tail)).toEqual(["older assistant block"]);
+    expect(getUserTexts(result.tail)).toEqual(["owned by this page", "current-81"]);
+    expect(result.cursor).toEqual({ epoch: "epoch-1", startSeq: 41, endSeq: 100 });
+  });
+
   it("advances through an older projected page with no anchored entries", () => {
     const currentTail: StreamItem[] = [
       {
