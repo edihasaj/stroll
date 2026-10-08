@@ -141,49 +141,57 @@ test("expired Pi tokens are unavailable without calling usage or refreshing", as
   ).toBe("unavailable");
 });
 
+// Each case writes a fresh SQLite file and reads it back read-only. On Windows runners the first
+// open of a new database file takes several seconds (file scanning), well past the 5 s default.
+const SQLITE_STORE_TEST_TIMEOUT_MS = 20_000;
+
 for (const location of ["default", "profile", "xdg", "override", "config"]) {
-  test(`OMP discovers enabled OAuth rows including expired logins in ${location} store read-only`, async () => {
-    let path = join(home, ".omp", "agent", "agent.db");
-    let env: NodeJS.ProcessEnv = { OMP_AUTH_BROKER_URL: "https://broker.test" };
-    if (location === "profile") {
-      env.OMP_PROFILE = "work";
-      path = join(home, ".omp", "profiles", "work", "agent", "agent.db");
-    }
-    if (location === "xdg") {
-      env.XDG_DATA_HOME = join(home, "data");
-      env.PI_PROFILE = "work";
-      path = join(home, "data", "omp", "profiles", "work", "agent.db");
-    }
-    if (location === "override") {
-      env.PI_CODING_AGENT_DIR = join(home, "custom");
-      path = join(home, "custom", "agent.db");
-    }
-    if (location === "config") {
-      env.PI_CONFIG_DIR = "custom-config";
-      path = join(home, "custom-config", "agent", "agent.db");
-    }
-    await database(path);
-    const before = await readFile(path);
-    const inputs = await logins(lookup(env));
-    expect(inputs).toEqual([
-      { route: { store: "omp", path, credentialId: 1 } },
-      { route: { store: "omp", path, credentialId: 2 } },
-    ]);
-    expect(await accountIdentity(inputs[0]!, env)).toEqual({ key: "pi-account.pi-org" });
-    expect(
-      (
-        await fetchUsage(
-          inputs[0]!,
-          async (_url, init) => {
-            expect(new Headers(init?.headers).get("Authorization")).toBe("Bearer fixture-omp");
-            return new Response("{}", { status: 401 });
-          },
-          lookup(env),
-        )
-      ).status,
-    ).toBe("unavailable");
-    expect(await readFile(path)).toEqual(before);
-  });
+  test(
+    `OMP discovers enabled OAuth rows including expired logins in ${location} store read-only`,
+    async () => {
+      let path = join(home, ".omp", "agent", "agent.db");
+      let env: NodeJS.ProcessEnv = { OMP_AUTH_BROKER_URL: "https://broker.test" };
+      if (location === "profile") {
+        env.OMP_PROFILE = "work";
+        path = join(home, ".omp", "profiles", "work", "agent", "agent.db");
+      }
+      if (location === "xdg") {
+        env.XDG_DATA_HOME = join(home, "data");
+        env.PI_PROFILE = "work";
+        path = join(home, "data", "omp", "profiles", "work", "agent.db");
+      }
+      if (location === "override") {
+        env.PI_CODING_AGENT_DIR = join(home, "custom");
+        path = join(home, "custom", "agent.db");
+      }
+      if (location === "config") {
+        env.PI_CONFIG_DIR = "custom-config";
+        path = join(home, "custom-config", "agent", "agent.db");
+      }
+      await database(path);
+      const before = await readFile(path);
+      const inputs = await logins(lookup(env));
+      expect(inputs).toEqual([
+        { route: { store: "omp", path, credentialId: 1 } },
+        { route: { store: "omp", path, credentialId: 2 } },
+      ]);
+      expect(await accountIdentity(inputs[0]!, env)).toEqual({ key: "pi-account.pi-org" });
+      expect(
+        (
+          await fetchUsage(
+            inputs[0]!,
+            async (_url, init) => {
+              expect(new Headers(init?.headers).get("Authorization")).toBe("Bearer fixture-omp");
+              return new Response("{}", { status: 401 });
+            },
+            lookup(env),
+          )
+        ).status,
+      ).toBe("unavailable");
+      expect(await readFile(path)).toEqual(before);
+    },
+    SQLITE_STORE_TEST_TIMEOUT_MS,
+  );
 }
 
 test("missing SQLite skips only OMP", async () => {
