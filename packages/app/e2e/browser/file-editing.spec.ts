@@ -398,9 +398,9 @@ test.describe("CodeMirror workspace file editing", () => {
     await content.click();
     const cursor = editorHost.locator(".cm-cursor-primary");
     await expect(cursor).toBeVisible();
-    // Dark theme foreground is zinc-200, not pure white — see theme.ts buildDarkSemanticColors:
-    // "Pure white on a near-black surface reads as glare at prose sizes."
-    await expect(cursor).toHaveCSS("border-left-color", "rgb(228, 228, 231)");
+    // Dark theme foreground is the Codex monochrome palette's #ececec (8e71dbc71, theme.ts
+    // defaultDarkColors), not pure white — glare at prose sizes — and not generic zinc-200 either.
+    await expect(cursor).toHaveCSS("border-left-color", "rgb(236, 236, 236)");
 
     const initialModeBox = await modeControl.boundingBox();
     expect(initialModeBox).not.toBeNull();
