@@ -203,72 +203,82 @@ function ProviderRow({
     },
     [def.id, onToggleEnabled],
   );
-  const rowStyle = useCallback(
-    ({ pressed, hovered }: PressableStateCallbackType & { hovered?: boolean }) => [
+  // Hover and press live on the row container (docs/hover.md), so the highlight still spans the
+  // whole row now that the details button no longer wraps the switch and the actions menu.
+  const [isHovered, setIsHovered] = useState(false);
+  const [isPressed, setIsPressed] = useState(false);
+  const handlePointerEnter = useCallback(() => setIsHovered(true), []);
+  const handlePointerLeave = useCallback(() => setIsHovered(false), []);
+  const handlePressIn = useCallback(() => setIsPressed(true), []);
+  const handlePressOut = useCallback(() => setIsPressed(false), []);
+  const rowStyle = useMemo(
+    () => [
       settingsStyles.row,
       !isFirst && settingsStyles.rowBorder,
       styles.row,
-      hovered && styles.rowHovered,
-      pressed && styles.rowPressed,
+      isHovered && styles.rowHovered,
+      isPressed && styles.rowPressed,
     ],
-    [isFirst],
+    [isFirst, isHovered, isPressed],
   );
 
+  // A plain container rather than one button around everything: the switch and the actions menu
+  // are controls of their own, and a button cannot contain other buttons.
   return (
-    <Pressable
-      style={rowStyle}
-      onPress={handlePress}
-      accessibilityRole="button"
-      accessibilityLabel={t("settings.providers.providerDetails", { name: def.label })}
-    >
-      {({ hovered }: PressableStateCallbackType & { hovered?: boolean }) => (
-        <>
-          <View style={styles.rowContent}>
-            <ChevronRight
-              size={theme.iconSize.sm}
-              color={hovered ? theme.colors.foreground : theme.colors.foregroundMuted}
-            />
-            <ProviderIcon size={theme.iconSize.md} color={theme.colors.foreground} />
-            <View style={styles.textColumn}>
-              <View style={styles.titleRow}>
-                <Text style={settingsStyles.rowTitle} numberOfLines={1}>
-                  {def.label}
-                </Text>
-                {!isCompact ? <Text style={styles.separator}>·</Text> : null}
-                <StatusIndicator status={providerStatus} compact={isCompact} />
-              </View>
-              {providerError && !isCompact ? (
-                <Text style={styles.errorText} numberOfLines={3}>
-                  {providerError}
-                </Text>
-              ) : null}
+    <View style={rowStyle} onPointerEnter={handlePointerEnter} onPointerLeave={handlePointerLeave}>
+      <Pressable
+        style={styles.rowDetails}
+        onPress={handlePress}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        accessibilityRole="button"
+        accessibilityLabel={t("settings.providers.providerDetails", { name: def.label })}
+      >
+        <View style={styles.rowContent}>
+          <ChevronRight
+            size={theme.iconSize.sm}
+            color={isHovered ? theme.colors.foreground : theme.colors.foregroundMuted}
+          />
+          <ProviderIcon size={theme.iconSize.md} color={theme.colors.foreground} />
+          <View style={styles.textColumn}>
+            <View style={styles.titleRow}>
+              <Text style={settingsStyles.rowTitle} numberOfLines={1}>
+                {def.label}
+              </Text>
+              {!isCompact ? <Text style={styles.separator}>·</Text> : null}
+              <StatusIndicator status={providerStatus} compact={isCompact} />
             </View>
+            {providerError && !isCompact ? (
+              <Text style={styles.errorText} numberOfLines={3}>
+                {providerError}
+              </Text>
+            ) : null}
           </View>
-          <View style={styles.trailingControls}>
-            <Switch
-              value={enabled}
-              onValueChange={handleToggleValueChange}
-              disabled={isToggling || isRemoving}
-              accessibilityLabel={t("settings.providers.enableProvider", { name: def.label })}
+        </View>
+      </Pressable>
+      <View style={styles.trailingControls}>
+        <Switch
+          value={enabled}
+          onValueChange={handleToggleValueChange}
+          disabled={isToggling || isRemoving}
+          accessibilityLabel={t("settings.providers.enableProvider", { name: def.label })}
+        />
+        <View style={styles.menuSlot}>
+          {canRemove ? (
+            <ProviderActionsMenu
+              providerId={def.id}
+              providerLabel={def.label}
+              isRemoving={isRemoving}
+              iconSize={theme.iconSize.sm}
+              foregroundColor={theme.colors.foreground}
+              foregroundMutedColor={theme.colors.foregroundMuted}
+              dangerColor={theme.colors.statusDanger}
+              onRemove={onRemove}
             />
-            <View style={styles.menuSlot}>
-              {canRemove ? (
-                <ProviderActionsMenu
-                  providerId={def.id}
-                  providerLabel={def.label}
-                  isRemoving={isRemoving}
-                  iconSize={theme.iconSize.sm}
-                  foregroundColor={theme.colors.foreground}
-                  foregroundMutedColor={theme.colors.foregroundMuted}
-                  dangerColor={theme.colors.statusDanger}
-                  onRemove={onRemove}
-                />
-              ) : null}
-            </View>
-          </View>
-        </>
-      )}
-    </Pressable>
+          ) : null}
+        </View>
+      </View>
+    </View>
   );
 }
 
@@ -497,6 +507,14 @@ const styles = StyleSheet.create((theme) => ({
   },
   rowPressed: {
     backgroundColor: theme.colors.surface3,
+  },
+  // The details button fills the row up to the trailing controls, so the whole left side stays the
+  // press target it was when the row itself was the button.
+  rowDetails: {
+    flex: 1,
+    minWidth: 0,
+    alignSelf: "stretch",
+    justifyContent: "center",
   },
   rowContent: {
     flex: 1,
