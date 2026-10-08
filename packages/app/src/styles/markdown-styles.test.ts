@@ -21,7 +21,7 @@ describe("createMarkdownStyles", () => {
     });
   });
 
-  it("reads the Prose font token for body copy, headings, tables, and list markers", () => {
+  it("reads the Prose font token for body copy, headings, tables, list markers, and inline emphasis", () => {
     const proseTheme = {
       ...darkTheme,
       fontFamily: { ...darkTheme.fontFamily, content: "serif-test-stack" },
@@ -35,6 +35,10 @@ describe("createMarkdownStyles", () => {
     expect(styles.td.fontFamily).toBe("serif-test-stack");
     expect(styles.bullet_list_icon.fontFamily).toBe("serif-test-stack");
     expect(styles.ordered_list_icon.fontFamily).toBe("serif-test-stack");
+    // Bold, italic, and strikethrough are inline modifiers on the same prose, not a font change.
+    expect(styles.strong.fontFamily).toBe("serif-test-stack");
+    expect(styles.em.fontFamily).toBe("serif-test-stack");
+    expect(styles.s.fontFamily).toBe("serif-test-stack");
   });
 
   it("keeps code nodes on the mono font regardless of the Prose font token", () => {

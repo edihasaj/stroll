@@ -144,16 +144,19 @@ export function createMarkdownStyles(theme: Theme) {
 
     strong: {
       ...webSelectableTextStyle,
+      fontFamily: theme.fontFamily.content,
       fontWeight: theme.fontWeight.medium,
     },
 
     em: {
       ...webSelectableTextStyle,
+      fontFamily: theme.fontFamily.content,
       fontStyle: "italic" as const,
     },
 
     s: {
       ...webSelectableTextStyle,
+      fontFamily: theme.fontFamily.content,
       textDecorationLine: "line-through" as const,
       color: theme.colors.foregroundMuted,
     },
