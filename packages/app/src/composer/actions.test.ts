@@ -29,6 +29,7 @@ import {
   pickAndPersistImages,
   queueComposerMessage,
   removeComposerAttachmentAtIndex,
+  sendAgentQueuePromptNow,
   sendQueuedComposerMessageNow,
   toggleForgeAttachment,
   toggleForgeAttachmentFromPicker,
@@ -884,6 +885,90 @@ describe("sendQueuedComposerMessageNow", () => {
     expect(result).toEqual({ status: "failed", errorMessage: "network down" });
     const state = queue.state.get("agent");
     expect(state?.map((m) => m.id)).toEqual(["msg-1", "msg-2"]);
+  });
+});
+
+describe("sendAgentQueuePromptNow", () => {
+  it("returns missing without beginning a submission when the prompt is already gone", async () => {
+    const stream = createFakeStream();
+    const sendNow = vi.fn();
+
+    const result = await sendAgentQueuePromptNow({
+      agentId: "agent",
+      promptId: "prompt-1",
+      promptText: undefined,
+      submission: stream,
+      sendNow,
+    });
+
+    expect(result).toEqual({ status: "missing" });
+    expect(sendNow).not.toHaveBeenCalled();
+    expect(stream.tail.get("agent") ?? []).toEqual([]);
+  });
+
+  it("renders the queued text optimistically before the daemon round-trip settles, then accepts it", async () => {
+    const stream = createFakeStream();
+    let visibleDuringRoundTrip: StreamItem[] | undefined;
+
+    const result = await sendAgentQueuePromptNow({
+      agentId: "agent",
+      promptId: "prompt-1",
+      promptText: "stay running",
+      turnId: "turn-1",
+      submission: stream,
+      sendNow: async () => {
+        // The regression this guards: the daemon-owned queue's send-now RPC has no stream
+        // event of its own until the daemon round-trips, so the row must already be in the
+        // transcript by the time this resolves, not after.
+        visibleDuringRoundTrip = stream.tail.get("agent");
+        return { error: null, dispatch: "steered" };
+      },
+    });
+
+    expect(visibleDuringRoundTrip).toEqual([
+      expect.objectContaining({
+        kind: "user_message",
+        clientMessageId: "prompt-1",
+        text: "stay running",
+        turnId: "turn-1",
+      }),
+    ]);
+    expect(result).toEqual({ status: "submitted" });
+    // Still present after accept: acceptMessageSubmission only clears a submission that a
+    // canonical echo already marked providerAcknowledged; it stays until history catches up.
+    expect(stream.tail.get("agent")).toHaveLength(1);
+  });
+
+  it("withdraws the optimistic row when a steer cannot be admitted and lands back in the queue", async () => {
+    const stream = createFakeStream();
+
+    const result = await sendAgentQueuePromptNow({
+      agentId: "agent",
+      promptId: "prompt-1",
+      promptText: "stay running",
+      submission: stream,
+      sendNow: async () => ({ error: null, dispatch: "queued_fallback" }),
+    });
+
+    expect(result).toEqual({ status: "queued_fallback" });
+    // The daemon re-queues a fallback under a fresh id, not this one: this optimistic row
+    // would never reconcile against canonical history, so it must not linger.
+    expect(stream.tail.get("agent") ?? []).toEqual([]);
+  });
+
+  it("withdraws the optimistic row and surfaces the error when the RPC fails", async () => {
+    const stream = createFakeStream();
+
+    const result = await sendAgentQueuePromptNow({
+      agentId: "agent",
+      promptId: "prompt-1",
+      promptText: "stay running",
+      submission: stream,
+      sendNow: async () => ({ error: "Connection lost" }),
+    });
+
+    expect(result).toEqual({ status: "failed", errorMessage: "Connection lost" });
+    expect(stream.tail.get("agent") ?? []).toEqual([]);
   });
 });
 

@@ -448,7 +448,9 @@ async function expectInterruptedTurnOrderAfterReconnect(
     await sendQueuedRowNow(page, prompt);
     const promptRow = page.getByTestId("user-message").filter({ hasText: prompt });
     await expect(promptRow).toBeVisible();
-    await gate.waitForServerMessage("send_agent_message_response");
+    // "Send queued message now" dispatches through the daemon-owned queue's send-now RPC, not
+    // the retired send-message replay (ccef76f0f) — its response carries a different type.
+    await gate.waitForServerMessage("agent.queue.send_now.response");
     await gate.drop();
     await agent.client.waitForFinish(agent.agentId, 30_000);
     gate.setAgentStreamSuppressed(false);

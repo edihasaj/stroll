@@ -354,6 +354,60 @@ export async function sendQueuedComposerMessageNow(
   }
 }
 
+export interface SendAgentQueuePromptNowInput {
+  agentId: string;
+  promptId: string;
+  /** `undefined` when the prompt is already gone from the daemon-owned queue (sent/deleted elsewhere). */
+  promptText: string | undefined;
+  /** The active turn being steered into, if any (composer/index.tsx's steer convention). */
+  turnId?: string;
+  submission: MessageSubmissionWriter;
+  sendNow: () => Promise<{ error?: string | null; dispatch?: PromptDispatchStatus | null }>;
+}
+
+export type SendAgentQueuePromptNowResult =
+  | { status: "missing" }
+  | { status: "submitted" }
+  | { status: "queued_fallback" }
+  | { status: "failed"; errorMessage: string };
+
+/**
+ * Sends a daemon-owned queued prompt now (composer/index.tsx's `supportsAgentQueue` path).
+ * The daemon records the resulting transcript row under this same `promptId` (session.ts's
+ * `agent.queue.send_now.request` handler passes `messageId: queued.id`), so this tracks an
+ * optimistic submission under that id before the RPC settles — otherwise the row stays queued,
+ * visually gone, until a live stream event promotes it, which a dropped or suppressed
+ * connection may never deliver (docs/testing.md's fallible-user-actions contract).
+ */
+export async function sendAgentQueuePromptNow(
+  input: SendAgentQueuePromptNowInput,
+): Promise<SendAgentQueuePromptNowResult> {
+  if (input.promptText === undefined) return { status: "missing" };
+  input.submission.begin(
+    input.agentId,
+    createUserMessage({
+      clientMessageId: input.promptId,
+      text: input.promptText,
+      timestamp: new Date(),
+      ...(input.turnId ? { turnId: input.turnId } : {}),
+    }),
+  );
+  const result = await input.sendNow();
+  if (result.error) {
+    input.submission.reject(input.agentId, input.promptId);
+    return { status: "failed", errorMessage: result.error };
+  }
+  if (result.dispatch === "queued_fallback") {
+    // Not admitted into the active turn: the daemon re-queues it under a fresh id instead of
+    // `promptId`, so this optimistic row never reconciles against canonical history. Drop it;
+    // the refreshed queue list renders the fallback entry under its new id.
+    input.submission.reject(input.agentId, input.promptId);
+    return { status: "queued_fallback" };
+  }
+  input.submission.accept(input.agentId, input.promptId);
+  return { status: "submitted" };
+}
+
 export interface OpenComposerAttachmentInput {
   attachment: ComposerAttachment;
   setLightboxMetadata: (metadata: AttachmentMetadata) => void;

@@ -79,6 +79,7 @@ import {
   queueComposerMessage,
   removeQueuedComposerMessage,
   removeComposerAttachmentAtIndex,
+  sendAgentQueuePromptNow,
   sendQueuedComposerMessageNow,
   toggleForgeAttachmentFromPicker,
   uploadFileAttachments,
@@ -2061,16 +2062,27 @@ function ComposerContentImpl({
     async (id: string) => {
       if (supportsAgentQueue) {
         if (!client) return;
+        const queuedPrompt = agentQueuePrompts.find((prompt) => prompt.id === id);
         // The row's button reads "Steer", so it never cancels the running turn, whatever the
         // default send setting is. The stop button is the one way to interrupt.
-        const result = await client
-          .sendAgentQueuePromptNow(agentId, id, undefined, "steer")
-          .catch((error: unknown) => ({
-            error: error instanceof Error ? error.message : t("composer.errors.failedToSend"),
-          }));
-        if (result.error) {
-          setSendError(result.error);
-        } else if ("dispatch" in result && result.dispatch === "queued_fallback") {
+        const result = await sendAgentQueuePromptNow({
+          agentId,
+          promptId: id,
+          promptText: queuedPrompt?.text,
+          turnId:
+            selectAgentTurnPresentation(useSessionStore.getState().sessions[serverId], agentId)
+              .turnId ?? undefined,
+          submission: createMessageSubmissionWriter(serverId),
+          sendNow: () =>
+            client
+              .sendAgentQueuePromptNow(agentId, id, undefined, "steer")
+              .catch((error: unknown) => ({
+                error: error instanceof Error ? error.message : t("composer.errors.failedToSend"),
+              })),
+        });
+        if (result.status === "failed") {
+          setSendError(result.errorMessage);
+        } else if (result.status === "queued_fallback") {
           toastShowRef.current(t("composer.notices.steerQueued"), { variant: "info" });
         }
         return;
@@ -2090,7 +2102,16 @@ function ComposerContentImpl({
         setSendError(result.errorMessage);
       }
     },
-    [agentId, client, queueWriter, submitMessage, supportsAgentQueue, t],
+    [
+      agentId,
+      agentQueuePrompts,
+      client,
+      queueWriter,
+      serverId,
+      submitMessage,
+      supportsAgentQueue,
+      t,
+    ],
   );
 
   const handleRemoveQueuedMessage = useCallback(
