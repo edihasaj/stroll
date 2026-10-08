@@ -24,6 +24,7 @@ import { FloatingSurface } from "@/components/ui/floating";
 import { isWeb } from "@/constants/platform";
 import { useHoverSafeZone } from "@/hooks/use-hover-safe-zone";
 import {
+  anchorFrameAboveTrigger,
   computePosition,
   measureElement,
   type Alignment,
@@ -82,11 +83,19 @@ function WebHoverCard({
   const contentRef = useRef<View>(null);
   const [open, setOpen] = useState(false);
   const graceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Holds whichever animation frame is currently outstanding for the deferred recheck
+  // scheduleClose's timer does below — the id is reassigned as that chain advances, so
+  // cancelling "the current one" cancels the close at whatever stage it is in.
+  const closeFrameRef = useRef<number | null>(null);
 
   const clearGraceTimer = useCallback(() => {
     if (graceTimerRef.current) {
       clearTimeout(graceTimerRef.current);
       graceTimerRef.current = null;
+    }
+    if (closeFrameRef.current !== null) {
+      cancelAnimationFrame(closeFrameRef.current);
+      closeFrameRef.current = null;
     }
   }, []);
 
@@ -104,15 +113,50 @@ function WebHoverCard({
     return focusInside() && document.activeElement?.matches(":focus-visible") === true;
   }, [focusInside]);
 
+  // The trigger's own `pointerleave` can fire with the pointer never having moved: content
+  // streaming into the card (a usage report replacing "Loading usage...") grows the box
+  // downward from its already-computed `top`, since the repaint lands before the position
+  // effect re-measures and lifts it clear of the trigger again. That paints the content
+  // directly over the trigger for a render or two, which steals the hit-test and fires a
+  // real `pointerleave` with no `pointermove` behind it — so the safe zone's own tracker,
+  // which only re-evaluates on an actual pointer move, never learns the pointer is still
+  // (geometrically) over the card. `:hover` is never stale: the browser recomputes it on
+  // every layout, move or not, which is what scheduleClose's deferred recheck below reads.
+  const pointerInside = useCallback(() => {
+    if (!isWeb) return false;
+    const trigger = triggerRef.current as unknown as HTMLElement | null;
+    const content = contentRef.current as unknown as HTMLElement | null;
+    try {
+      return Boolean(trigger?.matches(":hover")) || Boolean(content?.matches(":hover"));
+    } catch {
+      return false;
+    }
+  }, []);
+
+  // The second of the two deferred frames scheduleClose's timer waits out below — split out
+  // so neither callback nests more than one level deep.
+  const commitClose = useCallback(() => {
+    closeFrameRef.current = null;
+    if (keyboardFocusInside() || pointerInside()) return;
+    setOpen(false);
+  }, [keyboardFocusInside, pointerInside]);
+
   const scheduleClose = useCallback(() => {
     if (keyboardFocusInside()) return;
     if (graceTimerRef.current) return;
     graceTimerRef.current = setTimeout(() => {
       graceTimerRef.current = null;
-      if (keyboardFocusInside()) return;
-      setOpen(false);
+      // A content reposition that lands right around the grace deadline can finish
+      // clearing the trigger a frame or two after this fires, before the browser's own
+      // hit-test pass has dispatched the matching pointerenter back onto it — so :hover
+      // still reads "outside" for one more tick even though nothing really left. Give
+      // that pass two frames to land (recomputed each layout, not just on pointer moves)
+      // before trusting pointerInside's answer.
+      closeFrameRef.current = requestAnimationFrame(() => {
+        closeFrameRef.current = requestAnimationFrame(commitClose);
+      });
     }, CLOSE_GRACE_MS);
-  }, [keyboardFocusInside]);
+  }, [keyboardFocusInside, commitClose]);
 
   const openNow = useCallback(() => {
     clearGraceTimer();
@@ -323,7 +367,11 @@ function HoverCardSurface({
   const bottomSheetInternal = useBottomSheetModalInternal(true);
   const [triggerRect, setTriggerRect] = useState<Rect | null>(null);
   const [contentSize, setContentSize] = useState<Size | null>(null);
-  const [position, setPosition] = useState<{ x: number; y: number } | null>(null);
+  const [position, setPosition] = useState<{
+    x: number;
+    y: number;
+    actualPlacement: Placement;
+  } | null>(null);
 
   useEffect(() => {
     if (!triggerRef.current) return;
@@ -340,7 +388,7 @@ function HoverCardSurface({
   useEffect(() => {
     if (!triggerRect || !contentSize) return;
     const { width, height } = Dimensions.get("window");
-    const { x, y } = computePosition({
+    const { x, y, actualPlacement } = computePosition({
       triggerRect,
       contentSize,
       displayArea: { x: 0, y: 0, width, height },
@@ -349,7 +397,7 @@ function HoverCardSurface({
       alignment,
       offset,
     });
-    setPosition({ x, y });
+    setPosition({ x, y, actualPlacement });
   }, [alignment, contentSize, offset, placement, triggerRect]);
 
   const handleLayout = useCallback(
@@ -360,14 +408,24 @@ function HoverCardSurface({
     [],
   );
 
-  const frameStyle = useMemo(
-    () => ({
+  // A card placed above its trigger anchors from the *bottom* instead of the computed `top`
+  // — see anchor.ts's anchorFrameAboveTrigger for why computing `top` from contentSize lets
+  // a card whose content streams in after it opens (context-window.ts's scriptAgentUsage)
+  // transiently cover its own trigger.
+  const frameStyle = useMemo(() => {
+    if (!position || !triggerRect) {
+      return { position: "absolute" as const, top: -9999, left: -9999 };
+    }
+    if (position.actualPlacement !== "top") {
+      return { position: "absolute" as const, top: position.y, left: position.x };
+    }
+    const { height: windowHeight } = Dimensions.get("window");
+    return {
       position: "absolute" as const,
-      top: position?.y ?? -9999,
-      left: position?.x ?? -9999,
-    }),
-    [position?.x, position?.y],
-  );
+      left: position.x,
+      ...anchorFrameAboveTrigger({ triggerRect, offset, displayAreaHeight: windowHeight }),
+    };
+  }, [position, triggerRect, offset]);
   const surfaceStyle = useMemo(() => [styles.surface, style], [style]);
 
   return (

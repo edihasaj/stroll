@@ -156,6 +156,35 @@ export function computePosition({
   return { ...clampToDisplayArea({ ...anchored, contentSize, displayArea }), actualPlacement };
 }
 
+/**
+ * Where a surface placed above its trigger ("top", including "bottom" flipped to "top" for
+ * lack of room below) should anchor vertically, independent of its own measured height.
+ *
+ * `computePosition`'s `top` for this placement is `triggerRect.y - contentSize.height -
+ * offset`: correct once contentSize is known, but wrong for the whole render in between a
+ * content height change landing in the DOM and the effect that re-measures and recomputes
+ * `top` catching up — content that grows after the surface's first paint (a hover card whose
+ * content streams in over several updates, e.g.) paints at the *old*, now too-low `top` for
+ * that render, which can reach down far enough to cover the trigger itself.
+ *
+ * Anchoring from the bottom instead sidesteps the lag entirely: `bottom` depends only on
+ * `triggerRect`, so it never moves when content grows, and ordinary block layout grows the
+ * surface upward from a fixed bottom edge no matter how tall its content gets. `maxHeight`
+ * keeps that growth from crossing the display area's far edge, mirroring the padding
+ * `clampToDisplayArea` already keeps on every other edge.
+ */
+export function anchorFrameAboveTrigger(input: {
+  triggerRect: Rect;
+  offset: number;
+  displayAreaHeight: number;
+}): { bottom: number; maxHeight: number } {
+  const { triggerRect, offset, displayAreaHeight } = input;
+  return {
+    bottom: displayAreaHeight - triggerRect.y + offset,
+    maxHeight: Math.max(0, triggerRect.y - offset - EDGE_PADDING),
+  };
+}
+
 export function getTransformOrigin(
   placement: Placement,
   alignment: Alignment,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computePosition, getTransformOrigin, type Rect } from "./anchor";
+import { anchorFrameAboveTrigger, computePosition, getTransformOrigin, type Rect } from "./anchor";
 
 const DISPLAY: Rect = { x: 0, y: 0, width: 1000, height: 800 };
 const TRIGGER: Rect = { x: 100, y: 100, width: 40, height: 20 };
@@ -75,6 +75,59 @@ describe("computePosition", () => {
       alignment: "end",
     });
     expect(result.x).toBe(108);
+  });
+});
+
+describe("anchorFrameAboveTrigger", () => {
+  it("anchors bottom a fixed distance above the trigger, independent of content height", () => {
+    const result = anchorFrameAboveTrigger({
+      triggerRect: TRIGGER,
+      offset: 4,
+      displayAreaHeight: DISPLAY.height,
+    });
+    // bottom = displayAreaHeight - triggerRect.y + offset = 800 - 100 + 4
+    expect(result.bottom).toBe(704);
+  });
+
+  it("does not move when the trigger's own size changes, only its y position", () => {
+    const wide = anchorFrameAboveTrigger({
+      triggerRect: { ...TRIGGER, width: 400 },
+      offset: 4,
+      displayAreaHeight: DISPLAY.height,
+    });
+    const narrow = anchorFrameAboveTrigger({
+      triggerRect: TRIGGER,
+      offset: 4,
+      displayAreaHeight: DISPLAY.height,
+    });
+    expect(wide.bottom).toBe(narrow.bottom);
+
+    const lower = anchorFrameAboveTrigger({
+      triggerRect: { ...TRIGGER, y: 300 },
+      offset: 4,
+      displayAreaHeight: DISPLAY.height,
+    });
+    expect(lower.bottom).not.toBe(narrow.bottom);
+  });
+
+  it("caps maxHeight at the space between the display area's top edge and the trigger", () => {
+    // maxHeight = triggerRect.y - offset - EDGE_PADDING(8) = 100 - 4 - 8
+    expect(
+      anchorFrameAboveTrigger({
+        triggerRect: TRIGGER,
+        offset: 4,
+        displayAreaHeight: DISPLAY.height,
+      }).maxHeight,
+    ).toBe(88);
+  });
+
+  it("never returns a negative maxHeight for a trigger near the display area's top edge", () => {
+    const result = anchorFrameAboveTrigger({
+      triggerRect: { ...TRIGGER, y: 2 },
+      offset: 4,
+      displayAreaHeight: DISPLAY.height,
+    });
+    expect(result.maxHeight).toBe(0);
   });
 });
 
