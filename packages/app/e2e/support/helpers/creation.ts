@@ -19,6 +19,7 @@ import {
 import { getServerId } from "./server-id";
 import { WORKSPACE_DECK_MAX_MOUNTED_WORKSPACES } from "@/screens/workspace/workspace-deck-retention";
 import type { installDaemonWebSocketGate } from "./daemon-websocket-gate";
+import { resolveLiveMatch } from "./agent-stream";
 
 /** Capture the submitted agent options; optionally stop provisioning for wire-only assertions. */
 export async function captureWorkspaceAgentRequest(page: Page, options: { block: boolean }) {
@@ -158,7 +159,11 @@ export async function createCreationScenario(page: Page) {
     },
     async submitPrompt(prompt: string, button = "Send message") {
       await fillComposerDraft(page, prompt);
-      await page.getByRole("button", { name: button, exact: true }).click();
+      // A second submit in the same test can land while the first submit's outgoing button is
+      // still fading out (resolveLiveMatch's doc comment) — resolve the live one before clicking.
+      await (
+        await resolveLiveMatch(page.getByRole("button", { name: button, exact: true }))
+      ).click();
     },
     async submitRepeatedly(button: string, prompt?: string) {
       if (prompt) await fillComposerDraft(page, prompt);
