@@ -26,6 +26,9 @@ test.describe("Subagent detach", () => {
     const agents = await seedParentWithSubagent(workspace, {
       parentTitle: "Detach parent",
       childTitle: "Detached child",
+      // Outlive the test: the default ten-second stream can finish mid-test and move the child
+      // into the track's collapsed Done group before detach ever gets to click its Active row.
+      childModel: "five-minute-stream",
     });
 
     await openAgentRoute(page, {

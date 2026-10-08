@@ -1,5 +1,5 @@
 import { PARENT_AGENT_ID_LABEL } from "@getpaseo/protocol/agent-labels";
-import { expect, type Page } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
 import { daemonWsRoutePattern } from "./daemon-port";
 import type { SeededWorkspace } from "./seed-client";
 
@@ -39,7 +39,22 @@ export interface SeededCrossWorkspaceSubagentPair {
 
 export async function seedParentWithSubagent(
   workspace: Pick<SeededWorkspace, "client" | "repoPath" | "workspaceId">,
-  input: { parentTitle: string; childTitle: string },
+  input: {
+    parentTitle: string;
+    childTitle: string;
+    /**
+     * Defaults to the ten-second stream, unprompted, so a caller testing archive/finish behavior
+     * does not wait around. The track groups a finished child into the collapsed Done group (the
+     * subagents track in docs/agent-lifecycle.md), so a caller that instead wants to interact
+     * with a still-running child should pass a stream long enough to outlast the test, paired
+     * with {@link childInitialPrompt} — without a prompt no turn ever starts, so the child goes
+     * idle (and Done) within moments regardless of which model is selected.
+     */
+    childModel?: string;
+    /** Pair with a long-running {@link childModel} (e.g. "five-minute-stream") to keep the child
+     * genuinely streaming, not just idle-but-unfinished, for the life of the test. */
+    childInitialPrompt?: string;
+  },
 ): Promise<SeededSubagentPair> {
   const parent = await workspace.client.createAgent({
     provider: "mock",
@@ -55,7 +70,8 @@ export async function seedParentWithSubagent(
     workspaceId: workspace.workspaceId,
     title: input.childTitle,
     modeId: "load-test",
-    model: "ten-second-stream",
+    model: input.childModel ?? "ten-second-stream",
+    initialPrompt: input.childInitialPrompt,
     labels: {
       [PARENT_AGENT_ID_LABEL]: parent.id,
     },
@@ -141,10 +157,39 @@ export async function openSubagentsTrack(page: Page): Promise<void> {
   await expect(panel).toBeVisible({ timeout: 30_000 });
 }
 
+/**
+ * Resolves a subagent's track row, expanding the Done group if that is where it landed. A
+ * finished child collapses behind the Done group's count by default (the subagents track in
+ * docs/agent-lifecycle.md); a still-running child never renders the Done group at all, and a
+ * child that finishes while this very call is polling only grows the Done group partway
+ * through, so the expand has to happen on whichever poll first sees it, not just the first one.
+ * The click only ever fires once: `track.tsx`'s Done disclosure is open/closed local state that
+ * survives for the rest of the test once expanded, and a second click would toggle it shut again.
+ */
+export async function revealSubagentTrackRow(page: Page, childId: string): Promise<Locator> {
+  const row = page.getByTestId(`subagents-track-row-${childId}`);
+  const doneGroup = page.getByTestId("subagents-track-done-group");
+  let expandedDone = false;
+  await expect(async () => {
+    if ((await row.count()) > 0) return;
+    if (!expandedDone && (await doneGroup.count()) > 0) {
+      await doneGroup.click();
+      expandedDone = true;
+    }
+    expect(await row.count()).toBeGreaterThan(0);
+  }).toPass({ timeout: 30_000 });
+  return row;
+}
+
 export async function expectSubagentRowVisible(page: Page, childId: string): Promise<void> {
-  await expect(page.getByTestId(`subagents-track-row-${childId}`)).toBeVisible({
-    timeout: 30_000,
-  });
+  const row = await revealSubagentTrackRow(page, childId);
+  await expect(row).toBeVisible({ timeout: 30_000 });
+}
+
+/** Reveals a subagent's track row (expanding Done if needed) and clicks it. */
+export async function clickSubagentTrackRow(page: Page, childId: string): Promise<void> {
+  const row = await revealSubagentTrackRow(page, childId);
+  await row.click();
 }
 
 export async function expectSubagentRowGone(page: Page, childId: string): Promise<void> {

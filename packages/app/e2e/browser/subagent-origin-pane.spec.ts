@@ -4,7 +4,11 @@ import { expect, test, type Page } from "../support/fixtures";
 import { runWorkspaceActionFromCommandCenter } from "../support/helpers/command-center-workspace-actions";
 import { openAgentRoute, seedMockAgentWorkspace } from "../support/helpers/mock-agent";
 import { seedWorkspace } from "../support/helpers/seed-client";
-import { openSubagentsTrack, seedParentWithSubagent } from "../support/helpers/subagents";
+import {
+  clickSubagentTrackRow,
+  openSubagentsTrack,
+  seedParentWithSubagent,
+} from "../support/helpers/subagents";
 
 const SETTINGS_KEY = "@paseo:app-settings";
 
@@ -47,10 +51,16 @@ test("a subagent opened from a right-pane parent stays with its parent when left
     const pair = await seedParentWithSubagent(workspace, {
       parentTitle: "Right parent",
       childTitle: "Child agent",
+      // Outlive the test: the default ten-second stream can finish mid-test and move the child
+      // into the track's collapsed Done group before these pane-placement checks click its row.
+      // A prompt is required too — without one no turn ever starts, so the child goes idle (and
+      // Done) within moments regardless of which model is selected.
+      childModel: "five-minute-stream",
+      childInitialPrompt: "stay running",
     });
     const { left, right } = await openParentInRightPane(page, pair.parent.id, pair.workspaceId);
     await openSubagentsTrack(page);
-    await page.getByTestId(`subagents-track-row-${pair.child.id}`).click();
+    await clickSubagentTrackRow(page, pair.child.id);
 
     await expect(right.getByTestId(`workspace-tab-agent_${pair.child.id}`)).toBeVisible();
     await expect(left.getByTestId(`workspace-tab-agent_${pair.child.id}`)).toHaveCount(0);
@@ -70,10 +80,16 @@ test("the side preference opens a right-pane parent's subagent in the side pane"
     const pair = await seedParentWithSubagent(workspace, {
       parentTitle: "Right parent",
       childTitle: "Child agent",
+      // Outlive the test: the default ten-second stream can finish mid-test and move the child
+      // into the track's collapsed Done group before these pane-placement checks click its row.
+      // A prompt is required too — without one no turn ever starts, so the child goes idle (and
+      // Done) within moments regardless of which model is selected.
+      childModel: "five-minute-stream",
+      childInitialPrompt: "stay running",
     });
     const { left, right } = await openParentInRightPane(page, pair.parent.id, pair.workspaceId);
     await openSubagentsTrack(page);
-    await page.getByTestId(`subagents-track-row-${pair.child.id}`).click();
+    await clickSubagentTrackRow(page, pair.child.id);
 
     const childPane = page
       .locator('[data-testid^="workspace-pane-"]')
@@ -97,16 +113,22 @@ test("opening an already-tabbed subagent reveals its left tab without a duplicat
     const pair = await seedParentWithSubagent(workspace, {
       parentTitle: "Right parent",
       childTitle: "Child agent",
+      // Outlive the test: the default ten-second stream can finish mid-test and move the child
+      // into the track's collapsed Done group before these pane-placement checks click its row.
+      // A prompt is required too — without one no turn ever starts, so the child goes idle (and
+      // Done) within moments regardless of which model is selected.
+      childModel: "five-minute-stream",
+      childInitialPrompt: "stay running",
     });
     const { left, right } = await openParentInRightPane(page, pair.parent.id, pair.workspaceId);
     await openSubagentsTrack(page);
-    await page.getByTestId(`subagents-track-row-${pair.child.id}`).click();
+    await clickSubagentTrackRow(page, pair.child.id);
     await expect(right.getByTestId(`workspace-tab-agent_${pair.child.id}`)).toBeVisible();
     await page.keyboard.press("Meta+Alt+Shift+ArrowLeft");
     await expect(left.getByTestId(`workspace-tab-agent_${pair.child.id}`)).toBeVisible();
     await right.getByTestId(`workspace-tab-agent_${pair.parent.id}`).click();
     await openSubagentsTrack(page);
-    await page.getByTestId(`subagents-track-row-${pair.child.id}`).click();
+    await clickSubagentTrackRow(page, pair.child.id);
 
     await expect(left.getByTestId(`workspace-tab-agent_${pair.child.id}`)).toBeVisible();
     await expect(right.getByTestId(`workspace-tab-agent_${pair.child.id}`)).toHaveCount(0);
