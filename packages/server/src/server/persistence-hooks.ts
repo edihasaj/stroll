@@ -134,6 +134,30 @@ export function resolveStoredAgentUpdatedAt(record: StoredAgentRecord): string {
   return timestamps[0].raw;
 }
 
+/**
+ * Picks the record a resume-by-handle acts on when several records share one provider session
+ * (an imported copy next to the original, a second import). A live record wins over an archived
+ * one, so resuming never reopens a chat the user archived while a sibling is still in use.
+ * Archiving bumps `updatedAt`, so recency alone would pick exactly the archived record.
+ */
+export function selectRecordForResume(records: StoredAgentRecord[]): StoredAgentRecord | null {
+  return records.reduce<StoredAgentRecord | null>((best, candidate) => {
+    if (!best) {
+      return candidate;
+    }
+    if (Boolean(candidate.archivedAt) !== Boolean(best.archivedAt)) {
+      return candidate.archivedAt ? best : candidate;
+    }
+    const updatedDelta =
+      Date.parse(resolveStoredAgentUpdatedAt(candidate)) -
+      Date.parse(resolveStoredAgentUpdatedAt(best));
+    if (updatedDelta !== 0) {
+      return updatedDelta > 0 ? candidate : best;
+    }
+    return Date.parse(candidate.createdAt) > Date.parse(best.createdAt) ? candidate : best;
+  }, null);
+}
+
 export function extractTimestamps(record: StoredAgentRecord): {
   createdAt: Date;
   updatedAt: Date;

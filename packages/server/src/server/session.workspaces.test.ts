@@ -15,7 +15,7 @@ import {
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { setImmediate as waitForImmediate } from "node:timers/promises";
-import { afterEach, expect, test, vi } from "vitest";
+import { afterEach, describe, expect, test, vi } from "vitest";
 import { z } from "zod";
 
 import { CLIENT_CAPS } from "@getpaseo/protocol/client-capabilities";
@@ -9650,4 +9650,95 @@ test("workspace.create.request schedules a name for a chat opened with a prompt"
   // A chat's directory is a uuid, so the prompt is the only thing it can be named from.
   expect(scheduled).toHaveLength(1);
   expect(path.dirname(scheduled[0]?.cwd ?? "")).toBe(path.join(paseoHome, "chats"));
+});
+
+describe("two chats sharing one provider session", () => {
+  const cwd = path.resolve("/tmp/paseo-shared-session");
+  const handle = { provider: "codex", sessionId: "shared-session" } as const;
+  const archivedAt = "2026-03-10T00:00:00.000Z";
+
+  function createSharedSessionFixture() {
+    const records = new Map<string, StoredAgentRecord>([
+      [
+        "archived-chat",
+        {
+          ...makeStoredAgent({ id: "archived-chat", cwd, updatedAt: archivedAt }),
+          persistence: handle,
+          archivedAt,
+        },
+      ],
+      [
+        "live-chat",
+        {
+          ...makeStoredAgent({
+            id: "live-chat",
+            cwd,
+            updatedAt: "2026-03-01T00:00:00.000Z",
+          }),
+          persistence: handle,
+        },
+      ],
+    ]);
+    const unarchived: string[] = [];
+    const live = makeManagedAgent({
+      id: "live-chat",
+      cwd,
+      lifecycle: "idle",
+      updatedAt: "2026-03-01T00:00:00.000Z",
+    });
+    const session = createSessionForWorkspaceTests({
+      agentStorage: {
+        get: async (id: string) => records.get(id) ?? null,
+        listByProviderSession: async () => Array.from(records.values()),
+      },
+      agentManager: {
+        getAgent: (id: string) => (id === "live-chat" ? live : null),
+        getTimeline: () => [],
+        hydrateTimelineFromProvider: async () => undefined,
+        reloadAgentSession: async () => live,
+        resumeAgentFromPersistence: async () => live,
+        unarchiveSnapshot: async (id: string) => {
+          const record = records.get(id);
+          if (!record?.archivedAt) return false;
+          unarchived.push(id);
+          records.set(id, { ...record, archivedAt: null });
+          return true;
+        },
+      },
+    });
+    session.restoreOwningWorkspaceForLegacyAgentRefresh = async () => undefined;
+    session.interruptAgentIfRunning = async () => undefined;
+    session.agentUpdates.forwardLiveAgent = async () => undefined;
+    return { session, records, unarchived };
+  }
+
+  test("resume_agent_request resumes the live chat and keeps the archived one archived", async () => {
+    const { session, records, unarchived } = createSharedSessionFixture();
+
+    await session.handleMessage({ type: "resume_agent_request", handle });
+
+    expect(unarchived).toEqual([]);
+    expect(records.get("archived-chat")?.archivedAt).toBe(archivedAt);
+  });
+
+  test("refresh_agent_request on the live chat keeps the archived one archived", async () => {
+    const { session, records, unarchived } = createSharedSessionFixture();
+
+    await session.handleMessage({ type: "refresh_agent_request", agentId: "live-chat" });
+
+    expect(unarchived).toEqual([]);
+    expect(records.get("archived-chat")?.archivedAt).toBe(archivedAt);
+  });
+
+  test("refresh_agent_request on the archived chat restores only that chat", async () => {
+    const { session, records, unarchived } = createSharedSessionFixture();
+    const liveRecord = records.get("live-chat");
+    if (!liveRecord) throw new Error("expected live-chat fixture");
+    records.set("live-chat", { ...liveRecord, archivedAt: "2026-03-09T00:00:00.000Z" });
+
+    await session.handleMessage({ type: "refresh_agent_request", agentId: "archived-chat" });
+
+    expect(unarchived).toEqual(["archived-chat"]);
+    expect(records.get("live-chat")?.archivedAt).toBe("2026-03-09T00:00:00.000Z");
+  });
 });

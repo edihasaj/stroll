@@ -798,6 +798,45 @@ test("importProviderSession rejects a provider session with an active stored own
   expect(harness.freshImports).toEqual([]);
 });
 
+test("importProviderSession keeps an archived chat archived while a sibling chat owns its session", async () => {
+  const harness = await ProviderImportHarness.create({ sessionId: "thread-shared" });
+  const cwd = harness.snapshot.cwd;
+  await harness.seed(
+    makeStoredProviderSession({ id: "archived-chat", cwd, sessionId: "thread-shared" }),
+  );
+  await harness.seed(
+    makeStoredProviderSession({
+      id: "live-chat",
+      cwd,
+      sessionId: "thread-shared",
+      archivedAt: null,
+    }),
+  );
+
+  await expect(harness.import({ providerHandleId: "thread-shared", cwd })).rejects.toThrow(
+    "Provider session is already imported: thread-shared",
+  );
+
+  expect((await harness.storage.get("archived-chat"))?.archivedAt).toBe("2026-04-30T12:00:00.000Z");
+  expect(harness.freshImports).toEqual([]);
+});
+
+test("importProviderSession restores only the most recent of several archived chats for a session", async () => {
+  const harness = await ProviderImportHarness.create({ sessionId: "thread-twice", id: "newer" });
+  const cwd = harness.snapshot.cwd;
+  await harness.seed({
+    ...makeStoredProviderSession({ id: "older", cwd, sessionId: "thread-twice" }),
+    updatedAt: "2026-04-29T11:00:00.000Z",
+    lastActivityAt: "2026-04-29T10:30:00.000Z",
+  });
+  await harness.seed(makeStoredProviderSession({ id: "newer", cwd, sessionId: "thread-twice" }));
+
+  await harness.import({ providerHandleId: "thread-twice", cwd });
+
+  expect((await harness.storage.get("newer"))?.archivedAt).toBeNull();
+  expect((await harness.storage.get("older"))?.archivedAt).toBe("2026-04-30T12:00:00.000Z");
+});
+
 test("importProviderSession restores an archived session as the same standalone agent", async () => {
   const harness = await ProviderImportHarness.create({ sessionId: "thread-archived" });
   harness.timeline = [{ type: "user_message", text: "restored" }];

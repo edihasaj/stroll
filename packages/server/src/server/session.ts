@@ -58,7 +58,7 @@ import type { TurnDetectionProvider } from "./speech/turn-detection-provider.js"
 import {
   buildConfigOverrides,
   isStoredAgentProviderAvailable,
-  resolveStoredAgentUpdatedAt,
+  selectRecordForResume,
   toAgentPersistenceHandle,
 } from "./persistence-hooks.js";
 import { ensureAgentLoaded, ensureUnarchivedAgentLoaded } from "./agent/agent-loading.js";
@@ -3507,18 +3507,7 @@ export class Session {
       handle.provider,
       handle.sessionId,
     );
-    const matched = records.reduce<StoredAgentRecord | null>((latest, candidate) => {
-      if (!latest) {
-        return candidate;
-      }
-      const updatedDelta =
-        Date.parse(resolveStoredAgentUpdatedAt(candidate)) -
-        Date.parse(resolveStoredAgentUpdatedAt(latest));
-      if (updatedDelta !== 0) {
-        return updatedDelta > 0 ? candidate : latest;
-      }
-      return Date.parse(candidate.createdAt) > Date.parse(latest.createdAt) ? candidate : latest;
-    }, null);
+    const matched = selectRecordForResume(records);
     if (!matched) {
       return null;
     }

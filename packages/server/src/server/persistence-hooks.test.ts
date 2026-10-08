@@ -3,6 +3,7 @@ import type { StoredAgentRecord } from "./agent/agent-storage.js";
 import {
   buildConfigOverrides,
   buildSessionConfig,
+  selectRecordForResume,
   toAgentPersistenceHandle,
 } from "./persistence-hooks.js";
 
@@ -212,5 +213,43 @@ describe("persistence hooks", () => {
     });
 
     expect(handle).toBeNull();
+  });
+});
+
+describe("selectRecordForResume", () => {
+  const archivedAt = "2026-03-02T00:00:00.000Z";
+
+  test("returns null when no record shares the session", () => {
+    expect(selectRecordForResume([])).toBeNull();
+  });
+
+  test("prefers a live record over a newer archived one", () => {
+    const archived = createRecord({
+      id: "archived",
+      archivedAt,
+      updatedAt: archivedAt,
+    });
+    const live = createRecord({ id: "live", updatedAt: "2026-03-01T00:00:00.000Z" });
+
+    expect(selectRecordForResume([archived, live])?.id).toBe("live");
+    expect(selectRecordForResume([live, archived])?.id).toBe("live");
+  });
+
+  test("picks the most recently updated live record", () => {
+    const older = createRecord({ id: "older", updatedAt: "2026-03-01T00:00:00.000Z" });
+    const newer = createRecord({ id: "newer", updatedAt: "2026-03-03T00:00:00.000Z" });
+
+    expect(selectRecordForResume([newer, older])?.id).toBe("newer");
+  });
+
+  test("falls back to the most recently updated archived record", () => {
+    const older = createRecord({
+      id: "older",
+      archivedAt: "2026-03-01T00:00:00.000Z",
+      updatedAt: "2026-03-01T00:00:00.000Z",
+    });
+    const newer = createRecord({ id: "newer", archivedAt, updatedAt: archivedAt });
+
+    expect(selectRecordForResume([older, newer])?.id).toBe("newer");
   });
 });

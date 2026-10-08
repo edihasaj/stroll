@@ -8834,6 +8834,41 @@ test("unarchiveSnapshotByHandle unarchives native provider storage for the match
   expect(stored?.archivedAt).toBeNull();
 });
 
+test("unarchiveSnapshotByHandle leaves an archived record archived when a sibling record shares its session", async () => {
+  const workdir = mkdtempSync(join(tmpdir(), "agent-manager-unarchive-handle-sibling-"));
+  const storage = new AgentStorage(join(workdir, "agents"), logger);
+  const client = new NativeArchiveRecordingClient();
+  const manager = new AgentManager({
+    clients: { codex: client },
+    registry: storage,
+    logger,
+  });
+
+  const agent = await manager.createAgent(
+    { provider: "codex", cwd: workdir, title: "Shared session" },
+    undefined,
+    { workspaceId: undefined },
+  );
+  await manager.archiveAgent(agent.id);
+  const archived = await storage.get(agent.id);
+  if (!archived?.persistence || !archived.archivedAt) {
+    throw new Error("expected archived snapshot to have persistence");
+  }
+  await storage.upsert({
+    ...archived,
+    id: "sibling-record",
+    archivedAt: null,
+    updatedAt: new Date(Date.parse(archived.archivedAt) - 60_000).toISOString(),
+    lastActivityAt: new Date(Date.parse(archived.archivedAt) - 60_000).toISOString(),
+  });
+
+  await manager.unarchiveSnapshotByHandle(archived.persistence);
+
+  expect((await storage.get(agent.id))?.archivedAt).toBe(archived.archivedAt);
+  expect((await storage.get("sibling-record"))?.archivedAt).toBeNull();
+  expect(client.unarchivedHandles).toEqual([]);
+});
+
 test("unarchiveSnapshot keeps the stored record archived when native unarchive fails", async () => {
   const workdir = mkdtempSync(join(tmpdir(), "agent-manager-native-unarchive-failure-"));
   const storagePath = join(workdir, "agents");

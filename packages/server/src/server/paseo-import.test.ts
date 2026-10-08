@@ -137,6 +137,19 @@ describe("catchUpPaseoImport", () => {
     expect(existsSync(path.join(strollHome, "uploads", "upload_2", "own.png"))).toBe(true);
   });
 
+  it("never brings an archived or deleted chat back from the Paseo home", () => {
+    const { paseoHome, strollHome } = createEarlierImport();
+    const archived = { id: "a1", archivedAt: "2026-10-01T00:00:00.000Z" };
+    write(path.join(strollHome, "agents", "repo", "a1.json"), archived);
+    write(path.join(paseoHome, "agents", "repo", "a1.json"), { id: "a1", archivedAt: null });
+    write(path.join(paseoHome, "agents", "repo", "a2.json"), { id: "a2" });
+
+    catchUpPaseoImport({ strollHome, now: NOW });
+
+    expect(readJson(path.join(strollHome, "agents", "repo", "a1.json"))).toEqual(archived);
+    expect(existsSync(path.join(strollHome, "agents", "repo", "a2.json"))).toBe(false);
+  });
+
   it("leaves homes that were never imported alone", () => {
     const { strollHome } = createHomes();
     mkdirSync(strollHome, { recursive: true });

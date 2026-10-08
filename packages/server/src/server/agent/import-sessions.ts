@@ -10,6 +10,7 @@ import type { AgentStorage, StoredAgentRecord } from "./agent-storage.js";
 import type { AgentPersistenceHandle, AgentProvider } from "./agent-sdk-types.js";
 import { ensureAgentLoaded, type AgentLoaderManager } from "./agent-loading.js";
 import { unarchiveAgentState } from "./agent-prompt.js";
+import { selectRecordForResume } from "../persistence-hooks.js";
 import { toRecentProviderSessionDescriptorPayload } from "./agent-projections.js";
 import type { WorkspaceProvisioningService } from "../session/workspace-provisioning/workspace-provisioning-service.js";
 import type { PersistedWorkspaceRecord } from "../workspace-registry.js";
@@ -214,7 +215,9 @@ async function importProviderSessionNow(
   if (activeRecord) {
     throw new Error(`Provider session is already imported: ${providerHandleId}`);
   }
-  const archivedRecord = matchingRecords.find((record) => record.archivedAt);
+  const archivedRecord = selectRecordForResume(
+    matchingRecords.filter((record) => record.archivedAt),
+  );
   if (archivedRecord?.persistence && archivedRecord.archivedAt) {
     if (!createRealpathAwarePathMatcher(cwd)(archivedRecord.cwd)) {
       throw new Error(`Provider session cwd does not match import cwd: ${providerHandleId}`);
