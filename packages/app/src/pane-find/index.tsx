@@ -84,13 +84,25 @@ const FindField = forwardRef<
     initialValue: string;
     height: number;
     trailing?: ReactNode;
+    /** Keeps the field readable when its row wraps in a narrow pane. */
+    minWidth?: number;
     onChangeText(value: string): void;
     onKeyPress(event: NativeSyntheticEvent<TextInputKeyPressEventData>): void;
     autoFocus?: boolean;
     returnKeyType?: TextInputProps["returnKeyType"];
   }
 >(function FindField(
-  { label, initialValue, height, trailing, onChangeText, onKeyPress, autoFocus, returnKeyType },
+  {
+    label,
+    initialValue,
+    height,
+    trailing,
+    minWidth,
+    onChangeText,
+    onKeyPress,
+    autoFocus,
+    returnKeyType,
+  },
   ref,
 ) {
   const [focused, setFocused] = useState(false);
@@ -100,6 +112,7 @@ const FindField = forwardRef<
     () => [
       styles.field,
       { minHeight: height },
+      minWidth === undefined ? null : { minWidth },
       resolveControlInteractionStyles(
         {
           controlRest: styles.controlRest,
@@ -109,7 +122,7 @@ const FindField = forwardRef<
         { focused },
       ),
     ],
-    [focused, height],
+    [focused, height, minWidth],
   );
   return (
     <View style={fieldStyle}>
@@ -282,12 +295,13 @@ export const PaneFind = forwardRef<PaneFindHandle, PaneFindProps>(function PaneF
           </ToolbarButton>
         </View>
         {replace && replaceExpanded ? (
-          <View style={styles.row}>
+          <View style={styles.replaceRow}>
             <FindField
               ref={replacementInput}
               label={t("paneFind.replaceWith")}
               initialValue={replace.value}
               height={rowHeight}
+              minWidth={REPLACE_FIELD_MIN_WIDTH}
               onChangeText={replace.onChange}
               onKeyPress={onKeyPress}
             />
@@ -319,6 +333,8 @@ export const PaneFind = forwardRef<PaneFindHandle, PaneFindProps>(function PaneF
 /** Desktop find rows run one step tighter than a form field — this is pane chrome. */
 const COLLAPSED_FIELD_HEIGHT = 28;
 const FIND_WIDGET_WIDTH = 340;
+// In a narrow pane the Replace actions wrap below the field instead of squeezing it to nothing.
+const REPLACE_FIELD_MIN_WIDTH = 120;
 
 const styles = StyleSheet.create((theme) => {
   const geometry = createControlGeometry(theme);
@@ -340,6 +356,12 @@ const styles = StyleSheet.create((theme) => {
     gutter: { alignItems: "center", justifyContent: "center", flexShrink: 0 },
     rows: { flex: 1, minWidth: 0, gap: theme.spacing[1] },
     row: { flexDirection: "row", alignItems: "center", gap: theme.spacing[1] },
+    replaceRow: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      alignItems: "center",
+      gap: theme.spacing[1],
+    },
     field: {
       flex: 1,
       minWidth: 0,
