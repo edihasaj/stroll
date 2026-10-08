@@ -8,6 +8,7 @@ import {
   expectInlineWorkingIndicator,
   expectRunningAgentChrome,
   expectVisibleAgentSurfacesIdle,
+  resolveLiveMatch,
 } from "../support/helpers/agent-stream";
 import { gateNextAgentMessage } from "../support/helpers/agent-message-gate";
 import {
@@ -343,6 +344,14 @@ async function replaySteeredSleepTurnInBrowser(
 ): Promise<void> {
   const gate = await installDaemonWebSocketGate(page);
   gate.holdNextShellToolCall("completed");
+  // Tool calls default to the collapsed overview activity row (docs/design.md §12); this replay
+  // asserts on the individual tool-call badge, so opt into the Detailed level that keeps it.
+  await page.addInitScript(() => {
+    localStorage.setItem(
+      "@paseo:app-settings",
+      JSON.stringify({ toolCallDetailLevel: "detailed" }),
+    );
+  });
   await gotoAppShell(page);
   await openSettings(page);
   await selectSteerInSettings(page);
@@ -376,6 +385,13 @@ async function replaySteeredSleepTurnInBrowser(
 async function queueMessage(page: Page, prompt: string): Promise<void> {
   await fillComposerDraft(page, prompt);
   await sendDraftToQueue(page);
+  // Queueing round-trips through the daemon (client.createAgentQueuePrompt); without this wait,
+  // a second queueMessage() call back to back can fill/send its own draft before the first
+  // one's row has actually landed in the queue track, and the first prompt is silently lost
+  // (same race composer-queue-bounds.spec.ts's queueMessage hit).
+  await expect(
+    page.getByTestId("composer-queue-track").getByText(prompt, { exact: true }),
+  ).toBeAttached();
 }
 
 /**
@@ -429,7 +445,7 @@ async function expectInterruptedTurnOrderAfterReconnect(
     await expect(page.getByText("Cycle 1", { exact: true })).toBeVisible();
     await queueMessage(page, prompt);
     gate.setAgentStreamSuppressed(true);
-    await page.getByRole("button", { name: "Send queued message now" }).click();
+    await sendQueuedRowNow(page, prompt);
     const promptRow = page.getByTestId("user-message").filter({ hasText: prompt });
     await expect(promptRow).toBeVisible();
     await gate.waitForServerMessage("send_agent_message_response");
@@ -647,7 +663,7 @@ async function expectLegacyAssistantStartsAfterInterruptedPrompt(
     await queueMessage(page, prompt);
     gate.setAssistantMessageIdsStripped(true);
     gate.setAgentStreamEventSuppressed("turn_canceled", true);
-    await page.getByRole("button", { name: "Send queued message now" }).click();
+    await sendQueuedRowNow(page, prompt);
     const promptRow = page.getByTestId("user-message").filter({ hasText: prompt });
     const replacementAnswer = page.getByText("(end of synthetic stream)", { exact: true }).last();
     await expect(promptRow).toBeVisible();
@@ -665,6 +681,14 @@ async function expectStaleCanonicalPagePreservesNewerLiveOutput(
   testInfo: { workerIndex: number },
 ): Promise<void> {
   const gate = await installDaemonWebSocketGate(page);
+  // Tool calls default to the collapsed overview activity row (docs/design.md §12); this test
+  // asserts on the individual "read" tool-call badge, so opt into the Detailed level.
+  await page.addInitScript(() => {
+    localStorage.setItem(
+      "@paseo:app-settings",
+      JSON.stringify({ toolCallDetailLevel: "detailed" }),
+    );
+  });
   const agent = await seedMockAgentWorkspace({
     repoPrefix: `submission-stale-canonical-${testInfo.workerIndex}-`,
     title: "Stale canonical page race",
@@ -1002,6 +1026,16 @@ test.describe("Agent message submission", () => {
     });
     const prompt = "Emit 205 assistant messages before synthetic user message.";
     try {
+      // A finished turn folds behind "Worked for" by default (docs/design.md §12). The 205-message
+      // turn this test pages back into history must stay unfolded, or the older page the pagination
+      // helper loads adds no measurable scrollHeight and the "keeps loading" poll below never sees
+      // growth.
+      await page.addInitScript(() => {
+        localStorage.setItem(
+          "@paseo:app-settings",
+          JSON.stringify({ toolCallDetailLevel: "detailed" }),
+        );
+      });
       await openWorkspaceDraft(page, workspace.workspaceId);
       await selectModel(page, "one-minute-stream");
 
@@ -1075,7 +1109,9 @@ test.describe("Agent message submission", () => {
       await expect(page.getByRole("button", { name: "Send queued message now" })).toBeVisible();
 
       gate.holdNextServerMessage("cancel_agent_response");
-      await page.getByRole("button", { name: "Stop agent", exact: true }).click();
+      await (
+        await resolveLiveMatch(page.getByRole("button", { name: "Stop agent", exact: true }))
+      ).click();
       await gate.waitForHeldServerMessage();
 
       await expect(page.getByTestId("user-message").filter({ hasText: secondPrompt })).toHaveCount(
