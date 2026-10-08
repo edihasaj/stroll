@@ -286,7 +286,12 @@ export async function expectNewWorkspaceDraft(page: Page, draft: string): Promis
 export async function selectNewWorkspaceHost(page: Page, hostLabel: string): Promise<void> {
   const trigger = page.getByTestId("host-picker-trigger");
   await trigger.click();
-  await page.getByRole("button", { name: hostLabel, exact: true }).click();
+  // Scoped to the open picker panel: the sidebar's own host-identity trigger
+  // (sidebar-hosts-trigger) is also an accessible button named after the active host, and a
+  // page-wide role query collides with it whenever that host's name matches the one being
+  // selected here.
+  const panel = page.getByTestId("combobox-desktop-container");
+  await panel.getByRole("button", { name: hostLabel, exact: true }).click();
   await expect(trigger).toContainText(hostLabel);
 }
 
