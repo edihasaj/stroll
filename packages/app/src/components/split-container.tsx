@@ -43,6 +43,7 @@ import { RetainedPanel } from "@/components/retained-panel";
 import {
   hasMultipleVisiblePanes,
   resolveSplitContainerRoot,
+  shouldExitFullView,
   splitNodeContainsPane,
 } from "@/components/split-container-focus";
 import { shouldFocusPaneFromEventTarget } from "@/components/split-container-pane-focus";
@@ -79,6 +80,7 @@ import {
   WorkspaceTabIcon,
 } from "@/screens/workspace/workspace-tab-presentation";
 import type { WorkspaceTabDescriptor } from "@/screens/workspace/workspace-tabs-types";
+import { useWorkspaceFullViewStore } from "@/stores/workspace-full-view-store";
 import {
   createDefaultLayout,
   findPaneById,
@@ -345,12 +347,11 @@ export function SplitContainer({
   const [activeDragTabId, setActiveDragTabId] = useState<string | null>(null);
   const [dropPreview, setDropPreview] = useState<SplitDropZoneHover | null>(null);
   const [tabDropPreview, setTabDropPreview] = useState<TabDropPreview | null>(null);
-  const [maximizedPane, setMaximizedPane] = useState<{
-    workspaceKey: string;
-    paneId: string;
-  } | null>(null);
-  const maximizedPaneId =
-    maximizedPane?.workspaceKey === workspaceKey ? maximizedPane.paneId : null;
+  const maximizedPaneId = useWorkspaceFullViewStore(
+    (state) => state.fullViewPaneIdByWorkspace[workspaceKey] ?? null,
+  );
+  const toggleFullView = useWorkspaceFullViewStore((state) => state.toggleFullView);
+  const exitFullView = useWorkspaceFullViewStore((state) => state.exitFullView);
   const explorerSidebarPaneId = useWorkspaceLayoutStore(
     (state) => state.explorerSidebarPaneIdByWorkspace[workspaceKey] ?? null,
   );
@@ -379,23 +380,26 @@ export function SplitContainer({
   useEffect(() => {
     if (
       maximizedPaneId &&
-      (focusModeEnabled ||
-        !workspaceHasMultiplePanes ||
-        !mainRoot ||
-        !splitNodeContainsPane(mainRoot, maximizedPaneId))
+      shouldExitFullView({
+        paneId: maximizedPaneId,
+        mainRoot,
+        workspaceHasMultiplePanes,
+        focusModeEnabled,
+      })
     ) {
-      setMaximizedPane(null);
+      exitFullView(workspaceKey);
     }
-  }, [focusModeEnabled, mainRoot, maximizedPaneId, workspaceHasMultiplePanes]);
+  }, [
+    exitFullView,
+    focusModeEnabled,
+    mainRoot,
+    maximizedPaneId,
+    workspaceHasMultiplePanes,
+    workspaceKey,
+  ]);
   const handleTogglePaneMaximized = useCallback(
-    (paneId: string) => {
-      setMaximizedPane((current) =>
-        current?.workspaceKey === workspaceKey && current.paneId === paneId
-          ? null
-          : { workspaceKey, paneId },
-      );
-    },
-    [workspaceKey],
+    (paneId: string) => toggleFullView(workspaceKey, paneId),
+    [toggleFullView, workspaceKey],
   );
   const splitRoot = useMemo(
     () =>

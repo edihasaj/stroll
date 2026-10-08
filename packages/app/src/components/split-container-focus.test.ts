@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   hasMultipleVisiblePanes,
   resolveSplitContainerRoot,
+  shouldExitFullView,
   splitNodeContainsPane,
 } from "@/components/split-container-focus";
 import type { SplitNode } from "@/stores/workspace-layout-store";
@@ -60,5 +61,40 @@ describe("split focus root", () => {
         group: { ...root.group, children: [pane("left"), hiddenPane("right")] },
       }),
     ).toBe(false);
+  });
+});
+
+describe("Full view reset rules", () => {
+  const stillValid = {
+    paneId: "right",
+    mainRoot: root,
+    workspaceHasMultiplePanes: true,
+    focusModeEnabled: false,
+  };
+
+  it("stays while its pane shares the workspace with another visible pane", () => {
+    expect(shouldExitFullView(stillValid)).toBe(false);
+  });
+
+  it("ends in focus mode", () => {
+    expect(shouldExitFullView({ ...stillValid, focusModeEnabled: true })).toBe(true);
+  });
+
+  it("ends when only one pane remains", () => {
+    expect(
+      shouldExitFullView({
+        ...stillValid,
+        mainRoot: pane("right"),
+        workspaceHasMultiplePanes: false,
+      }),
+    ).toBe(true);
+  });
+
+  it("ends when its pane was removed", () => {
+    expect(shouldExitFullView({ ...stillValid, paneId: "removed" })).toBe(true);
+  });
+
+  it("ends when the workspace has no main tree", () => {
+    expect(shouldExitFullView({ ...stillValid, mainRoot: null })).toBe(true);
   });
 });

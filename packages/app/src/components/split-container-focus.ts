@@ -37,6 +37,21 @@ export function hasMultipleVisiblePanes(node: SplitNode): boolean {
   return visiblePaneCount > 1;
 }
 
+/** Full view ends when the layout can no longer show its pane covering the others. */
+export function shouldExitFullView(input: {
+  paneId: string;
+  mainRoot: SplitNode | null;
+  workspaceHasMultiplePanes: boolean;
+  focusModeEnabled: boolean | undefined;
+}): boolean {
+  return (
+    Boolean(input.focusModeEnabled) ||
+    !input.workspaceHasMultiplePanes ||
+    !input.mainRoot ||
+    !splitNodeContainsPane(input.mainRoot, input.paneId)
+  );
+}
+
 function findPane(node: SplitNode, paneId: string): SplitPane | null {
   if (node.kind === "pane") return node.pane.id === paneId ? node.pane : null;
   for (const child of node.group.children) {
