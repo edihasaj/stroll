@@ -604,6 +604,16 @@ async function runRegression({
     `sidebar-workspace-row-${serverId}:${originalWorkspaceId}`,
   );
   await originalWorkspaceRow.waitFor({ state: "visible", timeout: timeoutMs });
+  // These checks cover a browser tab sharing the chat's pane (inactive capture, retention), so
+  // keep agent-opened browsers out of the side pane.
+  await page.evaluate(() => {
+    const key = "@paseo:app-settings";
+    const settings = JSON.parse(localStorage.getItem(key) ?? "{}");
+    settings.openInSidePane = { ...settings.openInSidePane, browser: false };
+    localStorage.setItem(key, JSON.stringify(settings));
+  });
+  await page.reload();
+  await originalWorkspaceRow.waitFor({ state: "visible", timeout: timeoutMs });
   await originalWorkspaceRow.click();
 
   await page.evaluate(() => {
