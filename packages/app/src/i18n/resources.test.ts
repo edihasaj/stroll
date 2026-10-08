@@ -518,8 +518,8 @@ describe("translation resources", () => {
     expect(en.message.attachments.imagePreviewLoadFailed).toBe("Unable to load image preview.");
     expect(en.workspace.tabs.explorerSidebar.changes).toBe("Changes");
     expect(en.workspace.tabs.explorerSidebar.files).toBe("Files");
-    expect(en.workspace.tabs.actions.maximizePane).toBe("Maximize pane");
-    expect(en.workspace.tabs.actions.restorePane).toBe("Restore pane");
+    expect(en.workspace.tabs.actions.fullView).toBe("Full view");
+    expect(en.workspace.tabs.actions.exitFullView).toBe("Exit full view");
     expect(en.branchSwitcher.triggerTooltip).toBe("Switch workspace branch");
     expect(en.branchSwitcher.uncommittedTitle).toBe("Uncommitted changes");
     expect(en.branchSwitcher.uncommittedMessage).toBe(

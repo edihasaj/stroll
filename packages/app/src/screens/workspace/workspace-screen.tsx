@@ -56,6 +56,7 @@ import {
   toggleExplorerSidebar,
   useIsExplorerSidebarOpen,
 } from "@/workspace-tabs/explorer-sidebar";
+import { toggleWorkspaceFullView } from "@/workspace-tabs/full-view";
 import {
   openPreferredWorkspacePreview,
   openPreferredWorkspaceTarget,
@@ -3371,6 +3372,13 @@ function WorkspaceScreenContent({
         return true;
       }
 
+      if (action.id === "workspace.full-view.toggle") {
+        if (persistenceKey && !isMobile && supportsDesktopPaneSplits()) {
+          toggleWorkspaceFullView(persistenceKey);
+        }
+        return true;
+      }
+
       if (!persistenceKey || !workspaceLayout) {
         return true;
       }
@@ -3434,6 +3442,7 @@ function WorkspaceScreenContent({
       focusWorkspacePane,
       handleClosePane,
       handleCreateEmptySplit,
+      isMobile,
       moveWorkspaceTabToPane,
       persistenceKey,
       focusedPaneTabState.activeTabId,
@@ -3555,6 +3564,7 @@ function WorkspaceScreenContent({
       "workspace.pane.move-tab.down",
       "workspace.pane.close",
       "workspace.focus.toggle",
+      "workspace.full-view.toggle",
     ] as const,
     enabled: workspaceActionsEnabled,
     priority: 100,

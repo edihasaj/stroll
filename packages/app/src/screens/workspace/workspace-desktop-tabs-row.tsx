@@ -290,6 +290,7 @@ function WorkspacePaneToolbarActions({
   const { t } = useTranslation();
   const splitRightKeys = useShortcutKeys("workspace-pane-split-right");
   const splitDownKeys = useShortcutKeys("workspace-pane-split-down");
+  const fullViewKeys = useShortcutKeys("toggle-full-view");
   const splitActionsVisible = showSplitActions && Boolean(onSplitRight && onSplitDown);
   const splitRightLeading = useMemo(
     () => <ThemedColumns2 size={14} uniProps={extraMutedColorMapping} />,
@@ -327,9 +328,10 @@ function WorkspacePaneToolbarActions({
         <ToolbarButton
           label={t(
             paneMaximized
-              ? "workspace.tabs.actions.restorePane"
-              : "workspace.tabs.actions.maximizePane",
+              ? "workspace.tabs.actions.exitFullView"
+              : "workspace.tabs.actions.fullView",
           )}
+          shortcut={fullViewKeys}
           selected={paneMaximized}
           testID={paneMaximized ? "workspace-restore-pane" : "workspace-maximize-pane"}
           onPress={onTogglePaneMaximized}

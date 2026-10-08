@@ -48,6 +48,7 @@ export interface WorkspaceCommandCenterLabels {
   moveTabDown: string;
   closePane: string;
   toggleFocusMode: string;
+  toggleFullView: string;
   toggleExplorerSidebar: string;
   // Workspace management actions
   rename: string;
@@ -77,6 +78,7 @@ export interface WorkspaceCommandCenterIcons {
   focusPane?: CommandCenterIcon;
   moveTab?: CommandCenterIcon;
   focusMode?: CommandCenterIcon;
+  fullView?: CommandCenterIcon;
   explorerSidebar?: CommandCenterIcon;
   // Workspace management action icons
   copyPath?: CommandCenterIcon;
@@ -100,6 +102,7 @@ export interface WorkspaceCommandCenterShortcuts {
   closeCurrentTab?: ShortcutKey[][];
   closePane?: ShortcutKey[][];
   toggleFocusMode?: ShortcutKey[][];
+  toggleFullView?: ShortcutKey[][];
   toggleExplorerSidebar?: ShortcutKey[][];
   pinWorkspace?: ShortcutKey[][];
 }
@@ -493,6 +496,15 @@ function buildPaneContributions(source: WorkspaceCommandCenterSource): CommandCe
       icon: source.icons.focusMode,
       shortcutKeys: source.shortcuts.toggleFocusMode,
       action: { id: "workspace.focus.toggle", scope: "workspace" },
+    },
+    {
+      id: "pane:full-view-toggle",
+      rank: 63,
+      title: source.labels.toggleFullView,
+      keywords: ["pane", "full", "view", "maximize", "side", "panel"],
+      icon: source.icons.fullView,
+      shortcutKeys: source.shortcuts.toggleFullView,
+      action: { id: "workspace.full-view.toggle", scope: "workspace" },
     },
   ];
   return paneActions.map((action) => buildQueryAction(source, action));

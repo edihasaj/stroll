@@ -3,9 +3,11 @@ import { formatShortcut } from "@/utils/format-shortcut";
 import {
   buildKeyboardShortcutHelpSections,
   buildEffectiveBindings,
+  DEFAULT_BINDINGS,
   getBindingIdForAction,
   getDefaultKeysForAction,
   getWorkspaceIndexJumpModifierKey,
+  matchesKeyboardShortcutContext,
   parseBindingChord,
   resolveKeyboardShortcut,
   resolveShortcutKeysForAction,
@@ -1208,7 +1210,6 @@ describe("direct new-tab target shortcuts", () => {
   const desktopNonMac = { isMac: false, isDesktop: true };
   const targetCases = [
     ["a", "KeyA", "workspace.tab.target.agent"],
-    ["b", "KeyB", "workspace.tab.target.browser"],
     ["g", "KeyG", "workspace.tab.target.changes"],
     ["e", "KeyE", "workspace.tab.target.files"],
   ] as const;
@@ -1241,6 +1242,24 @@ describe("direct new-tab target shortcuts", () => {
     expect(result.match?.action).toBe(action);
   });
 
+  it("routes Ctrl+Alt+B directly to a new browser", () => {
+    const result = resolveShortcut({
+      event: { key: "b", code: "KeyB", ctrlKey: true, altKey: true },
+      context: { ...desktopNonMac, focusScope: "other" },
+      bindings: buildEffectiveBindings({}),
+    });
+    expect(result.match?.action).toBe("workspace.tab.target.browser");
+  });
+
+  it("routes Cmd+Alt+B to a new browser although Option rewrites the typed key", () => {
+    const result = resolveShortcut({
+      event: { key: "∫", code: "KeyB", metaKey: true, altKey: true },
+      context: { isMac: true, isDesktop: true, focusScope: "other" },
+      bindings: buildEffectiveBindings({}),
+    });
+    expect(result.match?.action).toBe("workspace.tab.target.browser");
+  });
+
   it("uses the existing override map for target matching and display", () => {
     const bindingId = "workspace-tab-target-agent-ctrl-shift-a-non-mac";
     const overrides = { [bindingId]: "Ctrl+Shift+H" };
@@ -1260,5 +1279,108 @@ describe("direct new-tab target shortcuts", () => {
     expect(
       resolveShortcutKeysForAction("workspace-tab-target-agent", overrides, desktopNonMac),
     ).toEqual([["ctrl", "shift", "H"]]);
+  });
+});
+
+describe("Full view shortcut", () => {
+  it("toggles Full view from Ctrl+Shift+B", () => {
+    expectShortcutResolution({
+      event: { key: "b", code: "KeyB", ctrlKey: true, shiftKey: true },
+      context: { isMac: false, isDesktop: true },
+      action: "view.toggle.full-view",
+    });
+  });
+
+  it("toggles Full view from Cmd+Shift+B", () => {
+    expectShortcutResolution({
+      event: { key: "b", code: "KeyB", metaKey: true, shiftKey: true },
+      context: { isMac: true, isDesktop: true },
+      action: "view.toggle.full-view",
+    });
+  });
+
+  it("no longer opens a new browser from Cmd+Shift+B or Ctrl+Shift+B", () => {
+    const mac = resolveShortcut({
+      event: { key: "b", code: "KeyB", metaKey: true, shiftKey: true },
+      context: { isMac: true, isDesktop: true },
+    });
+    const nonMac = resolveShortcut({
+      event: { key: "b", code: "KeyB", ctrlKey: true, shiftKey: true },
+      context: { isMac: false, isDesktop: true },
+    });
+
+    expect(mac.match?.action).not.toBe("workspace.tab.target.browser");
+    expect(nonMac.match?.action).not.toBe("workspace.tab.target.browser");
+  });
+
+  it("is a rebindable layout row that shows its own keys", () => {
+    const sections = buildKeyboardShortcutHelpSections({ isMac: true, isDesktop: true });
+    const layout = sections.find((section) => section.id === "layout");
+
+    expect(layout?.rows.map((row) => row.id)).toEqual([
+      "toggle-left-sidebar",
+      "toggle-right-sidebar",
+      "toggle-both-sidebars",
+      "toggle-focus",
+      "toggle-full-view",
+    ]);
+    expect(layout?.rows.find((row) => row.id === "toggle-full-view")?.labelKey).toBe(
+      "settings.shortcuts.help.toggleFullView",
+    );
+    expect(getBindingIdForAction("toggle-full-view", { isMac: true, isDesktop: true })).toBe(
+      "view-toggle-full-view-cmd-shift-b-mac",
+    );
+    expect(getBindingIdForAction("toggle-full-view", { isMac: false, isDesktop: true })).toBe(
+      "view-toggle-full-view-ctrl-shift-b-non-mac",
+    );
+  });
+
+  it("moves New browser to ids of its own so overrides on the old Cmd+Shift+B ids do not carry over", () => {
+    expect(
+      getBindingIdForAction("workspace-tab-target-browser", { isMac: true, isDesktop: true }),
+    ).toBe("workspace-tab-target-browser-cmd-alt-b-mac");
+    expect(
+      getBindingIdForAction("workspace-tab-target-browser", { isMac: false, isDesktop: true }),
+    ).toBe("workspace-tab-target-browser-ctrl-alt-b-non-mac");
+    const staleOverrides = {
+      "workspace-tab-target-browser-cmd-shift-b-mac": "Cmd+K",
+      "workspace-tab-target-browser-ctrl-shift-b-non-mac": "Ctrl+K",
+    };
+    expect(
+      resolveShortcutKeysForAction("workspace-tab-target-browser", staleOverrides, {
+        isMac: true,
+        isDesktop: true,
+      }),
+    ).toEqual([["mod", "alt", "B"]]);
+  });
+});
+
+describe("default bindings", () => {
+  const platforms = [
+    { isMac: true, isDesktop: true },
+    { isMac: false, isDesktop: true },
+    { isMac: true, isDesktop: false },
+    { isMac: false, isDesktop: false },
+  ];
+  const focusScopes = ["terminal", "message-input", "editable", "browser", "other"] as const;
+
+  it.each(platforms)("never bind one combo to two ids where both can fire (%j)", (platform) => {
+    const shared: string[] = [];
+    for (const focusScope of focusScopes) {
+      const context = { ...platform, focusScope, commandCenterOpen: false };
+      const idByCombo = new Map<string, string>();
+      for (const binding of DEFAULT_BINDINGS) {
+        if (binding.combo === "" || !matchesKeyboardShortcutContext(binding.when, context)) {
+          continue;
+        }
+        const other = idByCombo.get(binding.combo);
+        if (other) {
+          shared.push(`${focusScope}: ${binding.combo} is ${other} and ${binding.id}`);
+        }
+        idByCombo.set(binding.combo, binding.id);
+      }
+    }
+
+    expect(shared).toEqual([]);
   });
 });

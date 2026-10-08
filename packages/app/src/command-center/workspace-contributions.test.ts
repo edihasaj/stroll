@@ -67,6 +67,7 @@ function source(gitActions: GitActions): {
         moveTabDown: "Move tab down",
         closePane: "Close pane",
         toggleFocusMode: "Toggle focus mode",
+        toggleFullView: "Toggle full view",
         toggleExplorerSidebar: "Toggle Explorer sidebar",
         rename: "Rename workspace",
         copyPath: "Copy workspace path",
@@ -347,6 +348,32 @@ describe("workspace command center contributions", () => {
     );
     expect(focusToggles).toHaveLength(1);
     expect(focusToggles[0]?.id).toBe("pane:focus-mode-toggle");
+  });
+
+  it("offers Full view with its shortcut wherever panes can be split", () => {
+    const fixture = source({ primary: null, secondary: [], menu: [] });
+    fixture.value.capabilities.canSplitPanes = true;
+    fixture.value.shortcuts = { toggleFullView: [["mod", "shift", "B"]] };
+    const contributions = buildWorkspaceCommandCenterContributions(fixture.value);
+
+    const fullView = contributions.find((item) => item.id === "pane:full-view-toggle");
+    fullView?.run();
+
+    expect(fullView?.presentation).toMatchObject({
+      kind: "action",
+      title: "Toggle full view",
+      shortcutKeys: [["mod", "shift", "B"]],
+    });
+    expect(fixture.dispatched).toEqual([{ id: "workspace.full-view.toggle", scope: "workspace" }]);
+  });
+
+  it("leaves Full view out where panes cannot be split", () => {
+    const fixture = source({ primary: null, secondary: [], menu: [] });
+    fixture.value.capabilities.canSplitPanes = false;
+
+    const contributions = buildWorkspaceCommandCenterContributions(fixture.value);
+
+    expect(contributions.some((item) => item.id === "pane:full-view-toggle")).toBe(false);
   });
 
   it("omits the labels group when the catalog hasn't loaded", () => {

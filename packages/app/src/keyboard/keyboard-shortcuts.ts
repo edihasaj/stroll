@@ -193,7 +193,13 @@ export const SHORTCUT_HELP_ROW_ORDER: Record<ShortcutSectionId, readonly string[
     "workspace-pane-move-tab-down",
     "workspace-pane-close",
   ],
-  layout: ["toggle-left-sidebar", "toggle-right-sidebar", "toggle-both-sidebars", "toggle-focus"],
+  layout: [
+    "toggle-left-sidebar",
+    "toggle-right-sidebar",
+    "toggle-both-sidebars",
+    "toggle-focus",
+    "toggle-full-view",
+  ],
   "agent-input": [
     "focus-message-input",
     "cycle-agent-mode",
@@ -241,6 +247,7 @@ const SHORTCUT_HELP_LABEL_KEYS: Record<string, string> = {
   "toggle-both-sidebars": "settings.shortcuts.help.toggleBothSidebars",
   "toggle-settings": "settings.shortcuts.help.toggleSettings",
   "toggle-focus": "settings.shortcuts.help.toggleFocusMode",
+  "toggle-full-view": "settings.shortcuts.help.toggleFullView",
   "cycle-theme": "settings.shortcuts.help.cycleTheme",
   "focus-message-input": "settings.shortcuts.help.focusMessageInput",
   "cycle-agent-mode": "settings.shortcuts.help.cycleAgentMode",
@@ -431,9 +438,11 @@ const SHORTCUT_BINDINGS: readonly ShortcutBinding[] = [
     },
   },
   {
-    id: "workspace-tab-target-browser-cmd-shift-b-mac",
+    // Cmd+Shift+B now toggles Full view, as in Codex. These ids are new: the former ids named the
+    // Cmd+Shift+B default, and overrides stored against them no longer apply.
+    id: "workspace-tab-target-browser-cmd-alt-b-mac",
     action: "workspace.tab.target.browser",
-    combo: "Cmd+Shift+B",
+    combo: "Cmd+Alt+B",
     when: { mac: true, commandCenter: false },
     help: {
       id: "workspace-tab-target-browser",
@@ -442,9 +451,9 @@ const SHORTCUT_BINDINGS: readonly ShortcutBinding[] = [
     },
   },
   {
-    id: "workspace-tab-target-browser-ctrl-shift-b-non-mac",
+    id: "workspace-tab-target-browser-ctrl-alt-b-non-mac",
     action: "workspace.tab.target.browser",
-    combo: "Ctrl+Shift+B",
+    combo: "Ctrl+Alt+B",
     when: { mac: false, commandCenter: false, terminal: false },
     help: {
       id: "workspace-tab-target-browser",
@@ -1021,6 +1030,30 @@ const SHORTCUT_BINDINGS: readonly ShortcutBinding[] = [
       id: "toggle-focus",
       section: "layout",
       label: "Toggle focus mode",
+    },
+  },
+
+  // --- Full view ---
+  {
+    id: "view-toggle-full-view-cmd-shift-b-mac",
+    action: "view.toggle.full-view",
+    combo: "Cmd+Shift+B",
+    when: { mac: true, commandCenter: false },
+    help: {
+      id: "toggle-full-view",
+      section: "layout",
+      label: "Toggle full view",
+    },
+  },
+  {
+    id: "view-toggle-full-view-ctrl-shift-b-non-mac",
+    action: "view.toggle.full-view",
+    combo: "Ctrl+Shift+B",
+    when: { mac: false, commandCenter: false, terminal: false },
+    help: {
+      id: "toggle-full-view",
+      section: "layout",
+      label: "Toggle full view",
     },
   },
 

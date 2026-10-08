@@ -39,6 +39,27 @@ describe("buildBrowserKeyboardPolicy", () => {
     });
   });
 
+  it.each([
+    { isMac: true, modifier: { control: false, meta: true } },
+    { isMac: false, modifier: { control: true, meta: false } },
+  ])(
+    "lets Full view and New browser shortcuts leave a focused browser (mac: $isMac)",
+    ({ isMac, modifier }) => {
+      const policy = buildBrowserKeyboardPolicy({
+        bindings: buildEffectiveBindings({}),
+        isMac,
+        isDesktop: true,
+      });
+
+      expect(policy.prefixes).toContainEqual(
+        expect.objectContaining({ ...modifier, code: "KeyB", alt: false, shift: true }),
+      );
+      expect(policy.prefixes).toContainEqual(
+        expect.objectContaining({ ...modifier, code: "KeyB", alt: true, shift: false }),
+      );
+    },
+  );
+
   it("publishes a chord continuation only after its browser start crosses the boundary", () => {
     const bindings = buildEffectiveBindings({
       "workspace-terminal-new-ctrl-shift-t-non-mac": "Ctrl+F12 Ctrl+F11",

@@ -32,6 +32,8 @@ export function resolveWorkspaceCommandCenterShortcuts({
     closePane:
       resolveShortcutKeysForAction("workspace-pane-close", overrides, platform) ?? undefined,
     toggleFocusMode: resolveShortcutKeysForAction("toggle-focus", overrides, platform) ?? undefined,
+    toggleFullView:
+      resolveShortcutKeysForAction("toggle-full-view", overrides, platform) ?? undefined,
     toggleExplorerSidebar:
       resolveShortcutKeysForAction("toggle-right-sidebar", overrides, platform) ?? undefined,
     // Workspace management shortcuts

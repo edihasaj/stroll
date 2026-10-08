@@ -13,6 +13,7 @@ import {
   GitPullRequest,
   Globe,
   ListChecks,
+  Maximize,
   Move,
   PanelRight,
   Pencil,
@@ -80,6 +81,7 @@ const WORKSPACE_COMMAND_CENTER_ICONS = {
   focusPane: getCommandCenterIcon(Focus),
   moveTab: getCommandCenterIcon(Move),
   focusMode: getCommandCenterIcon(ArrowDownToLine),
+  fullView: getCommandCenterIcon(Maximize),
   explorerSidebar: getCommandCenterIcon(PanelRight),
   // Workspace management action icons
   copyPath: getCommandCenterIcon(Copy),
@@ -268,6 +270,7 @@ export function useWorkspaceCommandCenterActions(): void {
           moveTabDown: t("settings.shortcuts.help.moveTabDown"),
           closePane: t("settings.shortcuts.help.closePane"),
           toggleFocusMode: t("settings.shortcuts.help.toggleFocusMode"),
+          toggleFullView: t("settings.shortcuts.help.toggleFullView"),
           toggleExplorerSidebar: t("workspace.tabs.explorerSidebar.toggle"),
           // Workspace management labels
           rename: t("sidebar.workspace.actions.rename"),

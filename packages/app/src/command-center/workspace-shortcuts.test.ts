@@ -10,4 +10,22 @@ describe("resolveWorkspaceCommandCenterShortcuts", () => {
       }).newAgent,
     ).toEqual([["mod", "shift", "A"]]);
   });
+
+  it("shows the keys that toggle Full view", () => {
+    expect(
+      resolveWorkspaceCommandCenterShortcuts({
+        overrides: {},
+        platform: { isMac: false, isDesktop: true },
+      }).toggleFullView,
+    ).toEqual([["ctrl", "shift", "B"]]);
+  });
+
+  it("follows a rebound Full view shortcut", () => {
+    expect(
+      resolveWorkspaceCommandCenterShortcuts({
+        overrides: { "view-toggle-full-view-ctrl-shift-b-non-mac": "Ctrl+Shift+J" },
+        platform: { isMac: false, isDesktop: true },
+      }).toggleFullView,
+    ).toEqual([["ctrl", "shift", "J"]]);
+  });
 });
