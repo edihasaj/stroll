@@ -506,9 +506,11 @@ export async function withButtonShowcase(
           );
           await expect(page.getByText("All systems operational", { exact: true })).toHaveCount(0);
           await showcase.setTitle("Healthy app after plugin unload");
-          await expect(page.getByTestId("workspace-header-title")).toHaveText(
-            "Healthy app after plugin unload",
-          );
+          // The desktop header converges project + title into one breadcrumb line
+          // (workspace-screen.tsx's WorkspaceHeaderBreadcrumb) whenever the project was renamed
+          // to something distinct from the title earlier in this test — expectWorkspaceHeaderTitle
+          // already accepts either shape, matching this file's other title assertions.
+          await expectWorkspaceHeaderTitle(page, "Healthy app after plugin unload");
         }),
     });
   } finally {
