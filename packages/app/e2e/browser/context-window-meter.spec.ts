@@ -448,6 +448,11 @@ test("Find remains available after dismissing context details", async ({ page, a
   await page.keyboard.press("Escape");
   await expect(contextWindowDetails(page)).toHaveCount(0);
   await expect(trigger).toBeFocused();
-  await page.keyboard.press("ControlOrMeta+f");
+  // Literal Control, not ControlOrMeta: fixtures.ts pins navigator.platform to "Win32" for
+  // every test, so the app's shortcut policy (getShortcutOs()) always wants Control+f here.
+  // ControlOrMeta resolves off the Playwright *driver's* host OS (Meta on a macOS runner),
+  // which would send Meta+f on a contributor's Mac while the app still expects Control+f —
+  // see chat-find.spec.ts's "Control+f ... on Linux" test for the same fix.
+  await page.keyboard.press("Control+f");
   await expect(page.getByRole("textbox", { name: "Find in pane", exact: true })).toBeFocused();
 });
