@@ -20,7 +20,6 @@ import {
   observePromptIndexRequests,
   pointAtChatOutlineRowEdge,
   pressEnterOnFocusedPrompt,
-  splitCurrentPanelRight,
   withStreamingMarkdownOutline,
   expectReadingStreamedMarkdown,
 } from "../support/helpers/chat-outline";
@@ -42,6 +41,8 @@ import {
 // to spare. At 1280 the panel measures 960, which sits too close to the threshold
 // for chrome-width changes elsewhere to stay out of these tests.
 const WIDE_VIEWPORT = { width: 1440, height: 900 };
+// Still a desktop layout, but the timeline panel falls under the rail's minimum width.
+const NARROW_DESKTOP_VIEWPORT = { width: 1100, height: 900 };
 const LOADED_TURNS = 16;
 
 test.describe("desktop chat outline", () => {
@@ -240,13 +241,14 @@ test.describe("desktop chat outline", () => {
     });
   });
 
-  test("hides the rail when a split makes its panel narrow", async ({ page }) => {
+  test("hides the rail when the window makes its panel narrow", async ({ page }) => {
     const agent = await seedLongMockAgentTimeline({ turns: 2 });
     try {
       await page.setViewportSize(WIDE_VIEWPORT);
       await openAgentTimeline(page, agent);
+      await expect(chatOutlineRail(page)).toBeVisible();
 
-      await splitCurrentPanelRight(page);
+      await page.setViewportSize(NARROW_DESKTOP_VIEWPORT);
 
       await expectNoChatOutline(page);
     } finally {

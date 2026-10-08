@@ -1,4 +1,3 @@
-import { runWorkspaceActionFromCommandCenter } from "../support/helpers/command-center-workspace-actions";
 import { spawnSync } from "node:child_process";
 import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -410,9 +409,7 @@ test("searches retained output without sending Find input to the shell", async (
   await expect(page.getByRole("button", { name: "Find", exact: true })).toHaveCount(0);
 });
 
-test("keeps terminal Find owned by retained tabs and the focused split pane", async ({
-  page,
-}, testInfo) => {
+test("keeps terminal Find owned by retained tabs", async ({ page }) => {
   const first = await harness.createTerminal({
     name: "First search",
     command: "bash",
@@ -435,30 +432,6 @@ test("keeps terminal Find owned by retained tabs and the focused split pane", as
   await expectSelectedQuery(page, "needle");
   await expect(status(page).filter({ visible: true })).toHaveText("1 of 1");
   await query(page).filter({ visible: true }).press("Escape");
-  await runWorkspaceActionFromCommandCenter(page, "Split pane right");
-  await page.getByTestId(`workspace-tab-terminal_${second.id}`).first().click();
-  await runWorkspaceActionFromCommandCenter(page, "Move tab right");
-  const left = page
-    .getByTestId("split-group-child")
-    .filter({ has: page.getByTestId(`workspace-tab-terminal_${first.id}`) });
-  const right = page
-    .getByTestId("split-group-child")
-    .filter({ has: page.getByTestId(`workspace-tab-terminal_${second.id}`) });
-  await expect(left.locator(".xterm-helper-textarea")).toHaveCount(1);
-  await expect(right.locator(".xterm-helper-textarea")).toHaveCount(1);
-  await right.getByTestId("terminal-surface").click();
-  await right.locator(".xterm-helper-textarea").press("ControlOrMeta+f");
-  await expect(right.getByRole("textbox", { name: "Find in pane", exact: true })).toBeFocused();
-  await right.getByRole("textbox", { name: "Find in pane", exact: true }).fill("needle");
-  await expect(right.getByRole("status", { name: "Find matches" })).toHaveText(/of 2/);
-  await expect(left.getByRole("textbox", { name: "Find in pane", exact: true })).toHaveCount(0);
-  await right.getByRole("textbox", { name: "Find in pane", exact: true }).press("Escape");
-  await left.getByTestId("terminal-surface").click();
-  await left.locator(".xterm-helper-textarea").press("ControlOrMeta+f");
-  await expect(left.getByRole("textbox", { name: "Find in pane", exact: true })).toBeFocused();
-  await left.getByRole("textbox", { name: "Find in pane", exact: true }).fill("needle");
-  await expect(left.getByRole("status", { name: "Find matches" })).toHaveText("1 of 1");
-  await page.screenshot({ path: testInfo.outputPath("split-find.png") });
 });
 
 test("keeps the shared Find controls usable in a compact dark browser", async ({

@@ -42,7 +42,6 @@ export async function expectDefaultWorkspaceActions(panel: Locator): Promise<voi
   await expect(action(panel, "Commit")).toBeVisible();
   await expect(action(panel, "Push")).toHaveCount(0);
   await expect(action(panel, "New terminal")).toHaveCount(0);
-  await expect(action(panel, "Split pane right")).toHaveCount(0);
   await expect(action(panel, "Home")).toHaveCount(0);
   await expect(action(panel, "Add project")).toHaveCount(0);
 }

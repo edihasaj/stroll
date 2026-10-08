@@ -1000,24 +1000,18 @@ async function runRegression({
   await page.screenshot({ path: path.join(artifactDir, "local-page-screenshot-selector.png") });
   await originalDeck.getByRole("button", { name: "Cancel element selector" }).click();
 
+  // Switching away and back must leave the browser surface usable for annotation.
   await originalDeck.getByTestId(`workspace-tab-agent_${callerAgentId}`).click();
-  await page.getByTestId("sidebar-search").click();
-  await page.getByTestId("command-center-input").fill("Split pane right");
-  await page.getByText("Split pane right", { exact: true }).click();
-  assert(
-    (await originalDeck.getByTestId("workspace-tabs-row").filter({ visible: true }).count()) === 2,
-    "Split pane command did not produce two visible panes",
-  );
-  await originalDeck.getByTestId(`workspace-tab-browser_${browserId}`).last().click();
+  await originalDeck.getByTestId(`workspace-tab-browser_${browserId}`).click();
   await originalDeck
     .getByTestId(`browser-webview-clip-${browserId}`)
     .waitFor({ state: "visible", timeout: timeoutMs });
 
-  const splitAnnotateButton = originalDeck.getByRole("button", { name: "Annotate element" });
-  await splitAnnotateButton.click();
+  const reselectAnnotateButton = originalDeck.getByRole("button", { name: "Annotate element" });
+  await reselectAnnotateButton.click();
   assert(
     await waitForGuestSelector(client, browserId),
-    "Element selector did not start in the split browser pane",
+    "Element selector did not start after switching back to the browser tab",
   );
   assert(
     await selectElementAndReadAnnotationPaint({

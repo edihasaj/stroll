@@ -1,7 +1,6 @@
 import { expect, type Locator, type Page } from "@playwright/test";
 import { openSettings } from "./app";
 import { openSettingsSection } from "./settings";
-import { runWorkspaceActionFromCommandCenter } from "./command-center-workspace-actions";
 import { seedMockAgentWorkspace, type MockAgentWorkspace } from "./mock-agent";
 import { loadSessionMessageReaders } from "./new-workspace";
 
@@ -75,10 +74,6 @@ export async function clickChatOutlineRowEdge(page: Page, position: number): Pro
   await pointAtChatOutlineRowEdge(page, position);
   await page.mouse.down();
   await page.mouse.up();
-}
-
-export async function splitCurrentPanelRight(page: Page): Promise<void> {
-  await runWorkspaceActionFromCommandCenter(page, "Split pane right");
 }
 
 export async function disableChatOutlineFromAppearance(page: Page): Promise<void> {

@@ -9,7 +9,6 @@ import { seedWorkspace } from "../support/helpers/seed-client";
 import { getServerId } from "../support/helpers/server-id";
 import { clickSettingsBackToWorkspace, openCompactSettings } from "../support/helpers/settings";
 import { openSettings } from "../support/helpers/app";
-import { runWorkspaceActionFromCommandCenter } from "../support/helpers/command-center-workspace-actions";
 import {
   expectTimelinePromptPositionPreserved,
   rememberTimelinePromptPosition,
@@ -105,14 +104,11 @@ test.describe("Workspace pane mounting", () => {
         .first()
         .elementHandle();
       expect(originalComposer).not.toBeNull();
-      await test.step("opening the first split pane preserves the composer", async () => {
-        const emptyPanesBeforeSplit = await page.getByTestId("workspace-new-tab-panel").count();
-
-        await runWorkspaceActionFromCommandCenter(page, "Split pane right");
-        await expect(page.getByTestId("workspace-new-tab-panel")).toHaveCount(
-          emptyPanesBeforeSplit + 1,
-          { timeout: 30_000 },
-        );
+      await test.step("opening the Explorer sidebar preserves the composer", async () => {
+        await page.getByRole("button", { name: "Open Explorer sidebar", exact: true }).click();
+        await expect(
+          page.getByTestId("workspace-explorer-sidebar").filter({ visible: true }),
+        ).toBeVisible({ timeout: 30_000 });
         await expect(page.getByTestId("message-input-root").filter({ visible: true })).toHaveCount(
           1,
         );

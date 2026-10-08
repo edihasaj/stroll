@@ -2,8 +2,17 @@ import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { expect, test, type Page } from "../support/fixtures";
 import { openFileExplorer, openFileFromExplorer } from "../support/helpers/file-explorer";
-import { runWorkspaceActionFromCommandCenter } from "../support/helpers/command-center-workspace-actions";
 import { installDaemonWebSocketGate } from "../support/helpers/daemon-websocket-gate";
+
+const APP_SETTINGS_KEY = "@paseo:app-settings";
+
+/** Explorer files open in the side pane from the next load on, so a reload applies it. */
+async function openExplorerFilesInSidePane(page: Page) {
+  await page.evaluate((key) => {
+    localStorage.setItem(key, JSON.stringify({ openInSidePane: { explorerFiles: true } }));
+  }, APP_SETTINGS_KEY);
+  await page.reload();
+}
 
 function source(page: Page) {
   return page.getByTestId("file-source-editor").filter({ visible: true }).locator(".cm-content");
@@ -178,7 +187,7 @@ test("searches read-only source beyond the viewport without replace controls", a
   await expect(status(page)).toHaveText("1 of 10000+");
 });
 
-test("targets the focused source in split panes and refocuses an open query", async ({
+test("targets the focused source across the main and side panes and refocuses an open query", async ({
   page,
   withWorkspace,
 }, testInfo) => {
@@ -187,7 +196,8 @@ test("targets the focused source in split panes and refocuses an open query", as
   await writeFile(path.join(workspace.repoPath, "right.txt"), "right needle\nright needle\n");
   await workspace.navigateTo();
   await openSource(page, "left.txt");
-  await runWorkspaceActionFromCommandCenter(page, "Split pane right");
+  await openExplorerFilesInSidePane(page);
+  await openFileExplorer(page);
   await openFileFromExplorer(page, "right.txt");
   const left = source(page).filter({ hasText: "left needle" });
   const right = source(page).filter({ hasText: "right needle" });
@@ -364,12 +374,10 @@ test.describe("the active match stays visible under the floating widget", () => 
     withWorkspace,
   }, testInfo) => {
     const workspace = await withWorkspace({ prefix: "pane-find-cover-split-" });
-    await writeFile(path.join(workspace.repoPath, "left.txt"), "left filler\n");
     await writeFile(path.join(workspace.repoPath, "right.txt"), "needle one\nplain\n");
     await workspace.navigateTo();
-    await openSource(page, "left.txt");
-    await runWorkspaceActionFromCommandCenter(page, "Split pane right");
-    await openFileFromExplorer(page, "right.txt");
+    await openExplorerFilesInSidePane(page);
+    await openSource(page, "right.txt");
     const right = source(page).filter({ hasText: "needle one" });
     await expect(right).toBeVisible();
     await right.click();

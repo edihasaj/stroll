@@ -1,16 +1,20 @@
 import { writeFile } from "node:fs/promises";
 import path from "node:path";
 import { expect, test, type Page } from "../support/fixtures";
-import { runWorkspaceActionFromCommandCenter } from "../support/helpers/command-center-workspace-actions";
 import { openAgentRoute, seedMockAgentWorkspace } from "../support/helpers/mock-agent";
 import { seedWorkspace } from "../support/helpers/seed-client";
+import {
+  dragTabToPane,
+  mainPane,
+  openFileInSidePane,
+  preferInSidePane,
+  sidePane,
+} from "../support/helpers/side-pane";
 import {
   clickSubagentTrackRow,
   openSubagentsTrack,
   seedParentWithSubagent,
 } from "../support/helpers/subagents";
-
-const SETTINGS_KEY = "@paseo:app-settings";
 
 async function openParentInRightPane(page: Page, parentId: string, workspaceId: string) {
   await page.setViewportSize({ width: 1400, height: 900 });
@@ -18,29 +22,21 @@ async function openParentInRightPane(page: Page, parentId: string, workspaceId: 
   await expect(page.getByTestId(`workspace-tab-agent_${parentId}`)).toBeVisible();
   await page.getByTestId("workspace-pane-main").getByTestId("workspace-new-tab-button").click();
   await page.getByTestId("workspace-new-tab-menu-agent").click();
-  await page.getByTestId(`workspace-tab-agent_${parentId}`).click();
-  await runWorkspaceActionFromCommandCenter(page, "Split pane right");
-  await page
-    .getByTestId("workspace-pane-main")
-    .getByTestId(`workspace-tab-agent_${parentId}`)
-    .click();
-  await page.keyboard.press("Meta+Alt+Shift+ArrowRight");
+  await openFileInSidePane(page, "README.md");
+  const parentTab = mainPane(page).getByTestId(`workspace-tab-agent_${parentId}`);
+  await dragTabToPane(page, parentTab, sidePane(page));
 
-  const left = page.getByTestId("workspace-pane-main");
-  const right = page
-    .locator('[data-testid^="workspace-pane-"]')
-    .filter({ has: page.getByTestId(`workspace-tab-agent_${parentId}`) });
+  const left = mainPane(page);
+  const right = sidePane(page);
   await expect(left).toBeVisible();
-  await expect(right).toBeVisible();
-  await expect(right).not.toHaveAttribute("data-testid", "workspace-pane-main");
+  await expect(right.getByTestId(`workspace-tab-agent_${parentId}`)).toBeVisible();
+  await expect(left.getByTestId(`workspace-tab-agent_${parentId}`)).toHaveCount(0);
   await left.locator('[data-testid^="workspace-tab-draft_"]').click();
   return { left, right };
 }
 
 test.beforeEach(async ({ page }) => {
-  await page.addInitScript(() => {
-    Object.defineProperty(navigator, "platform", { get: () => "MacIntel" });
-  });
+  await preferInSidePane(page);
 });
 
 test("a subagent opened from a right-pane parent stays with its parent when left has focus", async ({
@@ -72,9 +68,7 @@ test("a subagent opened from a right-pane parent stays with its parent when left
 test("the side preference reuses the existing side pane for a right-pane parent's subagent", async ({
   page,
 }) => {
-  await page.addInitScript((key) => {
-    localStorage.setItem(key, JSON.stringify({ openInSidePane: { subagents: true } }));
-  }, SETTINGS_KEY);
+  await preferInSidePane(page, { subagents: true });
   const workspace = await seedWorkspace({ repoPrefix: "subagent-side-preference-" });
   try {
     const pair = await seedParentWithSubagent(workspace, {
@@ -119,7 +113,7 @@ test("opening an already-tabbed subagent reveals its left tab without a duplicat
     await openSubagentsTrack(page);
     await clickSubagentTrackRow(page, pair.child.id);
     await expect(right.getByTestId(`workspace-tab-agent_${pair.child.id}`)).toBeVisible();
-    await page.keyboard.press("Meta+Alt+Shift+ArrowLeft");
+    await dragTabToPane(page, right.getByTestId(`workspace-tab-agent_${pair.child.id}`), left);
     await expect(left.getByTestId(`workspace-tab-agent_${pair.child.id}`)).toBeVisible();
     await right.getByTestId(`workspace-tab-agent_${pair.parent.id}`).click();
     await openSubagentsTrack(page);

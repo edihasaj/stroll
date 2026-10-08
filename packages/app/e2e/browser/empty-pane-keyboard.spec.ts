@@ -1,7 +1,6 @@
 import { expect, type Locator, type Page } from "@playwright/test";
 import { test } from "../support/fixtures";
-import { runWorkspaceActionFromCommandCenter } from "../support/helpers/command-center-workspace-actions";
-import { clickNewChat, gotoWorkspace } from "../support/helpers/launcher";
+import { gotoWorkspace } from "../support/helpers/launcher";
 import { seedWorkspace } from "../support/helpers/seed-client";
 import { waitForWorkspaceTabsVisible } from "../support/helpers/workspace-tabs";
 
@@ -37,14 +36,14 @@ test.describe("New tab keyboard launcher", () => {
     }
   });
 
-  test("a new split pane focuses its launcher and supports arrow navigation", async ({ page }) => {
-    const workspace = await seedWorkspace({ repoPrefix: "empty-pane-split-keyboard-" });
+  test("an empty workspace focuses its launcher and supports arrow navigation", async ({
+    page,
+  }) => {
+    const workspace = await seedWorkspace({ repoPrefix: "empty-pane-keyboard-" });
 
     try {
       await gotoWorkspace(page, workspace.workspaceId);
       await waitForWorkspaceTabsVisible(page);
-      await clickNewChat(page);
-      await runWorkspaceActionFromCommandCenter(page, "Split pane right");
 
       const launcher = visibleNewTabPanel(page);
       await expect(launcher).toBeVisible({ timeout: 30_000 });

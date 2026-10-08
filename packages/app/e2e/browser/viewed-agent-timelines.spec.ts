@@ -7,7 +7,13 @@ import { observeTimelineSubscriptions } from "../support/helpers/timeline-delive
 import { waitForWorkspaceTabsVisible } from "../support/helpers/workspace-tabs";
 import { selectWorkspaceInSidebar } from "../support/helpers/sidebar";
 import { installDaemonWebSocketGate } from "../support/helpers/daemon-websocket-gate";
-import { runWorkspaceActionFromCommandCenter } from "../support/helpers/command-center-workspace-actions";
+import {
+  dragTabToPane,
+  mainPane,
+  openFileInSidePane,
+  preferInSidePane,
+  sidePane,
+} from "../support/helpers/side-pane";
 import {
   expectAgentIdle,
   expectInlineWorkingIndicator,
@@ -175,16 +181,6 @@ async function countChatCommits(page: Page, agentId: string) {
       ).length,
     agentId,
   );
-}
-
-async function enableMoveTabShortcut(page: Page) {
-  await page.addInitScript(() => {
-    Object.defineProperty(navigator, "platform", { get: () => "MacIntel" });
-  });
-}
-
-async function moveActiveTabRight(page: Page) {
-  await page.keyboard.press("Meta+Alt+Shift+ArrowRight");
 }
 
 async function commitMessage(scenario: ViewedTimelineScenario, agentId: string, prompt: string) {
@@ -356,26 +352,28 @@ test.describe("Viewed agent timelines", () => {
     }
   });
 
-  test("two visible split chats both stay current", async ({ page }) => {
+  test("two visible chats in the main and side panes both stay current", async ({ page }) => {
+    await preferInSidePane(page);
     const scenario = await seedViewedTimelineScenario();
     try {
-      await enableMoveTabShortcut(page);
       await openAgent(page, scenario, scenario.firstAgentId);
-      await runWorkspaceActionFromCommandCenter(page, "Split pane right");
-      await selectAgent(page, "Second viewed chat");
-      await moveActiveTabRight(page);
+      await openFileInSidePane(page, "README.md");
+      await dragTabToPane(
+        page,
+        page.getByRole("button", { name: "Second viewed chat", exact: true }),
+        sidePane(page),
+      );
       await expect(
-        page.getByRole("button", { name: "First viewed chat", exact: true }),
+        mainPane(page).getByRole("button", { name: "First viewed chat", exact: true }),
       ).toBeVisible();
       await expect(
-        page.getByRole("button", { name: "Second viewed chat", exact: true }),
+        sidePane(page).getByRole("button", { name: "Second viewed chat", exact: true }),
       ).toBeVisible();
       await expect(page.getByRole("textbox", { name: "Message agent..." })).toHaveCount(2);
       await commitMessage(scenario, scenario.firstAgentId, "First visible pane update.");
       await expect(page.getByText("First visible pane update.", { exact: true })).toBeVisible();
-      await expect(
-        page.getByRole("button", { name: "Second viewed chat", exact: true }),
-      ).toBeVisible();
+      await commitMessage(scenario, scenario.secondAgentId, "Second visible pane update.");
+      await expect(page.getByText("Second visible pane update.", { exact: true })).toBeVisible();
     } finally {
       await scenario.cleanup();
     }
