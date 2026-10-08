@@ -381,6 +381,13 @@ describe("ProvidersSection", () => {
     return row;
   }
 
+  // The details button and the trailing controls (switch, menu) are siblings inside the row.
+  function findRowContainer(accessibilityLabel: string): HTMLElement {
+    const parent = findRow(accessibilityLabel).parentElement;
+    if (!parent) throw new Error(`Expected a container for row "${accessibilityLabel}"`);
+    return parent;
+  }
+
   it("renders the disabled provider with its server-provided label in snapshot order", () => {
     snapshotState.entries = [claudeEntry, disabledCodexEntry];
     configState.config = makeConfig({ codex: { enabled: false } });
@@ -409,7 +416,7 @@ describe("ProvidersSection", () => {
 
     render();
 
-    const row = findRow("Claude provider details");
+    const row = findRowContainer("Claude provider details");
     const nodes = descendants(row);
     const chevron = indexOfMatches(nodes, '[data-icon="ChevronRight"]');
     const icon = indexOfMatches(nodes, '[data-icon="provider-claude"]');
@@ -452,7 +459,7 @@ describe("ProvidersSection", () => {
 
     render();
 
-    const row = findRow("Claude provider details");
+    const row = findRowContainer("Claude provider details");
     const switchEl = row.querySelector<HTMLElement>('[role="switch"]');
     expect(switchEl).not.toBeNull();
     expect(switchEl?.getAttribute("aria-checked")).toBe("true");
