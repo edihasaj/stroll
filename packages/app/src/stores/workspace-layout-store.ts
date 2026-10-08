@@ -62,6 +62,13 @@ import {
 import { normalizeWorkspaceTabTarget } from "@/workspace-tabs/identity";
 import { createValidatedPersistStorage } from "@/storage/validated-persist-storage";
 import { panelTargetSupportsHostForWorkspaceKey } from "@/plugins/workspace-panels/locations";
+import { getIsCompactFormFactor, supportsDesktopPaneSplits } from "@/constants/layout";
+import {
+  canMoveTabInSingleChat,
+  canReplaceTabInSingleChat,
+  resolveSingleChatPlacement,
+  SINGLE_CHAT_MAIN_ENABLED,
+} from "@/workspace-tabs/single-chat";
 
 export {
   AMBIENT_PLACEMENT,
@@ -542,22 +549,42 @@ function ensurePersistedExplorerSidebarPane(input: {
   };
 }
 
+interface OpenTabPlacement {
+  layout: WorkspaceLayout;
+  placement: WorkspaceTabPlacement;
+  explorerSidebarPaneId: string | null;
+  singleChatMain: boolean;
+}
+
+/**
+ * Where an open lands. `null` means single-chat main wants the side pane and it does not exist
+ * yet: the caller creates it and asks again.
+ */
 function getOpenTabPlacement(
   state: WorkspaceLayoutStore,
   workspaceKey: string,
   target: WorkspaceTabTarget,
   placement: WorkspaceTabPlacement | undefined,
-): {
-  layout: WorkspaceLayout;
-  placement: WorkspaceTabPlacement;
-  explorerSidebarPaneId: string | null;
-} {
+  singleChatMain: boolean,
+): OpenTabPlacement | null {
   const layout = getWorkspaceLayout(state.layoutByWorkspace, workspaceKey);
   const explorerSidebarPaneId = resolveExplorerSidebarPaneId(
     layout,
     state.explorerSidebarPaneIdByWorkspace[workspaceKey],
   );
   const requestedPlacement = placement ?? AMBIENT_PLACEMENT;
+  if (singleChatMain) {
+    const singleChatPlacement = resolveSingleChatPlacement({
+      root: layout.root,
+      target,
+      placement: requestedPlacement,
+      explorerPaneId: explorerSidebarPaneId,
+      supportsExplorer: panelTargetSupportsHostForWorkspaceKey(workspaceKey, target, "explorer"),
+    });
+    return singleChatPlacement
+      ? { layout, placement: singleChatPlacement, explorerSidebarPaneId, singleChatMain }
+      : null;
+  }
   const supportsPane = (pane: SplitPane) =>
     panelTargetSupportsHostForWorkspaceKey(
       workspaceKey,
@@ -583,6 +610,7 @@ function getOpenTabPlacement(
     layout,
     placement: resolvedPlacement,
     explorerSidebarPaneId,
+    singleChatMain,
   };
 }
 
@@ -637,6 +665,23 @@ function attachParentTab(input: {
   });
 }
 
+/** Single-chat main puts terminals in the side pane, so reconcile needs one before it adds them. */
+function hasMissingStandaloneTerminal(
+  state: WorkspaceLayoutStore,
+  workspaceKey: string,
+  snapshot: WorkspaceTabSnapshot,
+): boolean {
+  if (snapshot.hasActivePendingTerminalCreate) {
+    return false;
+  }
+  const openTerminalIds = new Set(
+    collectAllTabs(getWorkspaceLayout(state.layoutByWorkspace, workspaceKey).root).flatMap((tab) =>
+      tab.target.kind === "terminal" ? [tab.target.terminalId] : [],
+    ),
+  );
+  return [...snapshot.standaloneTerminalIds].some((terminalId) => !openTerminalIds.has(terminalId));
+}
+
 /**
  * Splits an Explorer sidebar out of the pane the user is in. Only reached by layouts saved
  * before the Explorer became part of the default tree; new ones are born with it.
@@ -651,8 +696,22 @@ function createExplorerSidebarPane(
   return targetPaneId ? splitPaneEmpty(workspaceKey, { targetPaneId, position: "right" }) : null;
 }
 
+/** Runtime facts the store cannot derive from its own state. */
+interface WorkspaceLayoutEnv {
+  /** Whether the main pane holds one chat and everything else opens beside it. */
+  singleChatMain: () => boolean;
+}
+
+const INACTIVE_ENV: WorkspaceLayoutEnv = { singleChatMain: () => false };
+
+const DEVICE_ENV: WorkspaceLayoutEnv = {
+  singleChatMain: () =>
+    SINGLE_CHAT_MAIN_ENABLED && supportsDesktopPaneSplits() && !getIsCompactFormFactor(),
+};
+
 export function createWorkspaceLayoutStore(
   ids: WorkspaceLayoutIdSource = defaultWorkspaceLayoutIds,
+  env: WorkspaceLayoutEnv = INACTIVE_ENV,
 ) {
   return create<WorkspaceLayoutStore>()(
     persist(
@@ -691,12 +750,27 @@ export function createWorkspaceLayoutStore(
           if (!normalizedWorkspaceKey || !normalizedTarget) {
             return null;
           }
-          const placement = getOpenTabPlacement(
+          const singleChatMain = env.singleChatMain();
+          let placement = getOpenTabPlacement(
             get(),
             normalizedWorkspaceKey,
             normalizedTarget,
             input.placement,
+            singleChatMain,
           );
+          if (!placement) {
+            get().ensureSidePane(normalizedWorkspaceKey, { focus: false });
+            placement = getOpenTabPlacement(
+              get(),
+              normalizedWorkspaceKey,
+              normalizedTarget,
+              input.placement,
+              singleChatMain,
+            );
+          }
+          if (!placement) {
+            return null;
+          }
           let result;
           if (input.intent === "new") {
             result = createTabInLayout({
@@ -1043,8 +1117,28 @@ export function createWorkspaceLayoutStore(
           const normalizedTabId = trimNonEmpty(tabId);
           const normalizedTarget = normalizeWorkspaceTabTarget(target);
           if (!normalizedWorkspaceKey || !normalizedTabId || !normalizedTarget) return null;
+          const currentLayout = getWorkspaceLayout(get().layoutByWorkspace, normalizedWorkspaceKey);
+          if (
+            env.singleChatMain() &&
+            !canReplaceTabInSingleChat({
+              root: currentLayout.root,
+              tabId: normalizedTabId,
+              nextTarget: normalizedTarget,
+              explorerPaneId: resolveExplorerSidebarPaneId(
+                currentLayout,
+                get().explorerSidebarPaneIdByWorkspace[normalizedWorkspaceKey],
+              ),
+            })
+          ) {
+            // The slot belongs to the other kind: open the target where it belongs instead.
+            return get().openTab({
+              workspaceKey: normalizedWorkspaceKey,
+              target: normalizedTarget,
+              intent: "reveal",
+            });
+          }
           const result = replaceTabTargetInLayout({
-            layout: getWorkspaceLayout(get().layoutByWorkspace, normalizedWorkspaceKey),
+            layout: currentLayout,
             tabId: normalizedTabId,
             target: normalizedTarget,
             createTabId: createWorkspaceTabInstanceId,
@@ -1132,6 +1226,13 @@ export function createWorkspaceLayoutStore(
             return;
           }
 
+          const singleChatMain = env.singleChatMain();
+          if (
+            singleChatMain &&
+            hasMissingStandaloneTerminal(get(), normalizedWorkspaceKey, snapshot)
+          ) {
+            get().ensureSidePane(normalizedWorkspaceKey, { focus: false });
+          }
           set((state) => {
             const rawLayout = getWorkspaceLayout(state.layoutByWorkspace, normalizedWorkspaceKey);
             const explorerSidebarPaneId = resolveExplorerSidebarPaneId(
@@ -1149,6 +1250,7 @@ export function createWorkspaceLayoutStore(
                 pinnedAgentIds: state.pinnedAgentIdsByWorkspace[normalizedWorkspaceKey] ?? null,
                 hiddenAgentIds: state.hiddenAgentIdsByWorkspace[normalizedWorkspaceKey] ?? null,
                 explorerSidebarPaneId,
+                singleChatMain,
               },
               snapshot,
             );
@@ -1331,6 +1433,17 @@ export function createWorkspaceLayoutStore(
                 movingTab.target,
                 destinationHost,
               )
+            ) {
+              return state;
+            }
+            if (
+              env.singleChatMain() &&
+              !canMoveTabInSingleChat({
+                root: layout.root,
+                target: movingTab.target,
+                toPaneId: normalizedToPaneId,
+                explorerPaneId: explorerSidebarPaneId,
+              })
             ) {
               return state;
             }
@@ -1811,7 +1924,10 @@ export function createWorkspaceLayoutStore(
   );
 }
 
-export const useWorkspaceLayoutStore = createWorkspaceLayoutStore();
+export const useWorkspaceLayoutStore = createWorkspaceLayoutStore(
+  defaultWorkspaceLayoutIds,
+  DEVICE_ENV,
+);
 
 /**
  * The agent tabs that exist right now, across every workspace of this host, independently

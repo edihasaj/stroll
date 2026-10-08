@@ -4479,3 +4479,208 @@ it("persists the once-only PR add after closing, and clears it when purging the 
   expect(restored.getState().pullRequestTabAutoOpenedByWorkspace[workspaceKey]).toBeUndefined();
   expect(restored.getState().autoOpenPullRequestTab(workspaceKey, placement)).toBe("pull_request");
 });
+
+describe("single-chat main", () => {
+  type SingleChatStore = ReturnType<typeof createWorkspaceLayoutStore>;
+
+  function createSingleChatStore(): SingleChatStore {
+    return createWorkspaceLayoutStore(createDeterministicWorkspaceLayoutIds(), {
+      singleChatMain: () => true,
+    });
+  }
+
+  function describeTarget(tab: WorkspaceTab): string {
+    const target = tab.target;
+    switch (target.kind) {
+      case "agent":
+        return `agent:${target.agentId}`;
+      case "draft":
+        return `draft:${target.draftId}`;
+      case "terminal":
+        return `terminal:${target.terminalId}`;
+      case "file":
+        return `file:${target.path}`;
+      default:
+        return target.kind;
+    }
+  }
+
+  function paneTargets(store: SingleChatStore, paneId: string): string[] {
+    const layout = store.getState().layoutByWorkspace[createWorkspaceKey()];
+    const pane = findPaneById(layout.root, paneId);
+    return collectAllTabs(layout.root)
+      .filter((tab) => pane?.tabIds.includes(tab.tabId))
+      .map(describeTarget);
+  }
+
+  function sidePaneId(store: SingleChatStore): string {
+    const paneId = store.getState().sidePaneIdByWorkspace[createWorkspaceKey()];
+    if (!paneId) throw new Error("Expected a side pane");
+    return paneId;
+  }
+
+  const emptySnapshot = {
+    agentsHydrated: true,
+    terminalsHydrated: true,
+    activeAgentIds: [],
+    autoOpenAgentIds: [],
+    standaloneTerminalIds: [],
+  };
+
+  it("replaces the chat in main when another chat opens, without hiding or archiving it", () => {
+    const workspaceKey = createWorkspaceKey();
+    const store = createSingleChatStore();
+
+    store
+      .getState()
+      .openTab({ workspaceKey, target: { kind: "agent", agentId: "chat-a" }, intent: "reveal" });
+    store
+      .getState()
+      .openTab({ workspaceKey, target: { kind: "agent", agentId: "chat-b" }, intent: "reveal" });
+    expect(paneTargets(store, "main")).toEqual(["agent:chat-b"]);
+
+    store
+      .getState()
+      .openTab({ workspaceKey, target: { kind: "draft", draftId: "draft-1" }, intent: "new" });
+    expect(paneTargets(store, "main")).toEqual(["draft:draft-1"]);
+    expect(store.getState().hiddenAgentIdsByWorkspace[workspaceKey]).toBeUndefined();
+    expect(store.getState().layoutByWorkspace[workspaceKey].focusedPaneId).toBe("main");
+  });
+
+  it("opens non-chat targets in a side pane it creates, leaving main alone", () => {
+    const workspaceKey = createWorkspaceKey();
+    const store = createSingleChatStore();
+    store
+      .getState()
+      .openTab({ workspaceKey, target: { kind: "agent", agentId: "chat-a" }, intent: "reveal" });
+
+    store
+      .getState()
+      .openTab({ workspaceKey, target: { kind: "terminal", terminalId: "t1" }, intent: "reveal" });
+    store.getState().openTab({
+      workspaceKey,
+      target: { kind: "file", path: "src/a.ts" },
+      intent: "reveal",
+      placement: FOCUSED_PANE_PLACEMENT,
+    });
+    store.getState().openTab({
+      workspaceKey,
+      target: { kind: "browser", browserId: "b1" },
+      intent: "background",
+      placement: { mode: "prefer", paneId: "main" },
+    });
+
+    expect(paneTargets(store, "main")).toEqual(["agent:chat-a"]);
+    expect(paneTargets(store, sidePaneId(store))).toEqual([
+      "terminal:t1",
+      "file:src/a.ts",
+      "browser",
+    ]);
+  });
+
+  it("still opens a target in Explorer when that is requested and supported", () => {
+    const workspaceKey = createWorkspaceKey();
+    const store = createSingleChatStore();
+    store
+      .getState()
+      .openTab({ workspaceKey, target: { kind: "agent", agentId: "chat-a" }, intent: "reveal" });
+
+    store.getState().openTab({
+      workspaceKey,
+      target: { kind: "pull_request" },
+      intent: "reveal",
+      placement: { mode: "pane", paneId: "explorer" },
+    });
+
+    expect(paneTargets(store, "explorer")).toContain("pull_request");
+    expect(store.getState().sidePaneIdByWorkspace[workspaceKey]).toBeUndefined();
+  });
+
+  it("adds one chat on reconcile only while main has none", () => {
+    const workspaceKey = createWorkspaceKey();
+    const store = createSingleChatStore();
+    const snapshot = {
+      ...emptySnapshot,
+      activeAgentIds: ["chat-a", "chat-b"],
+      autoOpenAgentIds: ["chat-a", "chat-b"],
+    };
+
+    store.getState().reconcileTabs(workspaceKey, snapshot);
+    expect(paneTargets(store, "main")).toEqual(["agent:chat-a"]);
+
+    store.getState().reconcileTabs(workspaceKey, snapshot);
+    expect(paneTargets(store, "main")).toEqual(["agent:chat-a"]);
+
+    store.getState().closeTab(workspaceKey, "agent_chat-a");
+    store.getState().reconcileTabs(workspaceKey, {
+      ...snapshot,
+      activeAgentIds: ["chat-b"],
+      autoOpenAgentIds: ["chat-b"],
+    });
+    expect(paneTargets(store, "main")).toEqual(["agent:chat-b"]);
+  });
+
+  it("puts reconciled standalone terminals in the side pane", () => {
+    const workspaceKey = createWorkspaceKey();
+    const store = createSingleChatStore();
+    store.getState().reconcileTabs(workspaceKey, {
+      ...emptySnapshot,
+      activeAgentIds: ["chat-a"],
+      autoOpenAgentIds: ["chat-a"],
+      standaloneTerminalIds: ["t1"],
+    });
+
+    expect(paneTargets(store, "main")).toEqual(["agent:chat-a"]);
+    expect(paneTargets(store, sidePaneId(store))).toEqual(["terminal:t1"]);
+  });
+
+  it("refuses to move a chat out of main or anything else into it", () => {
+    const workspaceKey = createWorkspaceKey();
+    const store = createSingleChatStore();
+    store
+      .getState()
+      .openTab({ workspaceKey, target: { kind: "agent", agentId: "chat-a" }, intent: "reveal" });
+    store
+      .getState()
+      .openTab({ workspaceKey, target: { kind: "terminal", terminalId: "t1" }, intent: "reveal" });
+    const side = sidePaneId(store);
+
+    store.getState().moveTabToPane(workspaceKey, "agent_chat-a", side);
+    store.getState().moveTabToPane(workspaceKey, "terminal_t1", "main");
+    expect(paneTargets(store, "main")).toEqual(["agent:chat-a"]);
+    expect(paneTargets(store, side)).toEqual(["terminal:t1"]);
+
+    store.getState().showExplorerSidebar(workspaceKey);
+    store.getState().moveTabToPane(workspaceKey, "terminal_t1", "explorer");
+    expect(paneTargets(store, "explorer")).toContain("terminal:t1");
+  });
+
+  it("opens a non-chat replacement beside the chat instead of replacing it", () => {
+    const workspaceKey = createWorkspaceKey();
+    const store = createSingleChatStore();
+    store
+      .getState()
+      .openTab({ workspaceKey, target: { kind: "agent", agentId: "chat-a" }, intent: "reveal" });
+
+    const tabId = store
+      .getState()
+      .replaceTab(workspaceKey, "agent_chat-a", { kind: "terminal", terminalId: "t1" });
+
+    expect(tabId).toBe("terminal_t1");
+    expect(paneTargets(store, "main")).toEqual(["agent:chat-a"]);
+    expect(paneTargets(store, sidePaneId(store))).toEqual(["terminal:t1"]);
+  });
+
+  it("replaces a side tab with another non-chat target in place", () => {
+    const workspaceKey = createWorkspaceKey();
+    const store = createSingleChatStore();
+    store
+      .getState()
+      .openTab({ workspaceKey, target: { kind: "file", path: "a.ts" }, intent: "reveal" });
+    const side = sidePaneId(store);
+
+    store.getState().replaceTab(workspaceKey, "file_a.ts", { kind: "file", path: "b.ts" });
+
+    expect(paneTargets(store, side)).toEqual(["file:b.ts"]);
+  });
+});

@@ -1,7 +1,11 @@
 import invariant from "tiny-invariant";
 import type { JsonValue } from "@getpaseo/protocol/agent-types";
 import type { WorkspaceTab, WorkspaceTabTarget } from "@/workspace-tabs/model";
-import { MIN_SPLIT_SIZE } from "@/stores/workspace-layout-constants";
+import {
+  DEFAULT_PANE_ID,
+  EXPLORER_SIDEBAR_PANE_ID,
+  MIN_SPLIT_SIZE,
+} from "@/stores/workspace-layout-constants";
 import { panelResourceKey, panelSupportsHost } from "@/panels/panel-manifest";
 import { defaultWorkspaceLayoutIds } from "@/stores/workspace-layout-ids";
 import type { WorkspaceLayoutNodeIdPrefix } from "@/stores/workspace-layout-ids";
@@ -11,6 +15,12 @@ import {
   workspaceTabTargetsEqual,
 } from "@/workspace-tabs/identity";
 import { createNewWorkspaceTab } from "@/workspace-tabs/new-tab";
+import {
+  findReplaceableChatTab,
+  isChatTarget,
+  mainPaneHasChat,
+  resolveSingleChatPlacement,
+} from "@/workspace-tabs/single-chat";
 
 export interface SplitPane {
   id: string;
@@ -137,6 +147,8 @@ interface OpenTabInLayoutInput {
   placement: WorkspaceTabPlacement;
   /** Required so a new caller cannot silently opt out of Explorer placement rules. */
   explorerSidebarPaneId: string | null;
+  /** Keeps one chat in the main pane and sends every other target to the side pane. */
+  singleChatMain?: boolean;
 }
 
 interface CreateTabInLayoutInput extends OpenTabInLayoutInput {
@@ -264,6 +276,7 @@ export interface WorkspaceTabReconcileState {
   pinnedAgentIds?: ReadonlySet<string> | null;
   hiddenAgentIds?: ReadonlySet<string> | null;
   explorerSidebarPaneId: string | null;
+  singleChatMain?: boolean;
 }
 
 export interface WorkspaceTabSnapshot {
@@ -277,9 +290,7 @@ export interface WorkspaceTabSnapshot {
   hasActivePendingDraftCreate?: boolean;
 }
 
-export const DEFAULT_PANE_ID = "main";
-/** The pane id is persisted, so it keeps its pre-rename spelling. */
-export const EXPLORER_SIDEBAR_PANE_ID = "explorer";
+export { DEFAULT_PANE_ID, EXPLORER_SIDEBAR_PANE_ID };
 const DEFAULT_LAYOUT_GROUP_ID = "workspace-root";
 
 function trimNonEmpty(value: string | null | undefined): string | null {
@@ -1312,7 +1323,19 @@ function resolvePlacementPane(input: {
   target: WorkspaceTabTarget;
   placement: WorkspaceTabPlacement;
   explorerSidebarPaneId: string | null;
+  singleChatMain?: boolean;
 }): SplitPaneInternal | null {
+  if (input.singleChatMain) {
+    const placement = resolveSingleChatPlacement({
+      root: input.layout.root,
+      target: input.target,
+      placement: input.placement,
+      explorerPaneId: input.explorerSidebarPaneId,
+      supportsExplorer: panelSupportsHost(input.target.kind, "explorer"),
+    });
+    const pane = placement ? findPaneById(input.layout.root, placement.paneId) : null;
+    return pane as SplitPaneInternal | null;
+  }
   const supportsTarget = (pane: SplitPane) =>
     panelSupportsHost(
       input.target.kind,
@@ -1343,6 +1366,17 @@ function resolvePlacementPane(input: {
     : null;
 }
 
+/** The tab a new target takes over: a lone launcher, or the main pane's chat when a chat opens. */
+function findReplaceableTab(
+  pane: SplitPaneInternal,
+  input: Pick<CreateTabInLayoutInput, "singleChatMain" | "target">,
+): WorkspaceTab | null {
+  if (isSoleNewTabPane(pane)) {
+    return pane.tabs[0];
+  }
+  return input.singleChatMain && isChatTarget(input.target) ? findReplaceableChatTab(pane) : null;
+}
+
 function insertNewTabIntoPane(
   input: CreateTabInLayoutInput & { focus: boolean },
 ): OpenTabInLayoutResult | null {
@@ -1352,6 +1386,7 @@ function insertNewTabIntoPane(
     target: input.target,
     placement: input.placement,
     explorerSidebarPaneId: input.explorerSidebarPaneId,
+    singleChatMain: input.singleChatMain,
   });
   if (!targetPane) {
     return null;
@@ -1365,7 +1400,7 @@ function insertNewTabIntoPane(
     ...(input.state !== undefined ? { state: input.state } : {}),
   };
 
-  const currentTab = isSoleNewTabPane(targetPane) ? targetPane.tabs[0] : null;
+  const currentTab = findReplaceableTab(targetPane, input);
   if (currentTab && input.target.kind !== "new_tab") {
     return {
       tabId,
@@ -2277,6 +2312,7 @@ function openEntityTabWithoutFocusing(input: {
   layout: WorkspaceLayout;
   target: WorkspaceTabTarget;
   explorerSidebarPaneId: string | null;
+  singleChatMain: boolean;
 }): WorkspaceLayout {
   return (
     insertNewTabIntoPane({
@@ -2285,6 +2321,7 @@ function openEntityTabWithoutFocusing(input: {
       now: Date.now(),
       placement: AMBIENT_PLACEMENT,
       explorerSidebarPaneId: input.explorerSidebarPaneId,
+      singleChatMain: input.singleChatMain,
       createTabId: () => buildDeterministicWorkspaceTabId(input.target),
       focus: false,
     })?.layout ?? input.layout
@@ -2375,6 +2412,7 @@ function addMissingEntityTabs(input: {
   hasActivePendingTerminalCreate: boolean;
   hasActivePendingDraftCreate: boolean;
   explorerSidebarPaneId: string | null;
+  singleChatMain: boolean;
 }): WorkspaceLayout {
   const {
     autoOpenAgentIds,
@@ -2383,6 +2421,7 @@ function addMissingEntityTabs(input: {
     hasActivePendingTerminalCreate,
     hasActivePendingDraftCreate,
     explorerSidebarPaneId,
+    singleChatMain,
   } = input;
   let nextLayout = input.layout;
   const currentEntityTabs = collectAllTabs(nextLayout.root);
@@ -2401,10 +2440,14 @@ function addMissingEntityTabs(input: {
     if (hasActivePendingDraftCreate && !representedAgentIds.has(agentId)) {
       continue;
     }
+    if (singleChatMain && mainPaneHasChat(nextLayout.root, explorerSidebarPaneId)) {
+      continue;
+    }
     nextLayout = openEntityTabWithoutFocusing({
       layout: nextLayout,
       target: { kind: "agent", agentId },
       explorerSidebarPaneId,
+      singleChatMain,
     });
     currentAgentIds.add(agentId);
   }
@@ -2419,6 +2462,7 @@ function addMissingEntityTabs(input: {
         layout: nextLayout,
         target: { kind: "terminal", terminalId },
         explorerSidebarPaneId,
+        singleChatMain,
       });
       currentTerminalIds.add(terminalId);
     }
@@ -2515,6 +2559,7 @@ export function reconcileWorkspaceTabs(
     hasActivePendingTerminalCreate: snapshot.hasActivePendingTerminalCreate ?? false,
     hasActivePendingDraftCreate: snapshot.hasActivePendingDraftCreate ?? false,
     explorerSidebarPaneId: state.explorerSidebarPaneId,
+    singleChatMain: state.singleChatMain ?? false,
   });
 
   if (reconciledFocusedTabId) {
