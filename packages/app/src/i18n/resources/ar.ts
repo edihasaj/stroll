@@ -929,6 +929,7 @@ export const ar: TranslationResources = {
       actions: {
         moreOptions: "المزيد من الخيارات",
         moreActions: "المزيد من الإجراءات",
+        menu: "إجراءات Git",
         commit: {
           label: "يقترف",
           pending: "ارتكاب...",

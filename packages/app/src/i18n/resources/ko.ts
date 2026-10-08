@@ -929,6 +929,7 @@ export const ko: TranslationResources = {
       actions: {
         moreOptions: "옵션 더 보기",
         moreActions: "작업 더 보기",
+        menu: "Git 작업",
         commit: {
           label: "커밋",
           pending: "커밋하는 중...",

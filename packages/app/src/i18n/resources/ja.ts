@@ -933,6 +933,7 @@ export const ja: TranslationResources = {
       actions: {
         moreOptions: "その他のオプション",
         moreActions: "その他のアクション",
+        menu: "Git の操作",
         commit: {
           label: "コミット",
           pending: "コミット中...",

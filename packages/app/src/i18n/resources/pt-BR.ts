@@ -933,6 +933,7 @@ export const ptBR: TranslationResources = {
       actions: {
         moreOptions: "Mais opções",
         moreActions: "Mais ações",
+        menu: "Ações do Git",
         commit: {
           label: "Commit",
           pending: "Fazendo commit...",

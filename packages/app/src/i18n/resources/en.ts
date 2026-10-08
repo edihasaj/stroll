@@ -924,6 +924,7 @@ export const en = {
       actions: {
         moreOptions: "More options",
         moreActions: "More actions",
+        menu: "Git actions",
         commit: {
           label: "Commit",
           pending: "Committing...",

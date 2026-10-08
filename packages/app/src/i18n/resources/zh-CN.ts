@@ -925,6 +925,7 @@ export const zhCN: TranslationResources = {
       actions: {
         moreOptions: "更多选项",
         moreActions: "更多操作",
+        menu: "Git 操作",
         commit: {
           label: "Commit",
           pending: "正在 commit...",

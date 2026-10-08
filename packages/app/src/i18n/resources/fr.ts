@@ -937,6 +937,7 @@ export const fr: TranslationResources = {
       actions: {
         moreOptions: "Plus d'options",
         moreActions: "Plus de propositions",
+        menu: "Actions Git",
         commit: {
           label: "Commettre",
           pending: "S'engager...",

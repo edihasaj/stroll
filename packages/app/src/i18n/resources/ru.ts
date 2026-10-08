@@ -937,6 +937,7 @@ export const ru: TranslationResources = {
       actions: {
         moreOptions: "Дополнительные параметры",
         moreActions: "Дополнительные действия",
+        menu: "Действия Git",
         commit: {
           label: "Создать коммит",
           pending: "Создание коммита...",

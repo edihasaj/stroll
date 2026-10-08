@@ -149,7 +149,7 @@ export function GitActionsSplitButton({
           testID="changes-actions-menu-trigger"
           style={menuOnlyTriggerStyle}
           accessibilityRole="button"
-          accessibilityLabel={t("workspace.header.actions.workspaceActions")}
+          accessibilityLabel={t("workspace.git.actions.menu")}
         >
           <GitBranch size={16} color={theme.colors.foregroundMuted} />
           <ChevronDown size={12} color={theme.colors.foregroundExtraMuted} />
