@@ -129,9 +129,10 @@ test.describe("Workspace navigation regression", () => {
       { timeout: 30_000 },
     );
     await expect(page.getByText("Connecting", { exact: true })).toBeVisible();
-    // The sidebar now shows the active host's name in two places (the brand row trigger and
-    // the footer identity trigger), so match either rather than the exact-text page-wide query.
-    await expect(page.getByTestId("sidebar-brand-trigger")).toContainText("Notification Host");
+    // The standalone brand row was dropped once the icon rail + panel sidebar took over the
+    // host switcher (acb09bcd8); sidebar-hosts-trigger is the one place that shows the active
+    // host's name now (sidebar-panel-footer.tsx).
+    await expect(page.getByTestId("sidebar-hosts-trigger")).toContainText("Notification Host");
     await expect(page.getByText("Add a project", { exact: true })).toHaveCount(0);
   });
 
