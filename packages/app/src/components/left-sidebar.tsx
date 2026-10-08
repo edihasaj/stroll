@@ -1,5 +1,5 @@
 import { router } from "expo-router";
-import { FolderPlus, GitBranch, Import, Settings, X } from "lucide-react-native";
+import { CircleGauge, FolderPlus, GitBranch, Import, Settings, X } from "lucide-react-native";
 import { useTranslation } from "react-i18next";
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import {
@@ -65,7 +65,7 @@ import { useCloseAgentListGesture } from "@/mobile-panels/gestures";
 import { MobilePanelOverlay } from "@/mobile-panels/presentation";
 import { buildSettingsAddHostRoute, buildSettingsRoute } from "@/utils/host-routes";
 import { openHostOverview } from "@/navigation/settings-navigation";
-import { UsageSidebarRoot } from "@/usage";
+import { UsageSidebarRoot, useOpenSidebarUsage } from "@/usage";
 import { SidebarAgentListSkeleton } from "./sidebar-agent-list-skeleton";
 import { useActiveHostSummary } from "./sidebar/use-active-host-summary";
 import { SidebarWorkspaceList } from "./sidebar-workspace-list";
@@ -337,6 +337,25 @@ function FooterIconButton({
 }
 
 /**
+ * The footer's persistent Usage icon: always shown, independent of the opt-in Usage summary
+ * row (`SidebarFooterRows`'s `UsageSidebarItem`). Its own component so `useOpenSidebarUsage()`
+ * reads a `UsageSidebarRoot` it is actually nested under — `SidebarFooter`'s own render call
+ * sits above that provider, not inside it.
+ */
+function UsageFooterIconButton({ label, theme }: { label: string; theme: SidebarTheme }) {
+  const openSidebarUsage = useOpenSidebarUsage();
+  return (
+    <FooterIconButton
+      onPress={openSidebarUsage}
+      testID="sidebar-usage-icon"
+      label={label}
+      icon={CircleGauge}
+      theme={theme}
+    />
+  );
+}
+
+/**
  * The footer's leading identity: a 24px identity-color circle carrying the active host's
  * initial, its name, and the same host picker the brand row opens — a different trigger for
  * the same menu, not a second implementation of host switching.
@@ -472,11 +491,11 @@ function SidebarFooter({
 }) {
   const settingsKeys = useShortcutKeys("toggle-settings");
 
-  // The footer's Import/Help/Settings buttons are already icon-only with a
+  // The footer's Import/Help/Usage/Settings buttons are already icon-only with a
   // tooltip in every mode, so only the layout direction and the identity
   // trigger (avatar + host name) need to change for rail. Footer plugin items
-  // and the Usage summary (#5685) render above the icon line, in the user's
-  // `sidebarFooterItems` order.
+  // and the opt-in Usage summary row (#5685) render above the icon line, in the
+  // user's `sidebarFooterItems` order — independent of the persistent Usage icon.
   return (
     <UsageSidebarRoot>
       <View testID="sidebar-footer">
@@ -499,6 +518,7 @@ function SidebarFooter({
               theme={theme}
             />
             <SidebarHelpMenu />
+            <UsageFooterIconButton label={labels.usage} theme={theme} />
             <FooterIconButton
               onPress={handleSettings}
               testID="sidebar-settings"
@@ -1007,6 +1027,11 @@ const styles = StyleSheet.create((theme) => ({
     flexShrink: 1,
     flexDirection: "row",
     alignItems: "center",
+    // Hit area, not visual size: the row's sibling icon buttons are already
+    // `buttonControlHeight.md` (44) tall on compact, so this floor just claims the
+    // transparent space the row already reserves instead of growing the trigger's
+    // painted box (avatar + label stay exactly where they were).
+    minHeight: buttonControlHeight.md,
     gap: theme.spacing[2],
     paddingVertical: theme.spacing[1],
     paddingHorizontal: theme.spacing[1],

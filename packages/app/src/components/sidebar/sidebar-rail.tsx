@@ -1,5 +1,11 @@
 import { router, usePathname } from "expo-router";
-import { CalendarClock, Folder, PanelLeft, Settings as SettingsIcon } from "lucide-react-native";
+import {
+  CalendarClock,
+  CircleGauge,
+  Folder,
+  PanelLeft,
+  Settings as SettingsIcon,
+} from "lucide-react-native";
 import { useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -23,7 +29,11 @@ import { useSidebarNavItems } from "@/sidebar-nav/use-sidebar-nav-items";
 import { useShortcutKeys } from "@/hooks/use-shortcut-keys";
 import { usePanelStore } from "@/stores/panel-store";
 import type { Theme } from "@/styles/theme";
-import { buildProjectsSettingsRoute, buildSchedulesRoute } from "@/utils/host-routes";
+import {
+  buildProjectsSettingsRoute,
+  buildSchedulesRoute,
+  buildUsageRoute,
+} from "@/utils/host-routes";
 import { deriveSidebarRailItems } from "./sidebar-rail-model";
 
 const ThemedStrollLogo = withUnistyles(StrollLogo);
@@ -33,12 +43,15 @@ const foregroundMutedColorMapping = (theme: Theme) => ({ color: theme.colors.for
 /**
  * The desktop sidebar's 52px icon rail (Codex parity). Fixed, always-real routes — Chats,
  * Projects, Schedules — plus legacy `addSidebarItem` plugin rows (the only plugin sidebar item
- * shape with a single icon), a `•••` overflow for History/Import/Help, and Settings pinned to
- * the bottom. A current-shape `addSidebarHeaderItem`/`addSidebarFooterItem` plugin item renders
- * an arbitrary full-width component and has no rail icon; `sidebar-rail-model.ts` filters those
- * out. Visibility for the configurable builtins (Schedules in the rail, History inside the
- * overflow) comes from the same `sidebarNavItems` preference the old top-of-sidebar nav rows
- * read — see `sidebar-rail-model.ts`.
+ * shape with a single icon), a `•••` overflow for History/Import/Help, a persistent Usage icon,
+ * and Settings pinned to the bottom. A current-shape `addSidebarHeaderItem`/`addSidebarFooterItem`
+ * plugin item renders an arbitrary full-width component and has no rail icon; `sidebar-rail-model.ts`
+ * filters those out. Visibility for the configurable builtins (Schedules in the rail, History inside
+ * the overflow) comes from the same `sidebarNavItems` preference the old top-of-sidebar nav rows
+ * read — see `sidebar-rail-model.ts`. The Usage icon is unconditional, independent of that
+ * preference and of the opt-in Usage summary row in the panel footer (`@/usage`'s
+ * `UsageSidebarItem`) — it always opens the Usage screen, the same way Settings always opens
+ * Settings.
  */
 export function SidebarRail({
   style,
@@ -62,9 +75,10 @@ export function SidebarRail({
   const isProjectsRoute = pathname.includes("/projects");
   const isSessionsRoute = pathname.startsWith("/sessions");
   const isSchedulesRoute = pathname.startsWith("/schedules");
+  const isUsageRoute = pathname.startsWith("/usage");
   const isSettingsRoute = pathname.startsWith("/settings") && !isProjectsRoute;
   const isChatsRoute =
-    !isSettingsRoute && !isSessionsRoute && !isSchedulesRoute && !isProjectsRoute;
+    !isSettingsRoute && !isSessionsRoute && !isSchedulesRoute && !isProjectsRoute && !isUsageRoute;
 
   const handleChats = useCallback(() => {
     router.push("/");
@@ -77,6 +91,10 @@ export function SidebarRail({
 
   const handleSchedules = useCallback(() => {
     router.push(buildSchedulesRoute());
+  }, []);
+
+  const handleUsage = useCallback(() => {
+    router.push(buildUsageRoute());
   }, []);
 
   return (
@@ -121,6 +139,15 @@ export function SidebarRail({
       />
 
       <View style={styles.spacer} />
+
+      <SidebarHeaderRow
+        icon={CircleGauge}
+        label={t(builtinSidebarNavLabelKey("usage"))}
+        onPress={handleUsage}
+        isActive={isUsageRoute}
+        testID="sidebar-usage-icon"
+        rail
+      />
 
       <SidebarHeaderRow
         icon={SettingsIcon}

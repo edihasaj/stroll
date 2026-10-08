@@ -104,6 +104,8 @@ function SidebarHeaderRowRail({
             accessible
             accessibilityRole="button"
             accessibilityLabel={accessibilityLabel ?? label}
+            accessibilityState={isActive ? SELECTED_STATE : undefined}
+            aria-selected={isActive}
             style={buttonStyle}
           >
             {renderIcon}
