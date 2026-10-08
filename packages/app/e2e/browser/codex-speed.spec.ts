@@ -26,9 +26,11 @@ test.use({
   },
 });
 
-// Rendered light-theme colors: palette yellow 400 for Fast and Ultrafast, muted foreground for Normal.
+// Rendered light-theme colors: palette yellow 400 for Fast and Ultrafast, muted foreground for
+// Normal. foregroundMuted moved to #5d5d5d with the Codex monochrome palette (docs/design.md §1);
+// keep this literal matching packages/app/src/styles/theme.ts's light `foregroundMuted`.
 const ACTIVE_SPEED_COLOR = "rgb(251, 191, 36)";
-const NORMAL_SPEED_COLOR = "rgb(113, 113, 122)";
+const NORMAL_SPEED_COLOR = "rgb(93, 93, 93)";
 
 async function openSpeedSelector(page: Page): Promise<void> {
   const speed = page.getByRole("button", { name: /^(Select speed|Speed: .+)$/ });
