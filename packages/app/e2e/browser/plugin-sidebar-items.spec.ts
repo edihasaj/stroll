@@ -43,18 +43,29 @@ async function qaScreenshot(page: Page, name: string, area?: Locator) {
   else await page.screenshot({ path: file });
 }
 
-/** Footer rows sit above the fixed bottom line, spanning it from Add project to Settings. */
+// The footer rows container and the bottom line both pad their content by this token
+// (`theme.spacing[2]`) on both the mobile footer and the desktop panel footer, so a row's
+// content box sits this far inside the bottom line's own (unpadded) box on every side.
+const FOOTER_INSET = 8;
+
+/**
+ * Footer rows sit above the fixed bottom line, inset to the same content edges. Settings moved
+ * out of this container onto the desktop rail, and Add project never had a footer icon of its
+ * own (the Command Center is its one entry point, commit 65350836f) — so this aligns against
+ * the bottom line's own box rather than specific icons inside it, which both the mobile footer
+ * (identity trigger + icons) and the desktop panel footer (identity trigger alone) share.
+ */
 async function expectFooterRow(page: Page, row: Locator) {
   // Polled: on compact the drawer is still sliding in when the row first shows.
   await expect
     .poll(async () => {
-      const addProject = (await visibleTestId(page, "sidebar-add-project").boundingBox())!;
-      const settings = (await visibleTestId(page, "sidebar-settings").boundingBox())!;
+      const bottomLine = (await visibleTestId(page, "sidebar-footer-bottom-line").boundingBox())!;
       const box = (await row.boundingBox())!;
       return {
-        aboveBottomLine: box.y + box.height <= addProject.y,
-        alignedLeft: Math.abs(box.x - addProject.x) < 1,
-        alignedRight: Math.abs(box.x + box.width - (settings.x + settings.width)) < 1,
+        aboveBottomLine: box.y + box.height <= bottomLine.y,
+        alignedLeft: Math.abs(box.x - (bottomLine.x + FOOTER_INSET)) < 1,
+        alignedRight:
+          Math.abs(box.x + box.width - (bottomLine.x + bottomLine.width - FOOTER_INSET)) < 1,
       };
     })
     .toEqual({ aboveBottomLine: true, alignedLeft: true, alignedRight: true });
@@ -130,7 +141,7 @@ async function nextAlertsObservation(page: Page, previous: string | null): Promi
 }
 
 function sidebarFooter(page: Page): Locator {
-  return visibleTestId(page, "sidebar-add-project").locator("xpath=..");
+  return visibleTestId(page, "sidebar-footer");
 }
 
 test.describe("Plugin sidebar items", () => {
@@ -278,17 +289,21 @@ test.describe("Plugin sidebar items", () => {
     await expect(entry).toBeVisible({ timeout: 30_000 });
     let entryIcon = "";
 
-    await test.step("the saved order and visibility still apply", async () => {
+    await test.step("the saved visibility still applies, and the legacy row places in the rail", async () => {
       await expect(entry).toHaveAccessibleName("Legacy entry");
       await expect(entry.locator("svg")).toHaveCount(1);
       entryIcon = await entry.locator("svg").innerHTML();
       await expect(headerRow(page, LEGACY_PLUGIN_ID, "hidden")).toHaveCount(0);
+      // The legacy plugin row is a rail icon (`RailPluginSidebarGroup`); New workspace is the
+      // panel's trailing "+". The rail and panel are two fixed-layout pieces side by side
+      // (docs/design.md §9), not one column a stored order can move items within, so this
+      // checks placement — the rail sits left of the panel — instead of a shared Y order.
       const entryBox = (await entry.boundingBox())!;
       const newWorkspaceBox = (await visibleTestId(
         page,
         "sidebar-global-new-workspace",
       ).boundingBox())!;
-      expect(entryBox.y).toBeLessThan(newWorkspaceBox.y);
+      expect(entryBox.x).toBeLessThan(newWorkspaceBox.x);
     });
 
     await test.step("the row opens its surface on its own sidebar route and highlights", async () => {

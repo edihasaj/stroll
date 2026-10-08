@@ -180,17 +180,21 @@ async function openCompactSidebar(page: Page): Promise<void> {
 
 async function expectFingerSizedFooterTargets(page: Page): Promise<void> {
   const buttons = page.getByTestId("sidebar-footer-bottom-line").getByRole("button");
-  // The identity trigger (avatar + host name) plus Import session, Help, and Settings. The
-  // separate Add-project/Usage/Hosts icons this once counted are gone since the brand-row/
-  // identity-chip restyle (65350836f) folded Hosts into the identity trigger and dropped the
-  // other two.
-  await expect(buttons).toHaveCount(4);
+  // The identity trigger (avatar + host name) plus Import session, Help, the persistent Usage
+  // icon, and Settings. The separate Add-project/Hosts icons this once counted are gone since the
+  // brand-row/identity-chip restyle (65350836f) folded Hosts into the identity trigger and dropped
+  // Add-project; the Usage icon was lost and restored later (sidebar-usage-icon).
+  await expect(buttons).toHaveCount(5);
   for (const button of await buttons.all()) {
     const bounds = await button.boundingBox();
     expect(bounds?.width).toBeGreaterThanOrEqual(44);
     expect(bounds?.height).toBeGreaterThanOrEqual(44);
     // Glyphs stay at the composer toolbar size (some optically smaller); only the target grows.
-    const glyphWidth = await button.locator("svg").first().getAttribute("width");
+    // The identity trigger has no glyph at all — it's an avatar initial, not an icon — so skip
+    // the glyph-size check for it specifically.
+    const glyph = button.locator("svg").first();
+    if ((await glyph.count()) === 0) continue;
+    const glyphWidth = await glyph.getAttribute("width");
     expect(Number(glyphWidth)).toBeLessThanOrEqual(20);
   }
 }

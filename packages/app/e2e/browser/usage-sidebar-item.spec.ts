@@ -144,7 +144,11 @@ test.describe("Usage item", () => {
       await qaScreenshot(page, "compact-footer-defaults");
       await page.setViewportSize(WIDE);
       await gotoAppShell(page);
-      await expectPinnedUsage(page, ["31% 5h", "54% wk", "7% 5h", "12% wk"]);
+      // Two providers times two windows each is wider than the 240px default panel's "labels"
+      // layout, so the desktop Usage item falls back to its percent-only layout — see
+      // `choosePinnedUsageLayout` (usage/pinned.ts). The compact sidebar above has the width
+      // for the richer "31% 5h" form.
+      await expectPinnedUsage(page, ["31%", "54%", "7%", "12%"]);
       await qaScreenshot(page, "desktop-footer-defaults", { kind: "footer" });
       await usageItem(page).click();
       await expectOnUsageScreen(page);
@@ -351,7 +355,9 @@ test("the Usage Settings switch turns on the sidebar summary and the pins with i
 
   await test.step("on: the Usage item and the pins appear", async () => {
     await setSummaryInSidebar(page, true);
-    await expectPinnedUsage(page, ["31% 5h", "54% wk", "7% 5h", "12% wk"]);
+    // Four windows across two providers is wider than the 240px default panel's "labels"
+    // layout, so the item falls back to percent-only (usage/pinned.ts's choosePinnedUsageLayout).
+    await expectPinnedUsage(page, ["31%", "54%", "7%", "12%"]);
     await expect(pinRow(screen, "Claude", "Weekly")).toBeChecked();
     await togglePin(screen, "Claude", "Weekly");
     await expectPinnedUsage(page, ["31% 5h", "7% 5h", "12% wk"]);
@@ -382,7 +388,9 @@ test("released hosts supply source logos through the client conversion", async (
   await seedSidebarFooterPreferences(page, [{ key: "usage", visible: true }]);
   await page.setViewportSize(WIDE);
   await gotoAppShell(page);
-  await expectPinnedUsage(page, ["31% 5h", "54% wk", "7% 5h", "12% wk"]);
+  // Four windows across two providers is wider than the 240px default panel's "labels"
+  // layout, so the item falls back to percent-only (usage/pinned.ts's choosePinnedUsageLayout).
+  await expectPinnedUsage(page, ["31%", "54%", "7%", "12%"]);
   // Source logos are decorative SVGs with no accessible role. Their path data distinguishes
   // the source artwork from the fallback gauge.
   const claudePath = /<path[^>]* d="([^"]+)"/.exec(claudeAndCodexReports()[0]!.icon!)![1]!;

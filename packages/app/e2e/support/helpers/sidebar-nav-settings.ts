@@ -119,12 +119,61 @@ export async function expectSidebarNavSettingsOrder(
   await expectVerticalOrder(keys, (key) => settingsRow(page, key), "sidebar nav settings rows");
 }
 
+/** Where each header item renders on desktop: the rail, the panel, or (History only) inside
+ * the rail's closed `•••` overflow, which has no row of its own to place. */
+const DESKTOP_HEADER_PLACEMENT: Record<SidebarNavKey, "rail" | "panel" | "overflow"> = {
+  "new-workspace": "panel",
+  "new-chat": "panel",
+  history: "overflow",
+  search: "panel",
+  schedules: "rail",
+};
+
+/** The rail renders Schedules under its own testID, distinct from the mobile nav row. */
+function desktopRailTestID(key: SidebarNavKey): string {
+  return key === "schedules" ? "sidebar-rail-schedules" : SHELL_ROW_TEST_IDS[key];
+}
+
+/**
+ * On desktop the rail and panel are two fixed-layout pieces side by side (`docs/design.md`
+ * §9): a stored sidebar-items order no longer moves anything between them, so there is no
+ * single Y order left to assert across the five header items. This checks each visible item
+ * renders inside its fixed container instead of comparing Y positions across containers that
+ * do not share an axis — Schedules in the rail, History inside the rail's `•••` overflow (it
+ * has no row of its own while closed), and New workspace/New chat/Search in the panel.
+ */
+async function expectDesktopSidebarPlacement(page: Page, keys: SidebarNavKey[]): Promise<void> {
+  const rail = page.locator('[data-testid="sidebar-rail"]:visible');
+  const panel = page.locator('[data-testid="sidebar-panel"]:visible');
+  for (const key of keys) {
+    const placement = DESKTOP_HEADER_PLACEMENT[key];
+    if (placement === "overflow") {
+      await expect(rail.locator('[data-testid="sidebar-rail-more"]')).toBeVisible();
+      continue;
+    }
+    const container = placement === "rail" ? rail : panel;
+    await expect(container.locator(`[data-testid="${desktopRailTestID(key)}"]`)).toBeVisible();
+  }
+}
+
 export async function expectSidebarOrder(page: Page, keys: SidebarNavKey[]): Promise<void> {
+  const isDesktop = (await page.locator('[data-testid="sidebar-rail"]:visible').count()) > 0;
+  if (isDesktop) {
+    await expectDesktopSidebarPlacement(page, keys);
+    return;
+  }
   await expectVerticalOrder(keys, (key) => shellRow(page, key), "app shell sidebar rows");
 }
 
 export async function expectSidebarItemHidden(page: Page, key: SidebarNavKey): Promise<void> {
   await expect(page.locator(`[data-testid="${SHELL_ROW_TEST_IDS[key]}"]:visible`)).toHaveCount(0);
+  // Schedules renders under a different testID in the desktop rail (sidebar-rail.tsx); check
+  // that one too so this assertion still means something at a desktop viewport. History has no
+  // desktop testID to check the same way — it is a row inside the rail's closed `•••` overflow,
+  // not a persistent element, hidden or not.
+  if (key === "schedules") {
+    await expect(page.locator(`[data-testid="${desktopRailTestID(key)}"]:visible`)).toHaveCount(0);
+  }
 }
 
 export async function expectStoredSidebarNav(
@@ -230,47 +279,42 @@ export async function expectFooterItemHidden(page: Page, key: string): Promise<v
   await expect(page.locator(`[data-testid="${shellFooterTestID(key)}"]:visible`)).toHaveCount(0);
 }
 
-const FOOTER_ICON_TEST_IDS = [
-  "sidebar-add-project",
-  "sidebar-usage-icon",
-  "sidebar-hosts-trigger",
-  "sidebar-help",
-  "sidebar-settings",
-];
-
-// Browser layout boxes include floating-point rounding, even for whole-pixel styles.
-const FOOTER_GEOMETRY_TOLERANCE = 0.01;
-
 /**
- * One line of same-size icons: Add project, Usage and Hosts together on the left, Help and
- * Settings together at the end.
+ * Every fixed footer control, visible wherever the current layout places it. There is no single
+ * "five icons in a row" invariant any more — on compact the mobile footer's bottom line still
+ * holds the identity trigger plus the Import/Usage/Help/Settings icons, but on desktop the rail
+ * carries Import (inside its `•••` overflow), Usage, and Settings while the panel footer keeps
+ * only the identity trigger (`docs/design.md` §9). Add project has no icon of its own on either
+ * layout: the Command Center is its one entry point (commit 65350836f).
  */
-export async function expectFooterIconRow(page: Page): Promise<void> {
-  const boxes = (
-    await Promise.all(
-      FOOTER_ICON_TEST_IDS.map((testID) =>
-        page.locator(`[data-testid="${testID}"]:visible`).first().boundingBox(),
-      ),
-    )
-  ).map((box) => box!);
-  const [first] = boxes;
-  for (const box of boxes) {
-    expect(Math.abs(box.y + box.height / 2 - first!.y - first!.height / 2)).toBeLessThan(2);
-    expect(Math.abs(box.width - first!.width)).toBeLessThan(FOOTER_GEOMETRY_TOLERANCE);
+export async function expectFooterControlsVisible(page: Page): Promise<void> {
+  await expect(page.locator('[data-testid="sidebar-hosts-trigger"]:visible')).toBeVisible();
+  await expect(page.locator('[data-testid="sidebar-usage-icon"]:visible')).toBeVisible();
+  await expect(page.locator('[data-testid="sidebar-settings"]:visible')).toBeVisible();
+  const railMore = page.locator('[data-testid="sidebar-rail-more"]:visible');
+  if ((await railMore.count()) > 0) {
+    // Desktop: Import session and Help live inside the rail's overflow menu, not as their own
+    // always-visible icons.
+    await expect(railMore).toBeVisible();
+  } else {
+    await expect(page.locator('[data-testid="sidebar-import-session"]:visible')).toBeVisible();
+    await expect(page.locator('[data-testid="sidebar-help"]:visible')).toBeVisible();
   }
-  const gaps = boxes.slice(1).map((box, index) => box.x - (boxes[index]!.x + boxes[index]!.width));
-  for (const index of [0, 1, 3]) {
-    expect(Math.abs(gaps[index]!)).toBeLessThan(FOOTER_GEOMETRY_TOLERANCE);
-  }
-  expect(gaps[2]).toBeGreaterThan(first!.width);
 }
 
+/**
+ * The icon line's own top border is the footer's permanent divider from whatever is above it
+ * — "an in-surface divider, not the sidebar's outer edge" (`left-sidebar.tsx`'s `sidebarFooter`
+ * style, docs/design.md "Finish"). The outer footer wrapper carries no border of its own; the
+ * optional `sidebar-footer-separator` is the extra divider under the opt-in rows, when there
+ * are any.
+ */
 export async function expectFooterSeparator(page: Page, shown: boolean): Promise<void> {
-  await expect(page.locator('[data-testid="sidebar-footer"]:visible')).toHaveCSS(
+  await expect(page.locator('[data-testid="sidebar-footer-bottom-line"]:visible')).toHaveCSS(
     "border-top-width",
     "1px",
   );
-  await expect(page.locator('[data-testid="sidebar-footer-bottom-line"]:visible')).toHaveCSS(
+  await expect(page.locator('[data-testid="sidebar-footer"]:visible')).toHaveCSS(
     "border-top-width",
     "0px",
   );
@@ -283,11 +327,14 @@ export async function expectFooterSeparator(page: Page, shown: boolean): Promise
   ).toEqual(shown ? ["1px"] : []);
 }
 
-export async function hoverFooterAddProject(page: Page): Promise<void> {
-  await page.locator('[data-testid="sidebar-add-project"]:visible').hover();
-  const tooltip = page.getByTestId("sidebar-add-project-tooltip");
-  await expect(tooltip.getByText("Add project", { exact: true })).toBeVisible();
-  await expect(tooltip.getByText("Ctrl+O", { exact: true })).toBeVisible();
+/**
+ * Hovers the Usage icon, wherever it lives (the desktop rail or the mobile footer), and
+ * confirms its tooltip names it. Scoped by `role="tooltip"` rather than a fixed testID: the
+ * rail's tooltip content (`SidebarHeaderRowRail`) carries no testID of its own.
+ */
+export async function hoverFooterUsageIcon(page: Page): Promise<void> {
+  await page.locator('[data-testid="sidebar-usage-icon"]:visible').hover();
+  await expect(page.getByRole("tooltip").getByText("Usage", { exact: true })).toBeVisible();
 }
 
 export async function footerScreenshot(page: Page, name: string): Promise<void> {
