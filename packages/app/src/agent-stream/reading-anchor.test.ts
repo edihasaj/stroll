@@ -46,6 +46,73 @@ describe("reading anchor", () => {
     ).toBe(600);
   });
 
+  describe("a row that shrinks", () => {
+    const placeholder = [
+      { id: "text", top: 0, height: 300 },
+      { id: "image", top: 300, height: 560 },
+      { id: "below", top: 860, height: 300 },
+    ];
+    const loaded = [
+      placeholder[0]!,
+      { ...placeholder[1]!, height: 225 },
+      { ...placeholder[2]!, top: 525 },
+    ];
+
+    it("holds the text it was entered from when the reader scrolls up into it", () => {
+      const anchor = createReadingAnchor();
+      anchor.reconcile(860, placeholder);
+      expect(anchor.getRowId()).toBe("below");
+      // The wheel moves the line 160px into the image before the image loads.
+      anchor.scroll(700);
+      expect(anchor.getRowId()).toBe("image");
+      // "below" was 160px under the line and stays there.
+      expect(anchor.reconcile(700, loaded)).toBe(365);
+    });
+
+    it("keeps the top of a row the reader was already inside", () => {
+      const anchor = createReadingAnchor();
+      anchor.reconcile(700, placeholder);
+      expect(anchor.getRowId()).toBe("image");
+      expect(anchor.reconcile(700, loaded)).toBe(700);
+    });
+
+    it("follows through commits in the frame that entered the row", () => {
+      const anchor = createReadingAnchor();
+      anchor.reconcile(860, placeholder);
+      anchor.scroll(700);
+      anchor.reconcile(700, placeholder);
+      expect(anchor.reconcile(700, loaded)).toBe(365);
+    });
+
+    it("keeps the top once the frame that entered the row has settled", () => {
+      const anchor = createReadingAnchor();
+      anchor.reconcile(860, placeholder);
+      anchor.scroll(700);
+      anchor.settle();
+      expect(anchor.reconcile(700, loaded)).toBe(700);
+    });
+
+    it("keeps a row the reader scrolled into from its top where it is", () => {
+      const anchor = createReadingAnchor();
+      anchor.reconcile(0, placeholder);
+      anchor.scroll(300);
+      expect(anchor.getRowId()).toBe("image");
+      // Only the 8px above the reading line can be followed.
+      expect(anchor.reconcile(300, loaded)).toBe(292);
+    });
+  });
+
+  it("projects the same shrink correction the layout will apply", () => {
+    const anchor = createReadingAnchor();
+    anchor.reconcile(860, [
+      { id: "image", top: 300, height: 560 },
+      { id: "below", top: 860, height: 300 },
+    ]);
+    anchor.scroll(700);
+    expect(anchor.project(700, { id: "image", top: 300, height: 225 })).toBe(365);
+    expect(anchor.project(700, { id: "image", top: 300 })).toBe(700);
+  });
+
   it("keeps the existing reader through prepend measurements until the user scrolls", () => {
     const anchor = createReadingAnchor();
     anchor.reconcile(0, [{ id: "reading", top: 48, height: 100 }]);

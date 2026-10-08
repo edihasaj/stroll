@@ -398,6 +398,7 @@ function WebStreamViewport(props: StreamRenderInput & { isMobileBreakpoint: bool
           ? readingAnchor.project(container.scrollTop, {
               id: String(measurement.key),
               top: measurement.start,
+              height: measurement.size,
             })
           : container?.scrollTop;
       let visibleRange = range;
@@ -778,6 +779,26 @@ function WebStreamViewport(props: StreamRenderInput & { isMobileBreakpoint: bool
     rearmHistoryStartFromUserIntent();
   });
 
+  // The anchor treats a row the line just crossed into as unpainted until this
+  // frame's layout is done. The settle runs in the next frame's callbacks, which
+  // precede that frame's ResizeObserver delivery.
+  const settleFrameRef = useRef<number | null>(null);
+  const settleReadingAnchorAfterFrame = useCallback(() => {
+    if (settleFrameRef.current !== null) window.cancelAnimationFrame(settleFrameRef.current);
+    settleFrameRef.current = window.requestAnimationFrame(() => {
+      settleFrameRef.current = window.requestAnimationFrame(() => {
+        settleFrameRef.current = null;
+        readingAnchor.settle();
+      });
+    });
+  }, [readingAnchor]);
+  useEffect(
+    () => () => {
+      if (settleFrameRef.current !== null) window.cancelAnimationFrame(settleFrameRef.current);
+    },
+    [],
+  );
+
   const handleDomScroll = useCallback(() => {
     const scrollContainer = scrollContainerRef.current;
     if (!isActiveRef.current || !scrollContainer || !isScrollContainerMeasurable(scrollContainer)) {
@@ -804,6 +825,7 @@ function WebStreamViewport(props: StreamRenderInput & { isMobileBreakpoint: bool
     lastKnownScrollTopRef.current = currentScrollTop;
     if (!followOutputRef.current && !isJumpSettling() && (scrolledUp || scrolledDown)) {
       readingAnchor.scroll(currentScrollTop);
+      settleReadingAnchorAfterFrame();
     }
     updateScrollMetrics();
     evaluateHistoryStart();
@@ -811,6 +833,7 @@ function WebStreamViewport(props: StreamRenderInput & { isMobileBreakpoint: bool
     evaluateHistoryStart,
     isJumpSettling,
     readingAnchor,
+    settleReadingAnchorAfterFrame,
     stopFollowingOutputFromUserIntent,
     updateScrollMetrics,
   ]);
