@@ -7,6 +7,7 @@ import { connectDaemonClient } from "./daemon-client-loader";
 import { getServerId } from "./server-id";
 import { withProjectOwnership } from "./project-ownership";
 import { switchWorkspaceViaSidebar } from "./workspace-ui";
+import { openSessions } from "./archive-tab";
 import type { SessionOutboundMessage } from "@getpaseo/protocol/messages";
 
 type WorkspaceSetupDaemonClient = Pick<
@@ -285,7 +286,10 @@ export async function navigateToWorkspaceViaSidebar(
 }
 
 export async function leaveWorkspaceViaHistory(page: Page): Promise<void> {
-  await page.getByRole("button", { name: "History", exact: true }).click();
+  // The desktop icon rail + panel sidebar (749c80043) moved History into the rail's "…"
+  // overflow; only the mobile sidebar still has a standalone "History" button
+  // (SidebarHistoryRow). openSessions already picks the right path for either breakpoint.
+  await openSessions(page);
   await expect(page).toHaveURL(/\/sessions$/, { timeout: 30_000 });
 }
 
