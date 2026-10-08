@@ -89,11 +89,29 @@ async function dismissStackedModelPickerWithBackdrop(page: Page) {
     .getByTestId("agent-controls-settings-list")
     .getByRole("button", { name: /Select model/ })
     .click();
-  await expect(page.getByTestId("agent-controls-model-browser-sheet")).toBeVisible();
-  await page.mouse.click(MOBILE_VIEWPORT.width / 2, 24);
-  await expect(page.getByTestId("agent-controls-model-browser-sheet")).not.toBeVisible();
+  const browserSheet = page.getByTestId("agent-controls-model-browser-sheet");
+  await expect(browserSheet).toBeVisible();
+  // The same churn closeBottomSheetWithBackdrop works around: Gorhom can drop a backdrop tap
+  // while the model list settles, so tap again while the stacked picker is still up.
+  await expect(async () => {
+    if (await browserSheet.isVisible()) {
+      await page.mouse.click(MOBILE_VIEWPORT.width / 2, 24);
+    }
+    await expect(browserSheet).not.toBeVisible({ timeout: 2_000 });
+  }).toPass({ timeout: 15_000 });
   await expect(page.getByTestId("agent-controls-model-sheet")).toBeVisible();
   await expect(page.getByTestId("agent-controls-settings-list")).toBeVisible();
+}
+
+// Search results show while the field has focus; a re-render as the model list settles can
+// drop the focus and the row with it, so focus the field again before each try.
+async function pickModelFromSearch(page: Page, name: RegExp) {
+  const model = page.getByRole("button", { name });
+  await expect(async () => {
+    await page.getByTestId("model-search-all-input").click();
+    await expect(model).toBeVisible({ timeout: 5_000 });
+    await model.click({ timeout: 2_000 });
+  }).toPass({ timeout: 30_000 });
 }
 
 async function openAndCloseTabSwitcherTwice(page: Page) {
@@ -128,13 +146,7 @@ test.describe("mobile bottom sheet reopen", () => {
 
         await dismissStackedModelPickerWithBackdrop(page);
 
-        await page.getByTestId("model-search-all-input").click();
-        const model = page.getByRole("button", { name: /^Ten second stream/ });
-        await expect(model).toBeVisible({
-          timeout: 10_000,
-        });
-
-        await model.click();
+        await pickModelFromSearch(page, /^Ten second stream/);
 
         await expect(sheet).toBeVisible();
         await expect(page.getByTestId("agent-controls-settings-list")).toBeVisible();
