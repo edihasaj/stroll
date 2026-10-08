@@ -120,6 +120,11 @@ History navigation opens the selected agent without changing either archive stat
 The agent's **Unarchive** runs the provider's native unarchive hook before interactive resume and
 history hydration. Other archived agents stay archived.
 
+Several records can point at one provider session (an imported copy next to the original, a second
+import). Archive belongs to the record, not the session. Resume-by-handle picks a live record over an
+archived one, and only restores an archived record when every record for the session is archived.
+Refresh and Unarchive act on the record the user opened, never on a sibling.
+
 Opening an agent is a navigation choice, independent of whether its details are cached. The
 layout retains that choice across reload while the panel fetches the agent from the daemon.
 Once the daemon reports the agent active, its tab follows normal archive propagation again.
@@ -142,6 +147,15 @@ Provider session connection owns every process it spawns until the session is re
 `AgentManager`. If initialization, persisted-session resume, or initial history hydration fails,
 `connect()` must dispose that process before rethrowing; the manager cannot clean up a session it never
 received.
+
+## Delete
+
+Delete is permanent: `delete_agent_request` closes the runtime and removes the agent's record, queue,
+and state from the daemon. Archive is the reversible gesture; delete is the only way to remove a chat
+from history. The app offers **Delete chat** in an agent tab's menu and in the archived-agent callout,
+both behind a confirm dialog (`packages/app/src/hooks/use-delete-chat.ts`). A successful delete closes
+the tab and drops the chat from the lists. A failed one leaves both in place and shows a toast.
+Deleting one record leaves a sibling that shares its provider session untouched.
 
 ## Tabs vs archive
 
