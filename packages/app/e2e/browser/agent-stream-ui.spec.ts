@@ -229,6 +229,15 @@ test.describe("Agent stream UI", () => {
 
   test("keeps tool calls clickable beside the scroll-to-bottom button", async ({ page }) => {
     test.setTimeout(60_000);
+    // Tool calls default to the collapsed overview activity row and a finished turn folds behind
+    // "Worked for" (docs/design.md §12), which would hide the tool call this test clicks and
+    // shrink the timeline below the scrollable distance it asserts. Keep every row unfolded.
+    await page.addInitScript(() => {
+      localStorage.setItem(
+        "@paseo:app-settings",
+        JSON.stringify({ toolCallDetailLevel: "detailed" }),
+      );
+    });
     const agent = await seedMockAgentWorkspace({
       repoPrefix: "stream-scroll-button-hit-area-",
       title: "Scroll button hit area",

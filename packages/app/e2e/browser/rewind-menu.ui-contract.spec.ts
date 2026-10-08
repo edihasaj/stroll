@@ -188,6 +188,14 @@ test.describe("Rewind sheet", () => {
     });
 
     try {
+      // A finished turn folds behind "Worked for" by default (docs/design.md §12), which
+      // shrinks both completed turns below the distance this test scrolls away from bottom.
+      await page.addInitScript(() => {
+        localStorage.setItem(
+          "@paseo:app-settings",
+          JSON.stringify({ toolCallDetailLevel: "detailed" }),
+        );
+      });
       await openAgentRoute(page, session);
       await expectComposerVisible(page);
 

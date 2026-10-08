@@ -138,6 +138,15 @@ for (const cadence of scrollCadences) {
     page,
   }, testInfo) => {
     test.setTimeout(180_000);
+    // Tool calls default to the collapsed overview activity row and finished turns fold behind
+    // "Worked for" (docs/design.md §12); this test tracks specific rows by id across a scrolling
+    // varied timeline, so keep every row unfolded and ungrouped on the Detailed level.
+    await page.addInitScript(() => {
+      localStorage.setItem(
+        "@paseo:app-settings",
+        JSON.stringify({ toolCallDetailLevel: "detailed" }),
+      );
+    });
     await withVariedTimeline(async (agent, newestPrompt) => {
       const pages = observeTimelinePages(page, agent.agentId);
       await openOnlyTimelineTail(page, agent, newestPrompt, pages);
