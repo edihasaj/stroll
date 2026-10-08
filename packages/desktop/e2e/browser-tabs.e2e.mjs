@@ -93,6 +93,26 @@ function writeJson(filePath, value) {
   fs.writeFileSync(filePath, `${JSON.stringify(value, null, 2)}\n`);
 }
 
+// Expo's dev error overlay covers the app and blocks clicks; record what raised it.
+function recordRendererErrors(page, artifactDir) {
+  const logPath = path.join(artifactDir, "renderer-errors.log");
+  const append = (line) => fs.appendFileSync(logPath, `${line}\n`);
+  page.on("console", (message) => {
+    if (message.type() === "error") append(`[console.error] ${message.text()}`);
+  });
+  page.on("pageerror", (error) => append(`[pageerror] ${error.stack ?? error.message}`));
+}
+
+async function captureErrorOverlay(page, artifactDir) {
+  const overlay = page.locator("#error-overlay");
+  if ((await overlay.count().catch(() => 0)) === 0) return;
+  const text = await overlay.innerText({ timeout: 2_000 }).catch((error) => String(error));
+  fs.writeFileSync(path.join(artifactDir, "error-overlay.txt"), `${text}\n`);
+  await page
+    .screenshot({ path: path.join(artifactDir, "error-overlay.png") })
+    .catch(() => undefined);
+}
+
 function seedPaseoHome(paseoHome, listen, workspaceRoot) {
   const timestamp = "2026-01-01T00:00:00.000Z";
   const projects = workspaceIds.map((workspaceId, index) => {
@@ -1046,6 +1066,7 @@ async function main() {
   const children = [];
   let browser = null;
   let client = null;
+  let appPage = null;
 
   try {
     // Observe the real Electron shell handoff without launching a user's browser.
@@ -1134,6 +1155,8 @@ async function main() {
 
     browser = await chromium.connectOverCDP(`http://127.0.0.1:${cdpPort}`);
     const page = await waitForAppPage(browser, expoPort);
+    appPage = page;
+    recordRendererErrors(page, artifactDir);
     const status = await waitForDesktopStatus(page);
 
     const checkPluginLinks = () =>
@@ -1187,6 +1210,7 @@ async function main() {
   } catch (error) {
     console.error(`Browser desktop browser E2E failed. Artifacts: ${artifactDir}`);
     console.error(error);
+    if (appPage) await captureErrorOverlay(appPage, artifactDir);
     throw error;
   } finally {
     await client?.close().catch(() => undefined);
