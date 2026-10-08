@@ -327,6 +327,16 @@ function buildBrowserAttachmentScopeKey(input: {
   });
 }
 
+// Electron throws from webview methods until the first dom-ready, and the first
+// "did-start-loading" arrives before it. Null means the state is not known yet.
+function readWebviewIsLoading(webview: ElectronWebview): boolean | null {
+  try {
+    return webview.isLoading?.() ?? null;
+  } catch {
+    return null;
+  }
+}
+
 function executeWebviewJavaScript(webview: ElectronWebview, code: string): Promise<unknown> {
   if (!webview.isConnected) {
     return Promise.resolve(null);
@@ -800,7 +810,7 @@ export function BrowserPane({
       // otherwise pin the annotate/screenshot controls disabled forever.
       // webview.isLoading() is the live, synchronous source of truth; only
       // trust the event when it agrees.
-      if (webview.isLoading?.() === false) {
+      if (readWebviewIsLoading(webview) === false) {
         return;
       }
       updateBrowser(browserId, { isLoading: true, lastError: null });
