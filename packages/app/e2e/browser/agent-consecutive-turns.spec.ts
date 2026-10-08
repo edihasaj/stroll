@@ -199,13 +199,18 @@ async function recordTurnFrames(page: Page, prompt: string): Promise<void> {
       const left = Math.min(...rects.map((rect) => rect.left));
       return { top, right, bottom, left, width: right - left, height: bottom - top };
     };
+    // The live footer no longer draws a colored-dot spinner: the "Working" label's own
+    // shimmer veil (a `backgroundImage` gradient sweep, docs/design.md §16's Codex parity)
+    // is the running indicator. Match either a legacy colored background or that gradient.
+    const isSpinnerMark = (candidate: Element) => {
+      const style = getComputedStyle(candidate);
+      return hasColor(style.backgroundColor) || style.backgroundImage !== "none";
+    };
     const spinnerSnapshot = (
       footer: Element | null | undefined,
       clip: Element | null,
     ): ElementFrame => {
-      const dots = Array.from(footer?.querySelectorAll("*") ?? []).filter((candidate) =>
-        hasColor(getComputedStyle(candidate).backgroundColor),
-      );
+      const dots = Array.from(footer?.querySelectorAll("*") ?? []).filter(isSpinnerMark);
       if (dots.length === 0) return emptyElement();
       const opacities = dots.map((dot) => Number(getComputedStyle(dot).opacity));
       return {
@@ -228,13 +233,35 @@ async function recordTurnFrames(page: Page, prompt: string): Promise<void> {
         tabProgress: agentTab?.querySelector('[role="progressbar"][aria-label="Agent running"]'),
       };
     };
-    const countPrimaryActions = (composerRoot: Element | null | undefined) =>
-      Array.from(composerRoot?.querySelectorAll('[role="button"][aria-label]') ?? []).filter(
+    const countPrimaryActions = (composerRoot: Element | null | undefined) => {
+      const candidates = Array.from(
+        composerRoot?.querySelectorAll('[role="button"][aria-label]') ?? [],
+      ).filter(
         (candidate) =>
           /stop agent|canceling agent|interrupt agent|send message|send and interrupt|queue message/i.test(
             candidate.getAttribute("aria-label") ?? "",
           ) && isVisible(candidate),
-      ).length;
+      );
+      // The primary action slot cross-fades arrow <-> stop in place instead of swapping
+      // instantly (packages/app/src/composer/input/input.tsx's `PrimaryAction`, docs/design.md
+      // §17). Reanimated's web exit animation keeps the outgoing button mounted and takes it
+      // out of flow with a `position: absolute` ancestor so it can play out while the incoming
+      // button already occupies the slot in normal flow (the same freeze height.web.ts's
+      // `wrapperStyle` doc warns about) — the two end up a button-width apart, not stacked, so
+      // overlap alone does not catch it. Drop any candidate sitting under an absolutely
+      // positioned ancestor: that is always the exiting ghost, never the live control.
+      const isExitingGhost = (candidate: Element): boolean => {
+        let node = candidate.parentElement;
+        let depth = 0;
+        while (node && node !== composerRoot && depth < 10) {
+          if (getComputedStyle(node).position === "absolute") return true;
+          node = node.parentElement;
+          depth += 1;
+        }
+        return false;
+      };
+      return candidates.filter((candidate) => !isExitingGhost(candidate)).length;
+    };
     const sample = () => {
       const viewport = Array.from(
         document.querySelectorAll('[data-testid="agent-chat-scroll"]'),
