@@ -183,7 +183,7 @@ The app chooses one delivery policy from `server_info.features.selectiveAgentTim
   every one of those workspaces as just used (see
   [agent lifecycle](agent-lifecycle.md#workspace-activity)). Visible chats get the first catch-up
   attempt; the rest follow when those attempts settle, including failures, so a failed visible chat
-  does not starve background recovery. Split panes catch up together. Hidden chats update the
+  does not starve background recovery. Chats visible in the main and side panes catch up together. Hidden chats update the
   replica; on web their retained presentation stays suspended until revealed, on native it keeps
   rendering. Revealing a chat reads the current store and preserves its local UI state.
 - Legacy daemons keep globally streaming agent timelines. Visibility still triggers the existing

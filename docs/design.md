@@ -193,7 +193,7 @@ The list+detail pattern is canonical and reused across surfaces. The settings sh
 
 The branching is one `useIsCompactFormFactor()` check at the top of the screen component. The list and the detail are the same components in both layouts; only the framing changes.
 
-The workspace screen (`packages/app/src/screens/workspace/workspace-screen.tsx`) follows a different but parallel rule: tabs collapse on compact, panes split on desktop. The sidebar (`packages/app/src/components/left-sidebar.tsx`) is overlaid on compact and pinned on desktop.
+The workspace screen (`packages/app/src/screens/workspace/workspace-screen.tsx`) follows a different but parallel rule: tabs collapse on compact, desktop adds a side pane beside the main pane. The sidebar (`packages/app/src/components/left-sidebar.tsx`) is overlaid on compact and pinned on desktop.
 
 The desktop sidebar has three states — expanded, icon-only rail, and hidden — resolved by `resolveDesktopSidebarMode` (`packages/app/src/components/desktop-sidebar-layout.ts`). Two independent toggles move between them: the keyboard shortcut, command center action, and header hamburger flip `desktop.agentListOpen` (hidden ↔ whichever of expanded/rail was last chosen — this is the toggle that owns the corner-obstruction consequences below), while the rail's own inline collapse icon flips `desktop.sidebarRailMode` and never hides the sidebar.
 
