@@ -69,7 +69,7 @@ test("a subagent opened from a right-pane parent stays with its parent when left
   }
 });
 
-test("the side preference opens a right-pane parent's subagent in the side pane", async ({
+test("the side preference reuses the existing side pane for a right-pane parent's subagent", async ({
   page,
 }) => {
   await page.addInitScript((key) => {
@@ -91,14 +91,9 @@ test("the side preference opens a right-pane parent's subagent in the side pane"
     await openSubagentsTrack(page);
     await clickSubagentTrackRow(page, pair.child.id);
 
-    const childPane = page
-      .locator('[data-testid^="workspace-pane-"]')
-      .filter({ has: page.getByTestId(`workspace-tab-agent_${pair.child.id}`) });
-    await expect(childPane).toBeVisible();
-    expect(await childPane.getAttribute("data-testid")).not.toBe(
-      await right.getAttribute("data-testid"),
-    );
-    await expect(childPane).not.toHaveAttribute("data-testid", "workspace-pane-main");
+    // The parent's right pane already is the side pane, so the child joins it instead of
+    // splitting the workspace into a third pane.
+    await expect(right.getByTestId(`workspace-tab-agent_${pair.child.id}`)).toBeVisible();
     await expect(left.getByTestId(`workspace-tab-agent_${pair.child.id}`)).toHaveCount(0);
   } finally {
     await workspace.cleanup();

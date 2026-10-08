@@ -80,7 +80,11 @@ export async function beginWorkspaceFromProject(page: Page, projectName: string)
 
 export async function selectWorkspaceHost(page: Page, hostName: string): Promise<void> {
   await page.getByRole("button", { name: "Host", exact: true }).click();
-  await page.getByRole("button", { name: hostName, exact: true }).click();
+  // The sidebar footer's host button carries the same label, so pick from the picker's options.
+  await page
+    .locator('[data-testid^="new-workspace-host-picker-option-"]')
+    .and(page.getByRole("button", { name: hostName, exact: true }))
+    .click();
   await expect(page.getByRole("button", { name: "Host", exact: true })).toContainText(hostName);
 }
 
