@@ -1,5 +1,6 @@
 import type { PluginSurfaceProps } from "@getpaseo/plugin/client";
 import type { NavigateToWorkspaceInput } from "@/stores/navigation-active-workspace-store";
+import type { WorkspaceTabPlacement } from "@/stores/workspace-layout-actions";
 import { isHttpUrl } from "@/utils/http-url";
 
 interface HostNavigationOwner {
@@ -8,6 +9,11 @@ interface HostNavigationOwner {
   openWorkspace(input: NavigateToWorkspaceInput): void;
   resolveWorkspace(input: { serverId: string; workspaceId: string }): string | null;
   createBrowser(input: { initialUrl: string }): { browserId: string };
+  /** The pane a new browser tab belongs in, or `undefined` for the workspace's default pane. */
+  browserPlacement(input: {
+    serverId: string;
+    workspaceId: string;
+  }): WorkspaceTabPlacement | undefined;
 }
 
 export function createPluginHostNavigation(
@@ -31,10 +37,15 @@ export function createPluginHostNavigation(
           if (!destinationWorkspaceId)
             throw new Error("Workspace is unavailable on the requested host.");
           const { browserId } = owner.createBrowser({ initialUrl: url });
+          const placement = owner.browserPlacement({
+            serverId: destinationServerId,
+            workspaceId: destinationWorkspaceId,
+          });
           owner.openWorkspace({
             serverId: destinationServerId,
             workspaceId: destinationWorkspaceId,
             target: { kind: "browser", browserId },
+            ...(placement ? { placement } : {}),
           });
         }
       : undefined,

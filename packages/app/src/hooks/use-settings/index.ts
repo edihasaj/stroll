@@ -248,6 +248,11 @@ export function useSettings<TSelected>(
   };
 }
 
+/** For code outside React: the settings a component already loaded, or the defaults before that. */
+export function getLoadedAppSettings(): AppSettings {
+  return normalizeAppSettings(appQueryClient.getQueryData<AppSettings>(APP_SETTINGS_QUERY_KEY));
+}
+
 export async function persistAppSettings(updates: Partial<AppSettings>): Promise<void> {
   await saveAppSettings({ queryClient: appQueryClient, updates });
 }

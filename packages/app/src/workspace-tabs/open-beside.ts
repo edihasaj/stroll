@@ -81,6 +81,38 @@ function canReplacePreview(input: {
   );
 }
 
+interface ResolvePreferredSidePanePlacementInput {
+  workspaceKey: string;
+  isCompact: boolean;
+  source: OpenInSidePaneSource;
+  preferences: OpenInSidePanePreferences;
+  /** A background open creates the side pane without moving the user's focus into it. */
+  background?: boolean;
+}
+
+function ensureSidePanePlacement(
+  workspaceKey: string,
+  options?: { focus: boolean },
+): WorkspaceTabPlacement | undefined {
+  const paneId = useWorkspaceLayoutStore.getState().ensureSidePane(workspaceKey, options);
+  return paneId ? { mode: "prefer", paneId } : undefined;
+}
+
+/**
+ * The side pane placement for a new target whose source prefers it, creating the pane when absent.
+ * `undefined` means the caller keeps its default placement: the preference is off, or the layout is
+ * compact and has no side pane to open into.
+ */
+export function resolvePreferredSidePanePlacement(
+  input: ResolvePreferredSidePanePlacementInput,
+): WorkspaceTabPlacement | undefined {
+  if (input.isCompact || !input.preferences[input.source]) return undefined;
+  return ensureSidePanePlacement(
+    input.workspaceKey,
+    input.background ? { focus: false } : undefined,
+  );
+}
+
 /** Opens an implicit target according to its source-specific desktop preference. */
 export function openPreferredWorkspaceTarget(
   input: OpenPreferredWorkspaceTargetInput,
@@ -108,8 +140,7 @@ export function openWorkspaceTargetAtLocation(
   const shouldOpenBeside = !input.isCompact && input.location === "side";
   let placement: WorkspaceTabPlacement | undefined;
   if (shouldOpenBeside && !targetAlreadyExists) {
-    const paneId = store.ensureSidePane(input.workspaceKey);
-    placement = paneId ? { mode: "prefer", paneId } : undefined;
+    placement = ensureSidePanePlacement(input.workspaceKey);
   } else if (!shouldOpenBeside && layout && input.parentTabId) {
     // A target opened from a tab belongs in that tab's pane, whichever pane has focus.
     const parentPane = findPaneContainingTab(layout.root, input.parentTabId);

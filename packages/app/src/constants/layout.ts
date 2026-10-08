@@ -1,4 +1,4 @@
-import { useUnistyles } from "react-native-unistyles";
+import { UnistylesRuntime, useUnistyles } from "react-native-unistyles";
 import { isWeb } from "@/constants/platform";
 
 export const FOOTER_HEIGHT = 75;
@@ -40,6 +40,15 @@ export {
 export function useIsCompactFormFactor(): boolean {
   const { rt } = useUnistyles();
   return rt.breakpoint === "xs" || rt.breakpoint === "sm";
+}
+
+/**
+ * Point-in-time read for event handlers that run outside React, such as an agent opening a browser
+ * tab. Components use `useIsCompactFormFactor` so they re-render when the breakpoint changes.
+ */
+export function getIsCompactFormFactor(): boolean {
+  const breakpoint = UnistylesRuntime.breakpoint;
+  return breakpoint === "xs" || breakpoint === "sm";
 }
 
 // SplitContainer relies on dnd-kit and DOM-backed accessibility helpers.

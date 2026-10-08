@@ -12,8 +12,11 @@ import {
   getBrowserRecord,
   useBrowserStore,
 } from "@/desktop/browser/store";
+import { getIsCompactFormFactor } from "@/constants/layout";
+import { getLoadedAppSettings, type OpenInSidePanePreferences } from "@/hooks/use-settings";
 import { collectAllTabs, useWorkspaceLayoutStore } from "@/stores/workspace-layout-store";
 import { buildWorkspaceTabPersistenceKey } from "@/workspace-tabs/model";
+import { resolvePreferredSidePanePlacement } from "@/workspace-tabs/open-beside";
 
 type BrowserAutomationExecuteRequest = Extract<
   SessionOutboundMessage,
@@ -35,11 +38,23 @@ interface BrowserAutomationClient {
   sendBrowserAutomationExecuteResponse(response: BrowserAutomationExecuteResponse): void;
 }
 
+/** What decides whether an agent-opened tab lands in the side pane. */
+export interface BrowserTabPlacementSource {
+  getOpenInSidePanePreferences(): OpenInSidePanePreferences;
+  isCompactLayout(): boolean;
+}
+
+const APP_BROWSER_TAB_PLACEMENT: BrowserTabPlacementSource = {
+  getOpenInSidePanePreferences: () => getLoadedAppSettings().openInSidePane,
+  isCompactLayout: getIsCompactFormFactor,
+};
+
 export interface BrowserAutomationHandlerOptions {
   client: BrowserAutomationClient;
   serverId?: string;
   getHost?: () => DesktopHostBridge | null;
   ensureResidentBrowserWebview?: typeof ensureResidentBrowserWebviewDefault;
+  tabPlacement?: BrowserTabPlacementSource;
   registrationWaitTimeoutMs?: number;
   registrationPollIntervalMs?: number;
 }
@@ -56,6 +71,7 @@ export function mountBrowserAutomationHandler(
       serverId: options.serverId,
       ensureResidentBrowserWebview:
         options.ensureResidentBrowserWebview ?? ensureResidentBrowserWebviewDefault,
+      tabPlacement: options.tabPlacement ?? APP_BROWSER_TAB_PLACEMENT,
       ...(options.registrationWaitTimeoutMs !== undefined
         ? { registrationWaitTimeoutMs: options.registrationWaitTimeoutMs }
         : {}),
@@ -105,6 +121,7 @@ async function handleBrowserAutomationRequest(params: {
   request: BrowserAutomationExecuteRequest;
   serverId?: string;
   ensureResidentBrowserWebview: typeof ensureResidentBrowserWebviewDefault;
+  tabPlacement: BrowserTabPlacementSource;
   registrationWaitTimeoutMs?: number;
   registrationPollIntervalMs?: number;
 }): Promise<void> {
@@ -114,6 +131,7 @@ async function handleBrowserAutomationRequest(params: {
     request,
     serverId,
     ensureResidentBrowserWebview,
+    tabPlacement,
     registrationWaitTimeoutMs,
     registrationPollIntervalMs,
   } = params;
@@ -129,6 +147,7 @@ async function handleBrowserAutomationRequest(params: {
           serverId,
           browserHost,
           ensureResidentBrowserWebview,
+          tabPlacement,
           ...(registrationWaitTimeoutMs !== undefined ? { registrationWaitTimeoutMs } : {}),
           ...(registrationPollIntervalMs !== undefined ? { registrationPollIntervalMs } : {}),
         }),
@@ -323,6 +342,7 @@ async function openBrowserTabForRequest(params: {
   serverId?: string;
   browserHost: DesktopHostBridge["browser"] | undefined;
   ensureResidentBrowserWebview: typeof ensureResidentBrowserWebviewDefault;
+  tabPlacement: BrowserTabPlacementSource;
   registrationWaitTimeoutMs?: number;
   registrationPollIntervalMs?: number;
 }): Promise<BrowserAutomationResponsePayload> {
@@ -331,6 +351,7 @@ async function openBrowserTabForRequest(params: {
     serverId,
     browserHost,
     ensureResidentBrowserWebview,
+    tabPlacement,
     registrationWaitTimeoutMs,
     registrationPollIntervalMs,
   } = params;
@@ -361,6 +382,13 @@ async function openBrowserTabForRequest(params: {
     workspaceKey,
     target: { kind: "browser", browserId },
     intent: "background",
+    placement: resolvePreferredSidePanePlacement({
+      workspaceKey,
+      isCompact: tabPlacement.isCompactLayout(),
+      source: "browser",
+      preferences: tabPlacement.getOpenInSidePanePreferences(),
+      background: true,
+    }),
   });
 
   if (browserHost?.executeAutomationCommand) {

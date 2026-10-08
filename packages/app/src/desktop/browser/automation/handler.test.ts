@@ -1,9 +1,10 @@
 import { beforeEach, describe, expect, test } from "vitest";
 import type { SessionInboundMessage, SessionOutboundMessage } from "@getpaseo/protocol/messages";
 import { createJSONStorage, type StateStorage } from "zustand/middleware";
-import { mountBrowserAutomationHandler } from "./handler";
+import { mountBrowserAutomationHandler, type BrowserTabPlacementSource } from "./handler";
 import type { DesktopHostBridge } from "@/desktop/host";
 import { useBrowserStore } from "@/desktop/browser/store";
+import { DEFAULT_OPEN_IN_SIDE_PANE_PREFERENCES } from "@/hooks/use-settings/storage";
 import { findPaneById } from "@/stores/workspace-layout-actions";
 import { useWorkspaceLayoutStore } from "@/stores/workspace-layout-store";
 import { buildWorkspaceTabPersistenceKey } from "@/workspace-tabs/model";
@@ -129,6 +130,7 @@ class BrowserAutomationHandlerHarness {
     input: {
       serverId?: string;
       host?: DesktopHostBridge | null;
+      tabPlacement?: BrowserTabPlacementSource;
       registrationWaitTimeoutMs?: number;
       registrationPollIntervalMs?: number;
     } = {},
@@ -138,6 +140,7 @@ class BrowserAutomationHandlerHarness {
       ...(input.serverId ? { serverId: input.serverId } : {}),
       getHost: () => (input.host === undefined ? { browser: this.browser } : input.host),
       ensureResidentBrowserWebview: this.resident.ensure,
+      tabPlacement: input.tabPlacement ?? tabPlacementFor({ browserInSidePane: true }),
       ...(input.registrationWaitTimeoutMs !== undefined
         ? { registrationWaitTimeoutMs: input.registrationWaitTimeoutMs }
         : {}),
@@ -155,6 +158,19 @@ class BrowserAutomationHandlerHarness {
   public receive(request: BrowserAutomationExecuteRequest): void {
     this.client.receive(request);
   }
+}
+
+function tabPlacementFor(input: {
+  browserInSidePane: boolean;
+  compact?: boolean;
+}): BrowserTabPlacementSource {
+  return {
+    getOpenInSidePanePreferences: () => ({
+      ...DEFAULT_OPEN_IN_SIDE_PANE_PREFERENCES,
+      browser: input.browserInSidePane,
+    }),
+    isCompactLayout: () => input.compact === true,
+  };
 }
 
 function browserAutomationRequest(): BrowserAutomationExecuteRequest {
@@ -279,10 +295,10 @@ describe("mountBrowserAutomationHandler", () => {
   beforeEach(() => {
     browserAutomationStorage.clear();
     useBrowserStore.setState({ browsersById: {} });
-    useWorkspaceLayoutStore.setState({ layoutByWorkspace: {} });
+    useWorkspaceLayoutStore.setState({ layoutByWorkspace: {}, sidePaneIdByWorkspace: {} });
   });
 
-  test("browser_new_tab creates a workspace browser tab without stealing focus", async () => {
+  test("browser_new_tab opens the tab in the side pane without stealing focus", async () => {
     const browser = new BrowserAutomationHandlerHarness();
     const workspaceKey = buildWorkspaceTabPersistenceKey({
       serverId: "server-1",
@@ -303,19 +319,24 @@ describe("mountBrowserAutomationHandler", () => {
 
     const result = newTabResultFrom(browser.client.payloadAt(0));
     const openedTabs = workspaceBrowserTabs(workspaceKey, result.browserId);
-    const layout = useWorkspaceLayoutStore.getState().layoutByWorkspace[workspaceKey];
+    const state = useWorkspaceLayoutStore.getState();
+    const layout = state.layoutByWorkspace[workspaceKey];
     expect(openedTabs).toEqual([
       expect.objectContaining({
         target: { kind: "browser", browserId: result.browserId },
       }),
     ]);
-    // Workspaces keep a stable hidden explorer companion pane at the root
-    // (see "retain workspace explorer pane"), so the root is a group and the
-    // draft/browser tabs land in the "main" pane, not at the root directly.
     if (!layout) {
       throw new Error("Expected workspace layout");
     }
-    expect(layout.root.kind).toBe("group");
+    const sidePaneId = state.sidePaneIdByWorkspace[workspaceKey];
+    expect(sidePaneId).toBeTruthy();
+    expect(sidePaneId).not.toBe("main");
+    expect(findPaneById(layout.root, sidePaneId ?? "")).toEqual(
+      expect.objectContaining({ tabIds: [openedTabs[0]?.tabId] }),
+    );
+    // The user's pane and tab stay selected; the agent's tab only appears beside them.
+    expect(layout.focusedPaneId).toBe("main");
     expect(findPaneById(layout.root, "main")).toEqual(
       expect.objectContaining({ focusedTabId: previousFocusedTabId }),
     );
@@ -337,6 +358,48 @@ describe("mountBrowserAutomationHandler", () => {
         command: { command: "list_tabs", args: {} },
       },
     ]);
+  });
+
+  test.each([
+    ["the side pane preference is off", { browserInSidePane: false }],
+    ["the layout is compact", { browserInSidePane: true, compact: true }],
+  ])("browser_new_tab opens the tab in the main pane when %s", async (_name, placement) => {
+    const browser = new BrowserAutomationHandlerHarness();
+    const workspaceKey = buildWorkspaceTabPersistenceKey({
+      serverId: "server-1",
+      workspaceId: "wks_workspace_a",
+    });
+    if (!workspaceKey) {
+      throw new Error("Expected workspace key");
+    }
+    const previousFocusedTabId = useWorkspaceLayoutStore.getState().openTab({
+      workspaceKey: workspaceKey,
+      target: { kind: "draft", draftId: "human-draft" },
+      intent: "reveal",
+    });
+    browser.mount({ serverId: "server-1", tabPlacement: tabPlacementFor(placement) });
+
+    browser.receive(browserNewTabRequest());
+    await flushAsyncWork();
+
+    const result = newTabResultFrom(browser.client.payloadAt(0));
+    const openedTabs = workspaceBrowserTabs(workspaceKey, result.browserId);
+    const state = useWorkspaceLayoutStore.getState();
+    const layout = state.layoutByWorkspace[workspaceKey];
+    if (!layout) {
+      throw new Error("Expected workspace layout");
+    }
+    // Workspaces keep a stable hidden explorer companion pane at the root
+    // (see "retain workspace explorer pane"), so the root is a group and the
+    // draft/browser tabs land in the "main" pane, not at the root directly.
+    expect(layout.root.kind).toBe("group");
+    expect(findPaneById(layout.root, "main")).toEqual(
+      expect.objectContaining({
+        focusedTabId: previousFocusedTabId,
+        tabIds: expect.arrayContaining([openedTabs[0]?.tabId]),
+      }),
+    );
+    expect(state.sidePaneIdByWorkspace[workspaceKey]).toBeUndefined();
   });
 
   test("browser_new_tab returns a retryable timeout when the resident webview does not register", async () => {

@@ -60,6 +60,7 @@ import {
   openPreferredWorkspacePreview,
   openPreferredWorkspaceTarget,
   openWorkspaceTargetBeside,
+  resolvePreferredSidePanePlacement,
 } from "@/workspace-tabs/open-beside";
 import { openWorkspacePullRequest } from "@/workspace-tabs/open-supporting-view";
 import { type ExplorerCheckoutContext } from "@/stores/explorer-checkout-context";
@@ -2503,19 +2504,33 @@ function WorkspaceScreenContent({
     [createTerminal],
   );
 
+  // Browser opens that no pane asked for follow the Open location preference; the + menu does not.
+  const openBrowserTab = useCallback(
+    (browserId: string, fallbackPlacement: WorkspaceTabPlacement) => {
+      if (!persistenceKey) {
+        return;
+      }
+      const placement =
+        resolvePreferredSidePanePlacement({
+          workspaceKey: persistenceKey,
+          isCompact: isMobile,
+          source: "browser",
+          preferences: openInSidePane,
+        }) ?? fallbackPlacement;
+      openWorkspaceTabFocused(persistenceKey, { kind: "browser", browserId }, placement);
+    },
+    [isMobile, openInSidePane, openWorkspaceTabFocused, persistenceKey],
+  );
+
   const handleCreateBrowserTab = useCallback(
     (input?: { paneId?: string }) => {
       if (!persistenceKey || !getIsElectron()) {
         return;
       }
       const { browserId } = createWorkspaceBrowser();
-      openWorkspaceTabFocused(
-        persistenceKey,
-        { kind: "browser", browserId },
-        paneLocalPlacement(input?.paneId),
-      );
+      openBrowserTab(browserId, paneLocalPlacement(input?.paneId));
     },
-    [openWorkspaceTabFocused, persistenceKey],
+    [openBrowserTab, persistenceKey],
   );
 
   const handleCreateNewTab = useCallback(
@@ -2570,13 +2585,9 @@ function WorkspaceScreenContent({
         return;
       }
       const { browserId } = createWorkspaceBrowser({ initialUrl: url });
-      openWorkspaceTabFocused(
-        persistenceKey,
-        { kind: "browser", browserId },
-        FOCUSED_PANE_PLACEMENT,
-      );
+      openBrowserTab(browserId, FOCUSED_PANE_PLACEMENT);
     },
-    [openWorkspaceTabFocused, persistenceKey],
+    [openBrowserTab, persistenceKey],
   );
 
   useDesktopBrowserNewTabRequests({

@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
+import type { WorkspaceTabPlacement } from "@/stores/workspace-layout-actions";
 import { createPluginHostNavigation } from "./host-navigation-model";
 
 describe("plugin host navigation", () => {
-  function setup(electron = true) {
+  function setup(electron = true, placement?: WorkspaceTabPlacement) {
     const destinations: unknown[] = [];
     const browsers: string[] = [];
     const workspaces = new Set(["selected:one", "remote:two"]);
@@ -16,6 +17,7 @@ describe("plugin host navigation", () => {
         browsers.push(initialUrl);
         return { browserId: `browser-${browsers.length}` };
       },
+      browserPlacement: () => placement,
     });
     return { navigation, destinations, browsers, workspaces };
   }
@@ -39,6 +41,20 @@ describe("plugin host navigation", () => {
         serverId: "remote",
         workspaceId: "two",
         target: { kind: "browser", browserId: "browser-2" },
+      },
+    ]);
+  });
+
+  it("opens the browser in the pane the host prefers", () => {
+    const placement: WorkspaceTabPlacement = { mode: "prefer", paneId: "side" };
+    const { navigation, destinations } = setup(true, placement);
+    navigation.openBrowser!({ url: "https://example.com/one", workspaceId: "one" });
+    expect(destinations).toEqual([
+      {
+        serverId: "selected",
+        workspaceId: "one",
+        target: { kind: "browser", browserId: "browser-1" },
+        placement,
       },
     ]);
   });

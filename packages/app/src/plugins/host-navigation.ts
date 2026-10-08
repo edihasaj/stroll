@@ -5,8 +5,12 @@ import { useMemo } from "react";
 import { navigateToWorkspace } from "@/stores/navigation-active-workspace-store";
 import { navigateToAgent } from "@/utils/navigate-to-agent";
 
+import { getIsCompactFormFactor } from "@/constants/layout";
 import { getIsElectron } from "@/constants/platform";
 import { createWorkspaceBrowser } from "@/desktop/browser/store";
+import { getLoadedAppSettings } from "@/hooks/use-settings";
+import { buildWorkspaceTabPersistenceKey } from "@/workspace-tabs/model";
+import { resolvePreferredSidePanePlacement } from "@/workspace-tabs/open-beside";
 import { createPluginHostNavigation } from "./host-navigation-model";
 
 export function usePluginHostNavigation(
@@ -19,6 +23,20 @@ export function usePluginHostNavigation(
         openAgent: navigateToAgent,
         openWorkspace: navigateToWorkspace,
         createBrowser: createWorkspaceBrowser,
+        browserPlacement: ({ serverId: targetServerId, workspaceId }) => {
+          const workspaceKey = buildWorkspaceTabPersistenceKey({
+            serverId: targetServerId,
+            workspaceId,
+          });
+          return workspaceKey
+            ? resolvePreferredSidePanePlacement({
+                workspaceKey,
+                isCompact: getIsCompactFormFactor(),
+                source: "browser",
+                preferences: getLoadedAppSettings().openInSidePane,
+              })
+            : undefined;
+        },
         resolveWorkspace: ({ serverId: targetServerId, workspaceId }) =>
           resolveWorkspaceMapKeyByIdentity({
             workspaces: useSessionStore.getState().sessions[targetServerId]?.workspaces,
