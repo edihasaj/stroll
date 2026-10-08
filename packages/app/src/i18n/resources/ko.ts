@@ -2233,7 +2233,49 @@ export const ko: TranslationResources = {
       diagnostics: "진단",
       about: "정보",
     },
-    layout: en.settings.layout,
+    layout: {
+      openInSidePane: {
+        title: "열리는 위치",
+        destinations: {
+          main: "메인 패널",
+          side: "옆에",
+          explorer: "탐색기 사이드바",
+        },
+        sources: {
+          explorerFiles: {
+            label: "탐색기 사이드바에서 파일을 클릭할 때",
+            description: "탐색기 사이드바에서 선택한 파일을 작업 옆에 엽니다",
+          },
+          diffs: {
+            label: "탐색기 사이드바나 채팅에서 변경 사항을 클릭할 때",
+            description: "탐색기와 에이전트 대화의 diff를 작업 옆에 엽니다",
+          },
+          chatFiles: {
+            label: "에이전트 채팅에서 파일을 클릭할 때",
+            description: "파일 링크와 도구 호출 파일을 대화 옆에 엽니다",
+          },
+          diffFiles: {
+            label: "diff에서 파일을 클릭할 때",
+            description: "diff에서 선택한 소스 파일을 그 옆에 엽니다",
+          },
+          subagents: {
+            label: "에이전트 채팅에서 하위 에이전트를 클릭할 때",
+            description: "하위 에이전트를 상위 에이전트 옆에 엽니다",
+          },
+          browser: {
+            label: "브라우저 탭을 열 때",
+            description: "브라우저 탭, 링크, 서비스 URL을 작업 옆에 엽니다",
+          },
+          pullRequests: {
+            label: "탐색기 사이드바에서 풀 리퀘스트를 클릭할 때",
+            description: "풀 리퀘스트 세부 정보를 변경 사항 옆에 엽니다",
+          },
+          serviceUrls: {
+            label: "스크립트의 서비스 URL을 클릭할 때",
+          },
+        },
+      },
+    },
     editor: {
       title: "편집기",
       vimKeybindings: "Vim 키 바인딩",

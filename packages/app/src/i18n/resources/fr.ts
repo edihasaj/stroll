@@ -2276,7 +2276,54 @@ export const fr: TranslationResources = {
       diagnostics: "Diagnostic",
       about: "À propos",
     },
-    layout: en.settings.layout,
+    layout: {
+      openInSidePane: {
+        title: "Emplacement d'ouverture",
+        destinations: {
+          main: "Panneau principal",
+          side: "Sur le côté",
+          explorer: "Barre latérale de l'explorateur",
+        },
+        sources: {
+          explorerFiles: {
+            label: "En cliquant sur un fichier dans la barre latérale de l'explorateur",
+            description:
+              "Ouvre les fichiers sélectionnés dans la barre latérale de l'explorateur à côté de votre travail",
+          },
+          diffs: {
+            label:
+              "En cliquant sur un changement dans la barre latérale de l'explorateur ou dans un chat",
+            description:
+              "Ouvre les diffs de l'explorateur et des conversations avec l'agent à côté de votre travail",
+          },
+          chatFiles: {
+            label: "En cliquant sur un fichier dans un chat avec l'agent",
+            description:
+              "Ouvre les liens de fichiers et les fichiers des appels d'outils à côté de la conversation",
+          },
+          diffFiles: {
+            label: "En cliquant sur un fichier dans un diff",
+            description: "Ouvre à côté du diff les fichiers source sélectionnés dedans",
+          },
+          subagents: {
+            label: "En cliquant sur un sous-agent dans un chat avec l'agent",
+            description: "Ouvre les sous-agents à côté de leur agent parent",
+          },
+          browser: {
+            label: "À l'ouverture d'un onglet de navigateur",
+            description:
+              "Ouvre les onglets de navigateur, les liens et les URL de service à côté de votre travail",
+          },
+          pullRequests: {
+            label: "En cliquant sur une demande de fusion dans la barre latérale de l'explorateur",
+            description: "Ouvre les détails de la demande de fusion à côté de Changements",
+          },
+          serviceUrls: {
+            label: "En cliquant sur l'URL de service d'un script",
+          },
+        },
+      },
+    },
     editor: {
       title: "Éditeur",
       vimKeybindings: "Raccourcis Vim",

@@ -2277,6 +2277,10 @@ export const en = {
             label: "Clicking a subagent in an agent chat",
             description: "Open subagents beside their parent agent",
           },
+          browser: {
+            label: "Opening a browser tab",
+            description: "Open browser tabs, links, and service URLs beside your work",
+          },
           pullRequests: {
             label: "Clicking a pull request in the Explorer sidebar",
             description: "Open pull request details beside Changes",

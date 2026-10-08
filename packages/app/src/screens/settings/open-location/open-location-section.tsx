@@ -14,6 +14,7 @@ const SOURCES = [
   "chatFiles",
   "diffFiles",
   "subagents",
+  "browser",
 ] as const satisfies readonly (keyof OpenInSidePanePreferences)[];
 
 const SERVICE_URL_BEHAVIORS: readonly ServiceUrlBehavior[] = ["ask", "in-app", "external"];
@@ -83,7 +84,7 @@ function ServiceUrlRow() {
   );
 }
 
-/** Where things open: files, diffs, subagents, pull requests, and script URLs. Desktop only. */
+/** Where things open: files, diffs, subagents, browser tabs, pull requests, and script URLs. Desktop only. */
 export function OpenLocationSection() {
   const { t } = useTranslation();
   const { settings, updateSettings } = useAppSettings();

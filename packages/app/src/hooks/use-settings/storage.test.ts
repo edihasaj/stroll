@@ -366,6 +366,37 @@ describe("loadAppSettingsFromStorage", () => {
     expect(result.openInSidePane).not.toHaveProperty("changesLinks");
   });
 
+  it("opens the browser in the side pane by default", async () => {
+    const result = await loadAppSettingsFromStorage(makeDeps());
+
+    expect(result.openInSidePane.browser).toBe(true);
+  });
+
+  it("keeps the browser in the side pane for a stored preference blob that predates it", async () => {
+    const deps = makeDeps({
+      storage: createInMemoryKeyValueStorage({
+        [APP_SETTINGS_KEY]: JSON.stringify({ openInSidePane: { explorerFiles: true } }),
+      }),
+    });
+
+    const result = await loadAppSettingsFromStorage(deps);
+
+    expect(result.openInSidePane.explorerFiles).toBe(true);
+    expect(result.openInSidePane.browser).toBe(true);
+  });
+
+  it("keeps a stored choice to open the browser in the main panel", async () => {
+    const deps = makeDeps({
+      storage: createInMemoryKeyValueStorage({
+        [APP_SETTINGS_KEY]: JSON.stringify({ openInSidePane: { browser: false } }),
+      }),
+    });
+
+    const result = await loadAppSettingsFromStorage(deps);
+
+    expect(result.openInSidePane.browser).toBe(false);
+  });
+
   it("defaults PRs to Explorer and preserves the legacy side choice", async () => {
     const defaults = await loadAppSettingsFromStorage(makeDeps());
     const legacySide = await loadAppSettingsFromStorage(

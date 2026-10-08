@@ -135,6 +135,7 @@ export interface OpenInSidePanePreferences {
   chatFiles: boolean;
   diffFiles: boolean;
   subagents: boolean;
+  browser: boolean;
 }
 
 export const DEFAULT_OPEN_IN_SIDE_PANE_PREFERENCES: OpenInSidePanePreferences = {
@@ -143,6 +144,7 @@ export const DEFAULT_OPEN_IN_SIDE_PANE_PREFERENCES: OpenInSidePanePreferences = 
   chatFiles: false,
   diffFiles: false,
   subagents: true,
+  browser: true,
 };
 
 export interface Settings extends AppSettings {
@@ -299,6 +301,7 @@ const StoredAppSettingsSchema = z
         chatFiles: z.boolean().catch(false),
         diffFiles: z.boolean().catch(false),
         subagents: z.boolean().catch(false),
+        browser: z.boolean().catch(DEFAULT_OPEN_IN_SIDE_PANE_PREFERENCES.browser),
         // COMPAT(pullRequestOpenLocation): legacy side-pane toggle, remove after 2027-02-26.
         pullRequests: z.boolean().optional(),
       })

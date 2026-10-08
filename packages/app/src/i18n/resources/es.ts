@@ -2271,7 +2271,54 @@ export const es: TranslationResources = {
       diagnostics: "Diagnóstico",
       about: "Acerca de",
     },
-    layout: en.settings.layout,
+    layout: {
+      openInSidePane: {
+        title: "Dónde se abre",
+        destinations: {
+          main: "Panel principal",
+          side: "Al lado",
+          explorer: "Barra lateral del explorador",
+        },
+        sources: {
+          explorerFiles: {
+            label: "Al hacer clic en un archivo de la barra lateral del explorador",
+            description:
+              "Abre los archivos elegidos en la barra lateral del explorador junto a tu trabajo",
+          },
+          diffs: {
+            label: "Al hacer clic en un cambio de la barra lateral del explorador o de un chat",
+            description:
+              "Abre los diffs del explorador y de las conversaciones con el agente junto a tu trabajo",
+          },
+          chatFiles: {
+            label: "Al hacer clic en un archivo de un chat con el agente",
+            description:
+              "Abre los enlaces a archivos y los archivos de las llamadas a herramientas junto a la conversación",
+          },
+          diffFiles: {
+            label: "Al hacer clic en un archivo de un diff",
+            description: "Abre junto al diff los archivos de código elegidos en él",
+          },
+          subagents: {
+            label: "Al hacer clic en un subagente de un chat con el agente",
+            description: "Abre los subagentes junto a su agente principal",
+          },
+          browser: {
+            label: "Al abrir una pestaña del navegador",
+            description:
+              "Abre las pestañas del navegador, los enlaces y las URL de servicio junto a tu trabajo",
+          },
+          pullRequests: {
+            label:
+              "Al hacer clic en una solicitud de extracción de la barra lateral del explorador",
+            description: "Abre los detalles de la solicitud de extracción junto a Cambios",
+          },
+          serviceUrls: {
+            label: "Al hacer clic en la URL de servicio de un script",
+          },
+        },
+      },
+    },
     editor: {
       title: "Editor",
       vimKeybindings: "Atajos de Vim",
