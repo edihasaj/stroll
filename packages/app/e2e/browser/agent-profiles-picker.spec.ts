@@ -44,6 +44,8 @@ test.use({
         opencode: { enabled: false },
         pi: { enabled: false },
         "mock-slow": { enabled: false, extends: "claude", label: "Mock Slow Provider" },
+        antigravity: { enabled: false },
+        muse: { enabled: false },
       },
     },
   },
