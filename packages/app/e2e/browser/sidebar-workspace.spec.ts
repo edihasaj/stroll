@@ -150,6 +150,45 @@ async function readCachedRowIds(
   );
 }
 
+/**
+ * Whether the replica store already has a directory checkpoint with a workspaces generation —
+ * `refreshAll` (`runtime/directory-sync/index.ts`) writes the checkpoint after both agents and
+ * workspaces finish refreshing, which lands a moment after the workspace rows themselves do.
+ * `simulateDamagedLegacyDirectoryCache` needs that checkpoint to already exist (it edits it in
+ * place), so callers poll this before corrupting the cache instead of racing the write.
+ */
+async function hasDirectoryCheckpointWithWorkspacesGeneration(page: Page): Promise<boolean> {
+  return page.evaluate(async (serverId) => {
+    const database = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open("paseo-replica-row-store");
+      request.addEventListener("success", () => resolve(request.result));
+      request.addEventListener("error", () => reject(request.error));
+    });
+    try {
+      return await new Promise<boolean>((resolve, reject) => {
+        const transaction = database.transaction("rows", "readonly");
+        const request = transaction.objectStore("rows").getAll();
+        request.onsuccess = () => {
+          const checkpoint = (
+            request.result as Array<{ serverId: string; kind: string; payload: string }>
+          ).find((row) => row.serverId === serverId && row.kind === "checkpoint");
+          if (!checkpoint) {
+            resolve(false);
+            return;
+          }
+          const stored = JSON.parse(checkpoint.payload);
+          // Same envelope handling as simulateDamagedLegacyDirectoryCache below.
+          const cursors = stored.cursors ?? stored;
+          resolve(Boolean(cursors.workspaces?.generation));
+        };
+        request.addEventListener("error", () => reject(request.error));
+      });
+    } finally {
+      database.close();
+    }
+  }, getServerId());
+}
+
 async function simulateDamagedLegacyDirectoryCache(
   page: Page,
   workspaceIdToRemove: string,
@@ -187,12 +226,16 @@ async function simulateDamagedLegacyDirectoryCache(
               return;
             }
             const stored = JSON.parse(checkpoint.payload);
-            // Accept either writer so this fixture also reproduces on the unfixed client.
-            const cursors = stored.version === 1 ? stored.cursors : stored;
+            // Accept either writer so this fixture also reproduces on the unfixed client: the
+            // current client wraps cursors in a `{ version, cursors }` envelope
+            // (DIRECTORY_CHECKPOINT_VERSION in runtime/replica-cache/index.ts, now 2); an
+            // unfixed/legacy client wrote the bare cursors object with no envelope at all.
+            const cursors = stored.cursors ?? stored;
             if (!cursors.workspaces?.generation) {
               transaction.abort();
               return;
             }
+            // Writes the bare (unwrapped) cursors back, simulating the legacy writer's shape.
             store.put({ ...checkpoint, payload: JSON.stringify(cursors) });
             for (const row of rows) {
               if (
@@ -255,6 +298,10 @@ async function cacheWorkspaces(page: Page, workspaceIds: string[]): Promise<void
   await gotoAppShell(page);
   await expectSidebarWorkspaces(page, workspaceIds);
   await expect.poll(() => readCachedRowIds(page, "workspace")).toEqual(workspaceIds);
+  // The checkpoint write lands after the workspace rows do (see
+  // hasDirectoryCheckpointWithWorkspacesGeneration's doc comment) — wait for it too, so the
+  // next step edits a checkpoint that is actually there instead of racing its first write.
+  await expect.poll(() => hasDirectoryCheckpointWithWorkspacesGeneration(page)).toBe(true);
 }
 
 async function reopenDamagedCacheBeforeHostResponds(
