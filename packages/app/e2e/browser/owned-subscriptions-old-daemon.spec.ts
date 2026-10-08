@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import type { Locator, Page } from "@playwright/test";
 import { submitMessage, expectComposerEditable } from "../support/helpers/composer";
 import {
   focusTerminalSurface,
@@ -15,8 +16,110 @@ import {
   expectTimelinePromptVisible,
   holdOlderHistoryPages,
   openAgentTimeline,
-  scrollThroughOlderHistoryPages,
+  userScrollsTimelineToHistoryStart,
 } from "../support/helpers/timeline-pagination";
+
+/**
+ * Waits for the scroll container's own geometry to stop changing before returning -
+ * releasing the next chained page before the timeline has digested the last one risks
+ * mis-evaluating "still at history start" against a layout that has not caught up, which
+ * can trigger more chain-loads than a patient, one-at-a-time release ever would.
+ */
+async function waitForTimelineToSettle(timeline: Locator): Promise<void> {
+  await timeline.evaluate(
+    (element) =>
+      new Promise<void>((resolve, reject) => {
+        if (!(element instanceof HTMLElement)) {
+          reject(new Error("Agent chat scroll element is not an HTMLElement"));
+          return;
+        }
+        const startedAt = performance.now();
+        let stableFrames = 0;
+        let previous = `${element.scrollTop}:${element.scrollHeight}`;
+        const sample = () => {
+          const current = `${element.scrollTop}:${element.scrollHeight}`;
+          stableFrames = current === previous ? stableFrames + 1 : 0;
+          previous = current;
+          if (stableFrames >= 4) {
+            resolve();
+            return;
+          }
+          if (performance.now() - startedAt > 5_000) {
+            resolve(); // Settle is a best-effort pacing aid here, not a hard assertion.
+            return;
+          }
+          requestAnimationFrame(sample);
+        };
+        requestAnimationFrame(sample);
+      }),
+  );
+}
+
+/**
+ * scrollThroughOlderHistoryPages (shared with chat-outline.spec.ts and
+ * agent-timeline-pagination.spec.ts) assumes exactly one history request per scroll
+ * gesture. The published 0.2.5 daemon mock here breaks that assumption on purpose:
+ * history-start-pagination.ts's "settling" state re-arms the instant a just-loaded page
+ * still leaves the viewport inside the history-start threshold, chain-loading the next
+ * page with no further user input. Draining one page at a time, pacing each release with
+ * a settle wait and running `onPageSettled` after each one, is what lets a caller observe
+ * the timeline at every intermediate step of the chain - not just wherever it finally
+ * comes to rest, which this daemon's overlapping pages can later reshuffle past the page
+ * a caller cares about (reconcileHistoryWindow, use-stream-history-window.ts, snaps the
+ * local reveal window back toward the newest items once the row it was tracking is
+ * superseded by a later merge).
+ */
+async function drainOldDaemonHistoryChain(
+  page: Page,
+  history: Awaited<ReturnType<typeof holdOlderHistoryPages>>,
+  releasedSoFar: number,
+  timeline: Locator,
+  onPageSettled: () => Promise<void>,
+): Promise<number> {
+  const spinner = page.getByTestId("load-older-history-spinner");
+  let released = releasedSoFar;
+  const deadline = Date.now() + 15_000;
+  while (Date.now() < deadline) {
+    while (released < history.requestCount()) {
+      released += 1;
+      history.releasePage(released);
+      await waitForTimelineToSettle(timeline);
+      await onPageSettled();
+    }
+    if (!(await spinner.isVisible())) break;
+    await page.waitForTimeout(25);
+  }
+  // Catches a response that lands in the gap between the loop's last drain and its
+  // spinner check.
+  while (released < history.requestCount()) {
+    released += 1;
+    history.releasePage(released);
+  }
+  return released;
+}
+
+/**
+ * Loads every older page the daemon has, draining each gesture's full chain, and calls
+ * `onPageSettled` after every page this chain releases. How many pages/gestures that
+ * takes is a property of the old daemon's overlapping pagination windows (the cross-page
+ * duplicates `expectRepeatedEntries` checks for), not a number this spec should
+ * hard-code.
+ */
+async function drainAllOldDaemonHistory(
+  page: Page,
+  history: Awaited<ReturnType<typeof holdOlderHistoryPages>>,
+  onPageSettled: () => Promise<void>,
+): Promise<void> {
+  const timeline = page.locator('[data-testid="agent-chat-scroll"]:visible').first();
+
+  let released = 0;
+  for (let gesture = 0; gesture < 30; gesture += 1) {
+    const requestedBefore = history.requestCount();
+    await userScrollsTimelineToHistoryStart(page);
+    released = await drainOldDaemonHistoryChain(page, history, released, timeline, onPageSettled);
+    if (history.requestCount() === requestedBefore) return; // no older history left to load
+  }
+}
 
 test("does not repeat an assistant block when the current app paginates a published 0.2.5 daemon", async ({
   page,
@@ -88,6 +191,16 @@ test("does not repeat an assistant block when the current app paginates a publis
       },
       { seededHost: host, preferences: buildCreateAgentPreferences() },
     );
+    // A finished turn folds its in-between messages behind "Worked for" (docs/design.md
+    // §12), which would hide the mid-turn "Now I have a clearer picture." text this spec
+    // looks for. Keep every row unfolded, the same way agent-stream-ui.spec.ts does for
+    // its own tool-call row.
+    await page.addInitScript(() => {
+      localStorage.setItem(
+        "@paseo:app-settings",
+        JSON.stringify({ toolCallDetailLevel: "detailed" }),
+      );
+    });
 
     const history = await holdOlderHistoryPages(page, agent, daemon.port);
     await openAgentTimeline(page, agent, serverId);
@@ -95,10 +208,24 @@ test("does not repeat an assistant block when the current app paginates a publis
       page,
       "timeline-pagination-turn-19: emit 1 coalesced agent stream updates",
     );
-    await scrollThroughOlderHistoryPages(page, 3, history);
+
+    const targetText = "Now I have a clearer picture.";
+    const timeline = page.locator('[data-testid="agent-chat-scroll"]:visible').first();
+    const isTextMounted = async () =>
+      (await timeline.getByText(targetText, { exact: false }).count()) > 0;
+    // Each later chain-loaded page can reshuffle the client's local reveal window back
+    // toward the newest items (see drainOldDaemonHistoryChain's doc comment), so the
+    // render check runs the moment the target page is mounted rather than waiting for
+    // the whole chain - possibly many pages further - to settle first.
+    let verified = false;
+    await drainAllOldDaemonHistory(page, history, async () => {
+      if (verified || !(await isTextMounted())) return;
+      await history.expectOwnedTextRendered(targetText);
+      verified = true;
+    });
+    expect(verified).toBe(true);
 
     history.expectRepeatedEntries();
-    await history.expectOwnedTextRendered("Now I have a clearer picture.");
     expect(observationSockets.size).toBe(1);
 
     await test.step("send a live turn after reconnecting the old daemon", async () => {
