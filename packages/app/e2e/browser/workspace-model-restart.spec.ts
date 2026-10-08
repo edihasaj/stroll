@@ -482,10 +482,12 @@ test.describe("Workspace model restart regressions", () => {
           [createdWorkspaceId]: "done",
         });
 
-      // The restarted provider session may settle while the browser creates the sibling. Its
-      // initial running status is asserted above; this phase verifies that ownership never moves.
+      // The legacy agent recovered to "error" above (unrecoverable, no persistence handle) and
+      // stays there — recovery is one-shot, so nothing restarts or retries it. deriveAgentStateBucket
+      // maps agent status "error" straight to workspace bucket "failed", permanently, for the rest
+      // of this test. This phase verifies that ownership never moves while that holds.
       const workspaceStatuses = await fetchWorkspaceStatuses(client, [seeded.workspaceA]);
-      expect(["running", "done"]).toContain(workspaceStatuses[seeded.workspaceA]);
+      expect(workspaceStatuses[seeded.workspaceA]).toBe("failed");
 
       await expectWorkspaceRowDoesNotShowIndicator(page, {
         serverId,
