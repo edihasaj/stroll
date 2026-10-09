@@ -428,7 +428,7 @@ test.describe("New workspace flow", () => {
     }
   });
 
-  test("global new workspace uses the last active project and creates one agent tab", async ({
+  test("global new workspace uses the last active project and creates one chat in the main view", async ({
     page,
   }) => {
     const serverId = getServerId();
@@ -489,13 +489,11 @@ test.describe("New workspace flow", () => {
         .filter({ visible: true });
       await expect(activeWorkspaceDeckEntry).toBeVisible({ timeout: 30_000 });
 
-      const agentTabs = activeWorkspaceDeckEntry.locator('[data-testid^="workspace-tab-agent_"]');
-      await expect(agentTabs).toHaveCount(1, { timeout: 30_000 });
-
-      // Workspace setup may auto-open a setup tab that steals focus,
-      // hiding the agent panel (display:none removes it from the
-      // accessibility tree). Click the agent tab to ensure it's active.
-      await agentTabs.first().click();
+      // The main view shows the one chat the workspace was created with. Workspace setup opens
+      // in the side pane, so it cannot take the main view from the chat.
+      await expect(activeWorkspaceDeckEntry.getByTestId("chat-pane-header")).toHaveCount(1, {
+        timeout: 30_000,
+      });
 
       const composer = page.getByRole("textbox", { name: "Message agent..." });
       await expect(composer).toBeVisible({ timeout: 30_000 });
@@ -504,7 +502,7 @@ test.describe("New workspace flow", () => {
     }
   });
 
-  test("redirects to the optimistic draft tab before agent creation resolves", async ({ page }) => {
+  test("redirects to the optimistic draft before agent creation resolves", async ({ page }) => {
     const serverId = getServerId();
 
     const tempRepo = await createTempGitRepo("new-workspace-optimistic-");
@@ -567,16 +565,17 @@ test.describe("New workspace flow", () => {
         .filter({ visible: true });
       await expect(activeWorkspaceDeckEntry).toBeVisible({ timeout: 30_000 });
 
-      const draftTabs = activeWorkspaceDeckEntry.locator('[data-testid^="workspace-tab-draft_"]');
-      await expect(draftTabs).toHaveCount(1, { timeout: 30_000 });
-      await expect(
-        activeWorkspaceDeckEntry.locator('[data-testid^="workspace-tab-agent_"]'),
-      ).toHaveCount(0);
+      const mainDraft = activeWorkspaceDeckEntry.locator(
+        '[data-testid="main-pane-draft-header"][data-draft-id]',
+      );
+      await expect(mainDraft).toHaveCount(1, { timeout: 30_000 });
+      await expect(activeWorkspaceDeckEntry.getByTestId("chat-pane-header")).toHaveCount(0);
 
       agentCreatedDelay.release();
-      await expect(
-        activeWorkspaceDeckEntry.locator('[data-testid^="workspace-tab-agent_"]'),
-      ).toHaveCount(1, { timeout: 30_000 });
+      await expect(activeWorkspaceDeckEntry.getByTestId("chat-pane-header")).toHaveCount(1, {
+        timeout: 30_000,
+      });
+      await expect(mainDraft).toHaveCount(0);
     } finally {
       agentCreatedDelay.release();
       await tempRepo.cleanup();

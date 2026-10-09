@@ -15,6 +15,7 @@ import {
   reopenNestedProviderSession,
 } from "../support/helpers/provider-subagents";
 import { openSubagentsTrack } from "../support/helpers/subagents";
+import { expectMainChat } from "../support/helpers/workspace-tabs";
 
 interface ProviderSubagentCase {
   provider: RewindFlowProvider;
@@ -136,11 +137,11 @@ test.describe("real provider subagent timelines", () => {
           panel.getByText("Start chatting with this agent...", { exact: true }),
         ).toHaveCount(0);
 
-        await page.getByTestId(`workspace-tab-agent_${handle.agentId}`).first().click();
+        // The subagent opens in the side pane; the parent stays in the main view.
+        await expectMainChat(page, handle.agentId);
         await expect(
           page.getByTestId("assistant-message").filter({ hasText: "ROOT_DONE" }).last(),
         ).toBeVisible({ timeout: 60_000 });
-        // Opening the subagent's tab closed the panel with the parent's pane.
         await openSubagentsTrack(page);
         const archiveFinished = page.getByTestId("subagents-track-archive-finished");
         await expect(archiveFinished).toBeVisible({ timeout: 30_000 });
