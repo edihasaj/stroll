@@ -669,12 +669,13 @@ test.describe("Half-screen desktop layout", () => {
       await expect(explorerToggle).toHaveAccessibleName("Close Explorer sidebar");
       await expect(page.getByTestId("sidebar-global-new-workspace")).toBeVisible();
       await expect(page.getByTestId("workspace-explorer-sidebar")).toBeVisible();
+      // The main view keeps its header and has no tab row; only the Explorer shows one.
       await expect(
-        page
-          .locator('[data-testid^="workspace-pane-"]')
-          .getByTestId("workspace-tabs-row")
-          .filter({ visible: true }),
+        page.getByTestId("workspace-pane-main").getByTestId("main-pane-header").filter({
+          visible: true,
+        }),
       ).toHaveCount(1);
+      await expect(page.getByTestId("workspace-tabs-row").filter({ visible: true })).toHaveCount(1);
 
       await explorerToggle.click();
       await expect(page.getByTestId("workspace-tab-files").filter({ visible: true })).toHaveCount(
