@@ -10,6 +10,12 @@ import {
   observeForkAttachment,
 } from "../support/helpers/assistant-fork";
 import { expectComposerVisible, submitMessage } from "../support/helpers/composer";
+import {
+  expectMainChat,
+  expectMainDraft,
+  expectNotMainChat,
+  openChatFromSidebar,
+} from "../support/helpers/workspace-tabs";
 import { getE2EDaemonPort } from "../support/helpers/daemon-port";
 import {
   openAgentRoute,
@@ -86,11 +92,11 @@ test.describe("Assistant fork menu", () => {
     expect(await forkAttachment.waitForText()).toContain(visibleBeforeFork);
     await expect(page.getByRole("button", { name: "Menu backdrop", exact: true })).toHaveCount(0);
 
-    await page.getByRole("button", { name: sourceAgentTitle }).click();
+    await openChatFromSidebar(page, session.agentId);
     await expectLiveAssistantText(page, visibleAfterFork);
   });
 
-  test("focuses a forked assistant turn in a new workspace draft tab", async ({
+  test("replaces the chat in the main view with the forked assistant turn draft", async ({
     page,
     seedForkWorkspace,
   }) => {
@@ -110,19 +116,12 @@ test.describe("Assistant fork menu", () => {
     await session.client.waitForFinish(session.agentId, 45_000);
     await awaitAssistantMessage(page);
 
-    const agentTab = page.getByTestId(`workspace-tab-agent_${session.agentId}`);
-    await expect(agentTab).toHaveAttribute("aria-selected", "true");
+    await expectMainChat(page, session.agentId);
 
     await forkMostRecentAssistantTurnToNewTab(page);
 
-    const selectedTab = page
-      .getByTestId("workspace-tabs-row")
-      .getByRole("button")
-      .and(page.locator('[aria-selected="true"]'));
-    await expect(selectedTab).toHaveAttribute("data-testid", /^workspace-tab-draft_/, {
-      timeout: 30_000,
-    });
-    await expect(agentTab).toHaveAttribute("aria-selected", "false");
+    await expectMainDraft(page);
+    await expectNotMainChat(page, session.agentId);
     await expectChatHistoryAttachment(page);
   });
 

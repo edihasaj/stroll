@@ -17,7 +17,7 @@ import {
 } from "../support/helpers/new-workspace";
 import { fillComposerDraft } from "../support/helpers/composer";
 import { pressSubmitBeforeTheNextRender } from "../support/helpers/creation";
-import { createAgentTabFromMenu } from "../support/helpers/workspace-tabs";
+import { createAgentTabFromMenu, expectMainChat } from "../support/helpers/workspace-tabs";
 
 for (const version of ["0.2.5", "0.7.2", "0.8.0"]) {
   let daemon: Awaited<ReturnType<typeof startIsolatedHostDaemon>>;
@@ -120,9 +120,10 @@ for (const version of ["0.2.5", "0.7.2", "0.8.0"]) {
       const first = (await client.fetchAgents()).entries[0]!.agent;
       await client.waitForFinish(first.id, 20_000);
       await expectPromptOnce(client, first.id, prompt);
-      await expect(
-        page.getByTestId(`workspace-tab-agent_${first.id}`).filter({ visible: true }),
-      ).toHaveText(prompt);
+      await expectMainChat(page, first.id);
+      await expect(page.getByTestId("chat-pane-title").filter({ visible: true })).toHaveText(
+        prompt,
+      );
 
       await createAgentTabFromMenu(page);
       const secondPrompt = "Create another agent: emit 1 coalesced agent stream updates";
@@ -135,9 +136,10 @@ for (const version of ["0.2.5", "0.7.2", "0.8.0"]) {
       expect(second.workspaceId).toBe(first.workspaceId);
       await client.waitForFinish(second.id, 20_000);
       await expectPromptOnce(client, second.id, secondPrompt);
-      await expect(
-        page.getByTestId(`workspace-tab-agent_${second.id}`).filter({ visible: true }),
-      ).toHaveText(secondPrompt);
+      await expectMainChat(page, second.id);
+      await expect(page.getByTestId("chat-pane-title").filter({ visible: true })).toHaveText(
+        secondPrompt,
+      );
       await expect(
         page
           .getByTestId("user-message")

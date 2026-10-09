@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "../support/fixtures";
 import { composerLocator, expectComposerVisible, submitMessage } from "../support/helpers/composer";
 import { openAgentRoute, seedMockAgentWorkspace } from "../support/helpers/mock-agent";
+import { getMainChatAgentId } from "../support/helpers/workspace-tabs";
 import {
   expectSessionRowArchived,
   expectWorkspaceTabHidden,
@@ -77,41 +78,26 @@ async function createAgentFromReplacementDraft(page: Page): Promise<void> {
 }
 
 async function waitForReplacementAgentId(page: Page, oldAgentId: string): Promise<string> {
-  let newAgentId: string | null = null;
   await expect
     .poll(
       async () => {
-        const ids = await page
-          .locator('[data-testid^="workspace-tab-agent_"]')
-          .evaluateAll((nodes) =>
-            nodes.flatMap((node) => {
-              if (!(node instanceof HTMLElement)) {
-                return [];
-              }
-              const testId = node.getAttribute("data-testid") ?? "";
-              if (!testId.startsWith("workspace-tab-agent_")) {
-                return [];
-              }
-              if (node.offsetParent === null) {
-                return [];
-              }
-              return [testId.slice("workspace-tab-agent_".length)];
-            }),
-          );
-        newAgentId = ids.find((id) => id !== oldAgentId) ?? null;
-        return newAgentId;
+        const agentId = await getMainChatAgentId(page);
+        return agentId !== null && agentId !== oldAgentId ? agentId : null;
       },
       { timeout: 30_000 },
     )
     .not.toBeNull();
-  if (!newAgentId) {
+  const agentId = await getMainChatAgentId(page);
+  if (!agentId || agentId === oldAgentId) {
     throw new Error("Replacement agent was not created.");
   }
-  return newAgentId;
+  return agentId;
 }
 
 test.describe("Client slash commands", () => {
-  test("slash quit archives the active agent and removes its tab", async ({ page }) => {
+  test("slash quit archives the active agent and leaves it out of the main view", async ({
+    page,
+  }) => {
     await withOpenReadyMockAgent(page, { title: "Slash quit e2e" }, async ({ agentId, title }) => {
       await runClientSlashCommand(page, "/quit");
       await expectWorkspaceTabHidden(page, agentId);
