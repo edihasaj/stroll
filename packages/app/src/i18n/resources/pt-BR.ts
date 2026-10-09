@@ -2275,38 +2275,10 @@ export const ptBR: TranslationResources = {
       openInSidePane: {
         title: "Onde abrir",
         destinations: {
-          main: "Painel principal",
           side: "Ao lado",
           explorer: "Barra lateral do explorador",
         },
         sources: {
-          explorerFiles: {
-            label: "Ao clicar em um arquivo na barra lateral do explorador",
-            description:
-              "Abre os arquivos selecionados na barra lateral do explorador ao lado do seu trabalho",
-          },
-          diffs: {
-            label: "Ao clicar em uma alteração na barra lateral do explorador ou em um chat",
-            description:
-              "Abre os diffs do explorador e das conversas com o agente ao lado do seu trabalho",
-          },
-          chatFiles: {
-            label: "Ao clicar em um arquivo em um chat com o agente",
-            description:
-              "Abre links de arquivos e arquivos de chamadas de ferramentas ao lado da conversa",
-          },
-          diffFiles: {
-            label: "Ao clicar em um arquivo em um diff",
-            description: "Abre ao lado do diff os arquivos de código selecionados nele",
-          },
-          subagents: {
-            label: "Ao clicar em um subagente em um chat com o agente",
-            description: "Abre os subagentes ao lado do agente principal",
-          },
-          browser: {
-            label: "Ao abrir uma aba de navegador",
-            description: "Abre abas de navegador, links e URLs de serviço ao lado do seu trabalho",
-          },
           pullRequests: {
             label: "Ao clicar em um pull request na barra lateral do explorador",
             description: "Abre os detalhes do pull request ao lado de Alterações",

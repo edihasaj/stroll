@@ -2219,35 +2219,10 @@ export const zhCN: TranslationResources = {
       openInSidePane: {
         title: "打开位置",
         destinations: {
-          main: "主面板",
           side: "在侧边",
           explorer: "资源管理器侧边栏",
         },
         sources: {
-          explorerFiles: {
-            label: "点击资源管理器侧边栏中的文件",
-            description: "在当前工作内容旁打开资源管理器侧边栏中选中的文件",
-          },
-          diffs: {
-            label: "点击资源管理器侧边栏或聊天中的变更",
-            description: "在当前工作内容旁打开来自资源管理器和智能体对话的 diff",
-          },
-          chatFiles: {
-            label: "点击智能体聊天中的文件",
-            description: "在对话旁打开文件链接和工具调用涉及的文件",
-          },
-          diffFiles: {
-            label: "点击 diff 中的文件",
-            description: "在 diff 旁打开从中选中的源文件",
-          },
-          subagents: {
-            label: "点击智能体聊天中的子智能体",
-            description: "在父智能体旁打开子智能体",
-          },
-          browser: {
-            label: "打开浏览器标签",
-            description: "在当前工作内容旁打开浏览器标签、链接和服务 URL",
-          },
           pullRequests: {
             label: "点击资源管理器侧边栏中的拉取请求",
             description: "在变更旁打开拉取请求详情",

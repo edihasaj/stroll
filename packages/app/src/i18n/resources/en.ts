@@ -2267,35 +2267,10 @@ export const en = {
       openInSidePane: {
         title: "Open location",
         destinations: {
-          main: "Main panel",
           side: "On the side",
           explorer: "Explorer sidebar",
         },
         sources: {
-          explorerFiles: {
-            label: "Clicking a file in the Explorer sidebar",
-            description: "Open files selected in the Explorer sidebar beside your work",
-          },
-          diffs: {
-            label: "Clicking a change in the Explorer sidebar or a chat",
-            description: "Open diffs from Explorer and agent conversations beside your work",
-          },
-          chatFiles: {
-            label: "Clicking a file in an agent chat",
-            description: "Open file links and tool-call files beside the conversation",
-          },
-          diffFiles: {
-            label: "Clicking a file in a diff",
-            description: "Open source files selected from a diff beside it",
-          },
-          subagents: {
-            label: "Clicking a subagent in an agent chat",
-            description: "Open subagents beside their parent agent",
-          },
-          browser: {
-            label: "Opening a browser tab",
-            description: "Open browser tabs, links, and service URLs beside your work",
-          },
           pullRequests: {
             label: "Clicking a pull request in the Explorer sidebar",
             description: "Open pull request details beside Changes",

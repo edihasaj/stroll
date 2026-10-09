@@ -2261,35 +2261,10 @@ export const ja: TranslationResources = {
       openInSidePane: {
         title: "開く場所",
         destinations: {
-          main: "メインパネル",
           side: "横に",
           explorer: "エクスプローラーのサイドバー",
         },
         sources: {
-          explorerFiles: {
-            label: "エクスプローラーのサイドバーでファイルをクリックしたとき",
-            description: "エクスプローラーのサイドバーで選んだファイルを作業の横で開きます",
-          },
-          diffs: {
-            label: "エクスプローラーのサイドバーまたはチャットで変更をクリックしたとき",
-            description: "エクスプローラーやエージェントの会話からの差分を作業の横で開きます",
-          },
-          chatFiles: {
-            label: "エージェントのチャットでファイルをクリックしたとき",
-            description: "ファイルリンクとツール呼び出しのファイルを会話の横で開きます",
-          },
-          diffFiles: {
-            label: "差分内のファイルをクリックしたとき",
-            description: "差分から選んだソースファイルをその横で開きます",
-          },
-          subagents: {
-            label: "エージェントのチャットでサブエージェントをクリックしたとき",
-            description: "サブエージェントを親エージェントの横で開きます",
-          },
-          browser: {
-            label: "ブラウザタブを開くとき",
-            description: "ブラウザタブ、リンク、サービスURLを作業の横で開きます",
-          },
           pullRequests: {
             label: "エクスプローラーのサイドバーでプルリクエストをクリックしたとき",
             description: "プルリクエストの詳細を変更の横で開きます",

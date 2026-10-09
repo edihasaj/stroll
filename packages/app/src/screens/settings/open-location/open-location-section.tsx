@@ -3,19 +3,15 @@ import { useTranslation } from "react-i18next";
 import { SettingsSection, SettingsCard, SettingsSelect } from "@/components/settings";
 import {
   useAppSettings,
-  type OpenInSidePanePreferences,
   type PullRequestOpenLocation,
   type ServiceUrlBehavior,
 } from "@/hooks/use-settings";
 
-const SOURCES = [
-  "explorerFiles",
-  "diffs",
-  "chatFiles",
-  "diffFiles",
-  "subagents",
-  "browser",
-] as const satisfies readonly (keyof OpenInSidePanePreferences)[];
+/**
+ * The main view holds one chat, so a pull request never opens there: it opens beside the chat or in
+ * Explorer. A saved "main" from before shows as the side pane, where it now opens.
+ */
+const PULL_REQUEST_DESTINATIONS = ["side", "explorer"] as const;
 
 const SERVICE_URL_BEHAVIORS: readonly ServiceUrlBehavior[] = ["ask", "in-app", "external"];
 
@@ -25,37 +21,28 @@ const SERVICE_URL_LABEL_KEYS: Record<ServiceUrlBehavior, string> = {
   external: "settings.general.serviceUrls.options.external",
 };
 
-type OpenLocationSource = keyof OpenInSidePanePreferences | "pullRequests";
-
-function OpenLocationRow({
-  source,
-  destination,
-  allowExplorer,
-  onDestinationChange,
-}: {
-  source: OpenLocationSource;
-  destination: PullRequestOpenLocation;
-  allowExplorer?: boolean;
-  onDestinationChange(source: OpenLocationSource, destination: PullRequestOpenLocation): void;
-}) {
+function PullRequestLocationRow() {
   const { t } = useTranslation();
-  const options = useMemo(() => {
-    const destinations = allowExplorer
-      ? (["main", "side", "explorer"] as const)
-      : (["main", "side"] as const);
-    return destinations.map((value) => ({
-      value,
-      label: t(`settings.layout.openInSidePane.destinations.${value}`),
-    }));
-  }, [allowExplorer, t]);
+  const { settings, updateSettings } = useAppSettings();
+  const options = useMemo(
+    () =>
+      PULL_REQUEST_DESTINATIONS.map((value) => ({
+        value,
+        label: t(`settings.layout.openInSidePane.destinations.${value}`),
+      })),
+    [t],
+  );
   const change = useCallback(
-    (value: PullRequestOpenLocation) => onDestinationChange(source, value),
-    [source, onDestinationChange],
+    (pullRequestOpenLocation: PullRequestOpenLocation) =>
+      void updateSettings({ pullRequestOpenLocation }),
+    [updateSettings],
   );
   return (
     <SettingsSelect
-      label={t(`settings.layout.openInSidePane.sources.${source}.label`)}
-      value={destination}
+      label={t("settings.layout.openInSidePane.sources.pullRequests.label")}
+      value={
+        settings.pullRequestOpenLocation === "main" ? "side" : settings.pullRequestOpenLocation
+      }
       options={options}
       onValueChange={change}
     />
@@ -84,39 +71,13 @@ function ServiceUrlRow() {
   );
 }
 
-/** Where things open: files, diffs, subagents, browser tabs, pull requests, and script URLs. Desktop only. */
+/** Where pull requests and script URLs open. Desktop only. */
 export function OpenLocationSection() {
   const { t } = useTranslation();
-  const { settings, updateSettings } = useAppSettings();
-  const handleDestinationChange = useCallback(
-    (source: OpenLocationSource, destination: PullRequestOpenLocation) => {
-      if (source === "pullRequests") {
-        void updateSettings({ pullRequestOpenLocation: destination });
-        return;
-      }
-      void updateSettings({
-        openInSidePane: { ...settings.openInSidePane, [source]: destination === "side" },
-      });
-    },
-    [settings.openInSidePane, updateSettings],
-  );
   return (
     <SettingsSection title={t("settings.layout.openInSidePane.title")}>
       <SettingsCard>
-        {SOURCES.map((source) => (
-          <OpenLocationRow
-            key={source}
-            source={source}
-            destination={settings.openInSidePane[source] ? "side" : "main"}
-            onDestinationChange={handleDestinationChange}
-          />
-        ))}
-        <OpenLocationRow
-          source="pullRequests"
-          destination={settings.pullRequestOpenLocation}
-          allowExplorer
-          onDestinationChange={handleDestinationChange}
-        />
+        <PullRequestLocationRow />
         <ServiceUrlRow />
       </SettingsCard>
     </SettingsSection>
