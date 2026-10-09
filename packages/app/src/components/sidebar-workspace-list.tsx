@@ -1122,6 +1122,14 @@ function WorkspaceRowInner({
   }, [interaction]);
 
   const accessibilityState = useMemo(() => ({ selected }), [selected]);
+  // The workspace stays selected, but when its open chat is listed right below, only that chat
+  // row carries the highlight.
+  const listsFocusedChat = useWorkspaceListsFocusedChat({
+    serverId: workspace.serverId,
+    workspaceId: workspace.workspaceId,
+    workspaceKey: workspace.workspaceKey,
+  });
+  const highlighted = selected && !listsFocusedChat;
 
   return (
     <SidebarWorkspaceRowFrame workspace={workspace} isDragging={isDragging}>
@@ -1131,10 +1139,15 @@ function WorkspaceRowInner({
         const workspaceRowStyle = getProjectWorkspaceRowStyle({
           isDragging,
           isPressed,
-          selected,
+          selected: highlighted,
           isHovered,
         });
-        const backdrop = getSidebarRowBackdrop({ isDragging, isPressed, selected, isHovered });
+        const backdrop = getSidebarRowBackdrop({
+          isDragging,
+          isPressed,
+          selected: highlighted,
+          isHovered,
+        });
         return (
           <View
             {...dragAttributes}
@@ -1417,11 +1430,6 @@ function WorkspaceRowItem({
   isDragging = false,
   dragHandleProps,
 }: WorkspaceRowItemProps) {
-  const listsFocusedChat = useWorkspaceListsFocusedChat({
-    serverId: workspace.serverId,
-    workspaceId: workspace.workspaceId,
-    workspaceKey: workspace.workspaceKey,
-  });
   const handlePress = useCallback(() => {
     if (!workspace.serverId) {
       return;
@@ -1443,14 +1451,12 @@ function WorkspaceRowItem({
       onToggleWorkspacePin={onToggleWorkspacePin}
       reserveIdleStatusIndicatorSpace={reserveIdleStatusIndicatorSpace}
       isCreating={isCreating}
-      selected={
-        isWorkspaceSelected({
-          selection: activeWorkspaceSelection,
-          serverId: workspace.serverId,
-          workspaceId: workspace.workspaceId,
-          enabled: selectionEnabled,
-        }) && !listsFocusedChat
-      }
+      selected={isWorkspaceSelected({
+        selection: activeWorkspaceSelection,
+        serverId: workspace.serverId,
+        workspaceId: workspace.workspaceId,
+        enabled: selectionEnabled,
+      })}
       onPress={handlePress}
       drag={drag ?? noop}
       isDragging={isDragging}
