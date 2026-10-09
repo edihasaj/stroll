@@ -832,6 +832,8 @@ export const en = {
         bulkUnsaved: "{{count}} tab(s) have unsaved changes. Closing will discard those drafts.",
         closeTerminalTitle: "Close terminal?",
         closeTerminalMessage: "Any running process in this terminal will be stopped immediately.",
+        archiveAgentTitle: "Archive this chat?",
+        archiveAgentMessage: "It moves to History. You can unarchive it from there.",
         archiveRunningAgentTitle: "Archive running agent?",
         archiveRunningAgentMessage:
           "This agent is still running. Archiving it will stop the agent and close the tab.",

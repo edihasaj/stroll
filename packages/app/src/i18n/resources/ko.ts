@@ -837,6 +837,8 @@ export const ko: TranslationResources = {
           "{{count}} 탭에 저장되지 않은 변경 사항이 있습니다. 종료하면 해당 초안이 삭제됩니다.",
         closeTerminalTitle: "터미널을 닫을까요?",
         closeTerminalMessage: "이 터미널에서 실행 중인 프로세스가 즉시 중지됩니다.",
+        archiveAgentTitle: "이 채팅을 보관할까요?",
+        archiveAgentMessage: "기록으로 이동합니다. 거기에서 보관을 해제할 수 있습니다.",
         archiveRunningAgentTitle: "실행 중인 에이전트를 보관할까요?",
         archiveRunningAgentMessage:
           "이 에이전트는 아직 실행 중입니다. 보관하면 에이전트가 중지되고 탭이 닫힙니다.",

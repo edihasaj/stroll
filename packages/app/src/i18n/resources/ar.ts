@@ -836,6 +836,8 @@ export const ar: TranslationResources = {
         archive: "أرشيف",
         closeTerminalTitle: "إغلاق المحطة؟",
         closeTerminalMessage: "سيتم إيقاف أي عملية جارية في هذه المحطة على الفور.",
+        archiveAgentTitle: "هل تريد أرشفة هذه الدردشة؟",
+        archiveAgentMessage: "ستنتقل إلى السجل. يمكنك إلغاء أرشفتها من هناك.",
         archiveRunningAgentTitle: "وكيل تشغيل الأرشيف؟",
         archiveRunningAgentMessage:
           "هذا الوكيل لا يزال قيد التشغيل. ستؤدي أرشفته إلى إيقاف الوكيل وإغلاق علامة التبويب.",

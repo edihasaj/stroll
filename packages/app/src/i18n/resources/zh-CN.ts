@@ -834,6 +834,8 @@ export const zhCN: TranslationResources = {
         archive: "归档",
         closeTerminalTitle: "关闭 Terminal？",
         closeTerminalMessage: "此 Terminal 中任何正在运行的进程都会立即停止。",
+        archiveAgentTitle: "归档此聊天？",
+        archiveAgentMessage: "它将移到“历史”中，你可以在那里取消归档。",
         archiveRunningAgentTitle: "归档正在运行的 Agent？",
         archiveRunningAgentMessage: "此 Agent 仍在运行。归档会停止该 Agent 并关闭标签。",
         deleteChat: "删除",

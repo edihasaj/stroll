@@ -844,6 +844,8 @@ export const fr: TranslationResources = {
         closeTerminalTitle: "Fermer le terminal?",
         closeTerminalMessage:
           "Tout processus en cours d’exécution dans ce terminal sera immédiatement arrêté.",
+        archiveAgentTitle: "Archiver cette conversation ?",
+        archiveAgentMessage: "Elle passe dans l'Historique. Vous pourrez la désarchiver depuis là.",
         archiveRunningAgentTitle: "Archiver l'agent en cours d'exécution?",
         archiveRunningAgentMessage:
           "Cet agent est toujours en cours d'exécution. L'archiver arrêtera l'agent et fermera l'onglet.",
