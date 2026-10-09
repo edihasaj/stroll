@@ -14,6 +14,7 @@ import { connectNewWorkspaceDaemonClient } from "../support/helpers/new-workspac
 import { seedWorkspace } from "../support/helpers/seed-client";
 import { getServerId } from "../support/helpers/server-id";
 import { expectMobileAgentSidebarHidden } from "../support/helpers/sidebar";
+import { expectMainChat } from "../support/helpers/workspace-tabs";
 import {
   expectWorkspaceHeaderTitle,
   switchWorkspaceViaSidebar,
@@ -242,9 +243,7 @@ async function openRemoteAgentFromPlugin(
 ): Promise<void> {
   await page.getByRole("button", { name: "Open remote agent from plugin", exact: true }).click();
   await page.waitForURL(remoteWorkspaceRoute(target));
-  await expect(
-    page.getByTestId(`workspace-tab-agent_${target.agentId}`).filter({ visible: true }).first(),
-  ).toBeVisible();
+  await expectMainChat(page, target.agentId);
 }
 
 async function openCompactSidebar(page: Page): Promise<void> {
@@ -388,12 +387,7 @@ test.describe("plugin workspace panels and Command Center", () => {
         await runCommand(page, "Open direct collision surface");
         await page.getByRole("button", { name: "Open agent from plugin", exact: true }).click();
         await page.waitForURL(isSettledWorkspaceUrl);
-        await expect(
-          page
-            .getByTestId(`workspace-tab-agent_${navigationAgentId}`)
-            .filter({ visible: true })
-            .first(),
-        ).toBeVisible();
+        await expectMainChat(page, navigationAgentId);
       });
 
       await test.step("surface navigation opens a workspace and agent on another host", async () => {
