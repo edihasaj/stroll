@@ -1,10 +1,7 @@
 import { expect, test } from "../support/fixtures";
-import {
-  gotoWorkspace,
-  pressNewTabShortcut,
-  expectTabTitleFits,
-} from "../support/helpers/launcher";
+import { gotoWorkspace, expectTabTitleFits } from "../support/helpers/launcher";
 import { seedWorkspace } from "../support/helpers/seed-client";
+import { mainPane, sidePane } from "../support/helpers/side-pane";
 import {
   ensureExplorerSidebar,
   openFilesPanel,
@@ -15,17 +12,31 @@ function explorerSidebar(page: Parameters<typeof ensureExplorerSidebar>[0]) {
   return page.getByTestId("workspace-explorer-sidebar").filter({ visible: true });
 }
 
+/** New tab shortcut. The e2e fixtures pin navigator.platform to Win32, so the chord is Ctrl on every host. */
+async function pressNewTabShortcut(page: Parameters<typeof ensureExplorerSidebar>[0]) {
+  await page.keyboard.press("Control+t");
+}
+
+/** Cmd+T opens the New tab launcher in the side pane, which it creates on demand. */
+async function openSidePaneLauncher(page: Parameters<typeof ensureExplorerSidebar>[0]) {
+  await pressNewTabShortcut(page);
+  await expect(sidePane(page).getByTestId("workspace-new-tab-panel")).toBeVisible({
+    timeout: 30_000,
+  });
+}
+
 async function expectExplorerActiveTabForeground(
   page: Parameters<typeof ensureExplorerSidebar>[0],
 ) {
   await openFilesPanel(page);
-  const main = page.getByTestId("workspace-pane-main");
-  await main.hover();
-  const activeMainLabel = main
+  await openSidePaneLauncher(page);
+  const side = sidePane(page);
+  await side.hover();
+  const activeSideLabel = side
     .getByTestId("workspace-tabs-row")
     .locator('[aria-selected="true"]')
     .getByText("New tab", { exact: true });
-  const foreground = await activeMainLabel.evaluate((element) => getComputedStyle(element).color);
+  const foreground = await activeSideLabel.evaluate((element) => getComputedStyle(element).color);
   const activeFiles = explorerSidebar(page).getByRole("button", {
     name: "Browse workspace files",
     exact: true,
@@ -43,10 +54,8 @@ test.describe("Explorer sidebar", () => {
     try {
       await gotoWorkspace(page, workspace.workspaceId);
       await waitForWorkspaceTabsVisible(page);
-      const mainTabsBefore = await page
-        .getByTestId("workspace-pane-main")
-        .locator('[data-testid^="workspace-tab-"]')
-        .count();
+      // The main view shows one chat and has no tabs; Explorer and the side pane own the rest.
+      await expect(mainPane(page).locator('[data-testid^="workspace-tab-"]')).toHaveCount(0);
 
       const explorer = await ensureExplorerSidebar(page);
       await expect(explorer.getByTestId("workspace-tab-files")).toBeVisible();
@@ -61,9 +70,7 @@ test.describe("Explorer sidebar", () => {
 
       await page.getByTestId("workspace-explorer-toggle").first().click();
       await expect(explorerSidebar(page)).toHaveCount(0);
-      await expect(
-        page.getByTestId("workspace-pane-main").locator('[data-testid^="workspace-tab-"]'),
-      ).toHaveCount(mainTabsBefore);
+      await expect(mainPane(page).locator('[data-testid^="workspace-tab-"]')).toHaveCount(0);
     } finally {
       await workspace.cleanup();
     }
@@ -97,13 +104,17 @@ async function closeExplorerFilesFromContextMenu(
 }
 
 async function expectWorkspaceCloseOnHover(page: Parameters<typeof ensureExplorerSidebar>[0]) {
-  const main = page.getByTestId("workspace-pane-main");
-  const tab = main.locator('[data-testid^="workspace-tab-"][aria-selected="true"]');
-  const close = main.getByRole("button", { name: "Close", exact: true });
+  const tab = sidePane(page)
+    .getByTestId("workspace-tabs-row")
+    .locator('[data-testid^="workspace-tab-"][aria-selected="true"]');
+  const tabTestId = await tab.getAttribute("data-testid");
+  const tabId = tabTestId?.replace(/^workspace-tab-/, "");
+  // The launcher tab's close button sits in a wrapper that fades in on hover.
+  const closeWrapper = sidePane(page).getByTestId(`workspace-new-tab-close-${tabId}`).locator("..");
   await explorerSidebar(page).hover();
-  await expect(close.locator("..")).toHaveCSS("opacity", "0");
+  await expect(closeWrapper).toHaveCSS("opacity", "0");
   await tab.hover();
-  await expect(close.locator("..")).toHaveCSS("opacity", "1");
+  await expect(closeWrapper).toHaveCSS("opacity", "1");
 }
 
 async function closeOtherExplorerTabs(page: Parameters<typeof ensureExplorerSidebar>[0]) {
@@ -127,12 +138,11 @@ test("Explorer keeps Files and Changes close actions in the context menu", async
   try {
     await gotoWorkspace(page, workspace.workspaceId);
     await waitForWorkspaceTabsVisible(page);
-    const main = page.getByTestId("workspace-pane-main");
-    const mainTabsBefore = await main.getByTestId("workspace-tabs-row").getByRole("button").count();
+    const main = mainPane(page);
     const explorer = await ensureExplorerSidebar(page);
     await expectTabTitleFits(page, "Files", { min: 64, max: 90 });
 
-    await test.step("Explorer's + menu excludes Agent and terminal profiles", async () => {
+    await test.step("Explorer's + menu excludes terminal profiles; the main view starts chats from its own button", async () => {
       await explorer.getByRole("button", { name: "New tab", exact: true }).click();
       const menu = page.getByTestId("workspace-new-tab-menu").filter({ visible: true });
       await expect(menu).toBeVisible();
@@ -146,14 +156,16 @@ test("Explorer keeps Files and Changes close actions in the context menu", async
         entries.findIndex((entry) => entry.startsWith("Diff")),
       );
       await page.keyboard.press("Escape");
+      await expect(main.getByTestId("main-pane-new-chat")).toBeVisible();
       await main.getByTestId("workspace-new-tab-button").click();
       await expect(menu).toBeVisible();
-      await expect(menu.getByRole("menuitem", { name: /^Agent/ })).toBeVisible();
+      await expect(menu.getByRole("menuitem", { name: /^Agent/ })).toHaveCount(0);
       await expect(menu.getByText("Terminal profiles", { exact: true })).toBeVisible();
       await page.keyboard.press("Escape");
     });
 
     await test.step("Files and Changes omit X, and + restores Files after context-menu close", async () => {
+      await openSidePaneLauncher(page);
       await expectWorkspaceCloseOnHover(page);
       await closeExplorerFilesFromContextMenu(page);
       await launchExplorerPanel(page, "Files");
@@ -164,82 +176,26 @@ test("Explorer keeps Files and Changes close actions in the context menu", async
     });
 
     await test.step("standard bulk-close menus affect only Explorer tabs", async () => {
+      const sideTabRow = sidePane(page).getByTestId("workspace-tabs-row");
+      const sideTabsBefore = await sideTabRow.getByRole("button").count();
       await closeOtherExplorerTabs(page);
       await expect(explorer.getByTestId("workspace-tab-changes_tree")).toHaveCount(0);
       await expect(explorer.getByTestId("workspace-tab-files")).toBeVisible();
-      await expect(main.getByTestId("workspace-tabs-row").getByRole("button")).toHaveCount(
-        mainTabsBefore,
-      );
+      await expect(sideTabRow.getByRole("button")).toHaveCount(sideTabsBefore);
       await launchExplorerPanel(page, "Changes");
       await expect(explorer.getByTestId("changes-tree-panel")).toBeVisible();
     });
 
-    await test.step("Cmd+T still belongs to the focused workspace pane", async () => {
+    await test.step("Cmd+T opens the launcher in the side pane, never in Explorer", async () => {
+      await explorer.getByTestId("workspace-tab-files").click();
       await pressNewTabShortcut(page);
       await expect(
-        main.getByTestId("workspace-new-tab-panel").filter({ visible: true }),
+        sidePane(page).getByTestId("workspace-new-tab-panel").filter({ visible: true }),
       ).toBeVisible();
       await expect(explorer.getByTestId("workspace-new-tab-panel")).toHaveCount(0);
     });
 
     await testInfo.attach("shared-explorer-tabs", {
-      body: await page.screenshot(),
-      contentType: "image/png",
-    });
-  } finally {
-    await workspace.cleanup();
-  }
-});
-
-async function dragAgentIntoExplorer(
-  page: Parameters<typeof ensureExplorerSidebar>[0],
-  agentId: string,
-) {
-  const source = page
-    .getByTestId("workspace-pane-main")
-    .getByTestId(`workspace-tab-agent_${agentId}`);
-  const destination = explorerSidebar(page).getByTestId("workspace-tab-files");
-  const sourceBox = await source.boundingBox();
-  const destinationBox = await destination.boundingBox();
-  if (!sourceBox || !destinationBox)
-    throw new Error("Tab drag requires visible source and destination");
-  const start = { x: sourceBox.x + 12, y: sourceBox.y + sourceBox.height / 2 };
-  await page.mouse.move(start.x, start.y);
-  await page.mouse.down();
-  await page.mouse.move(start.x + 12, start.y + 4);
-  await page.mouse.move(destinationBox.x + 12, destinationBox.y + destinationBox.height / 2, {
-    steps: 20,
-  });
-  await page.mouse.up();
-}
-
-test("agents can still be dragged into Explorer when absent from its + menu", async ({
-  page,
-}, testInfo) => {
-  const workspace = await seedWorkspace({ repoPrefix: "explorer-agent-drag-" });
-  try {
-    await gotoWorkspace(page, workspace.workspaceId);
-    const explorer = await ensureExplorerSidebar(page);
-    const agent = await workspace.client.createAgent({
-      provider: "mock",
-      cwd: workspace.repoPath,
-      workspaceId: workspace.workspaceId,
-      title: "Dragged agent",
-      modeId: "load-test",
-      model: "ten-second-stream",
-    });
-    const main = page.getByTestId("workspace-pane-main");
-    await expect(main.getByTestId(`workspace-tab-agent_${agent.id}`)).toBeVisible();
-    await dragAgentIntoExplorer(page, agent.id);
-    await expect(explorer.getByTestId(`workspace-tab-agent_${agent.id}`)).toBeVisible();
-    await expect(main.getByTestId(`workspace-tab-agent_${agent.id}`)).toHaveCount(0);
-    await explorer.getByRole("button", { name: "New tab", exact: true }).click();
-    const menu = page.getByTestId("workspace-new-tab-menu").filter({ visible: true });
-    await expect(menu).toBeVisible();
-    await expect(menu.getByRole("menuitem", { name: /^Agent/ })).toHaveCount(0);
-    await expect(menu.getByText("Terminal profiles", { exact: true })).toHaveCount(0);
-    await page.keyboard.press("Escape");
-    await testInfo.attach("agent-in-explorer", {
       body: await page.screenshot(),
       contentType: "image/png",
     });
