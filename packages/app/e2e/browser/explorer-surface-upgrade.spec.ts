@@ -88,7 +88,8 @@ test.describe("explorer surface after upgrading from the docked sidebar", () => 
     page,
   }) => {
     const workspace = await seedWorkspace({ repoPrefix: "explorer-surface-both-" });
-    const modifier = process.platform === "darwin" ? "Meta" : "Control";
+    // The e2e fixtures pin navigator.platform to Win32, so the chord is Ctrl on every host.
+    const modifier = "Control";
 
     try {
       await gotoWorkspace(page, workspace.workspaceId);

@@ -13,8 +13,8 @@ async function expectLauncherSelection(launcher: Locator, name: string): Promise
 }
 
 async function openExplorerWithKeyboard(page: Page): Promise<Locator> {
-  const modifier = process.platform === "darwin" ? "Meta" : "Control";
-  await page.keyboard.press(`${modifier}+E`);
+  // The e2e fixtures pin navigator.platform to Win32, so the chord is Ctrl on every host.
+  await page.keyboard.press("Control+E");
   const explorer = page.getByTestId("workspace-explorer-sidebar").filter({ visible: true });
   await expect(explorer).toBeVisible({ timeout: 30_000 });
   return explorer;
