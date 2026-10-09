@@ -95,7 +95,22 @@ resolve_dev_daemon_endpoint() {
   esac
 }
 
+is_production_paseo_home() {
+  local home="${1%/}"
+  [ "$home" = "$HOME/.paseo" ] || [ "$home" = "$HOME/.stroll" ]
+}
+
 configure_dev_paseo_home() {
+  # An agent running inside Paseo or Stroll inherits PASEO_HOME pointing at that app's live home.
+  # A dev daemon on it would share agents, archive state and provider threads with the running
+  # app, so fall back to the checkout home unless the caller opts in.
+  if [ -n "${PASEO_HOME:-}" ] && is_production_paseo_home "$PASEO_HOME" &&
+    [ "${PASEO_DEV_ALLOW_PRODUCTION_HOME:-0}" != "1" ]; then
+    echo "  Ignoring PASEO_HOME=${PASEO_HOME}: it is a live app home." >&2
+    echo "  Set PASEO_DEV_ALLOW_PRODUCTION_HOME=1 to use it anyway." >&2
+    unset PASEO_HOME
+  fi
+
   if [ -n "${PASEO_HOME:-}" ]; then
     export PASEO_HOME
     if [ -n "${PASEO_DEV_SEED_HOME:-}" ]; then
