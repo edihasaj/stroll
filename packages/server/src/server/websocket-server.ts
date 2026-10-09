@@ -2005,6 +2005,10 @@ export class VoiceAssistantWebSocketServer {
         agentProfiles: true,
         // COMPAT(agentConfigApply): added in v0.3.2, remove gate after 2027-02-11.
         agentConfigApply: true,
+        // COMPAT(daemonMcpServers): added in Stroll 0.12, remove gate after 2027-04-09.
+        daemonMcpServers: true,
+        // COMPAT(worktreeSettings): added in Stroll 0.12, remove gate after 2027-04-09.
+        worktreeSettings: true,
       },
     };
   }

@@ -3246,6 +3246,52 @@ test("createAgent injects paseo MCP server only into provider launch config", as
   });
 });
 
+test("createAgent adds the daemon's user MCP servers to the launch config but not the stored config", async () => {
+  const workdir = mkdtempSync(join(tmpdir(), "agent-manager-test-"));
+  const storage = new AgentStorage(join(workdir, "agents"), logger);
+
+  class CaptureClient extends TestAgentClient {
+    lastConfig: AgentSessionConfig | null = null;
+
+    override async createSession(config: AgentSessionConfig): Promise<AgentSession> {
+      this.lastConfig = config;
+      return new McpCapableTestAgentSession(config);
+    }
+  }
+
+  const client = new CaptureClient();
+  const manager = new AgentManager({
+    clients: { codex: client },
+    registry: storage,
+    logger,
+    userMcpServers: {
+      docs: { config: { type: "http", url: "https://docs.example.com/mcp" } },
+      off: { enabled: false, config: { type: "stdio", command: "off-mcp" } },
+    },
+    idFactory: () => "00000000-0000-4000-8000-000000000104",
+  });
+
+  const snapshot = await manager.createAgent({ provider: "codex", cwd: workdir }, undefined, {
+    workspaceId: undefined,
+  });
+
+  expect(client.lastConfig?.mcpServers).toEqual({
+    docs: { type: "http", url: "https://docs.example.com/mcp" },
+  });
+  expect(snapshot.config.mcpServers).toBeUndefined();
+  expect((await storage.get(snapshot.id))?.config?.mcpServers).toBeUndefined();
+
+  manager.setUserMcpServers(undefined);
+  const next = await manager.createAgent(
+    { provider: "codex", cwd: workdir },
+    "00000000-0000-4000-8000-000000000105",
+    { workspaceId: undefined },
+  );
+
+  expect(next.id).not.toBe(snapshot.id);
+  expect(client.lastConfig?.mcpServers).toBeUndefined();
+});
+
 test("createAgent closes and rejects a provider session that cannot honor MCP servers", async () => {
   const workdir = mkdtempSync(join(tmpdir(), "agent-manager-test-"));
   const storage = new AgentStorage(join(workdir, "agents"), logger);

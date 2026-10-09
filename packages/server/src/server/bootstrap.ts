@@ -184,6 +184,7 @@ import type {
   AgentProfile,
   AgentRoute,
   AgentSkillSelection,
+  DaemonMcpServer,
   DaemonPeer,
   FirstAgentContext,
   PluginSource,
@@ -425,6 +426,7 @@ export interface PaseoDaemonConfig {
   defaultAgentRoute?: string | null;
   defaultAgentProfile?: string | null;
   peers?: DaemonPeer[];
+  mcpServers?: Record<string, DaemonMcpServer>;
   skillSelection?: AgentSkillSelection;
   pluginsEnabled?: boolean;
   plugins?: Record<string, PluginSource>;
@@ -580,6 +582,7 @@ function resolveOptionalProfileListFields(
   | "defaultAgentRoute"
   | "defaultAgentProfile"
   | "peers"
+  | "mcpServers"
 > {
   return {
     ...(config.terminalProfiles !== undefined ? { terminalProfiles: config.terminalProfiles } : {}),
@@ -592,6 +595,7 @@ function resolveOptionalProfileListFields(
       ? { defaultAgentProfile: config.defaultAgentProfile }
       : {}),
     ...(config.peers !== undefined ? { peers: config.peers } : {}),
+    ...(config.mcpServers !== undefined ? { mcpServers: config.mcpServers } : {}),
   };
 }
 
@@ -621,6 +625,7 @@ function createInitialMutableDaemonConfig(config: PaseoDaemonConfig): MutableDae
     pluginsEnabled: config.pluginsEnabled ?? false,
     plugins: config.plugins ?? {},
     skills: { selection: config.skillSelection },
+    ...(config.worktreesRoot ? { worktrees: { root: config.worktreesRoot } } : {}),
     ...resolveOptionalProfileListFields(config),
   };
 
@@ -1034,6 +1039,7 @@ export async function createPaseoDaemon(
     providerDefinitions: initialAgentManagerState.providerDefinitions,
     registry: agentStorage,
     appendSystemPrompt: config.appendSystemPrompt,
+    userMcpServers: daemonConfigStore.get().mcpServers,
     onWorkspaceStateMayHaveChanged: ({ cwd }) => {
       workspaceGitService.onWorkspaceStateMayHaveChanged(cwd);
     },
@@ -1766,6 +1772,9 @@ export async function createPaseoDaemon(
               agentManager.setMcpBaseUrl(mcpEnabled && value ? mcpBaseUrl : null);
               agentManager.setPaseoToolsEnabled(mcpEnabled && value !== false);
               setAgentProviderToolsEnabled(mcpEnabled && value !== false);
+            });
+            daemonConfigStore.onFieldChange("mcpServers", () => {
+              agentManager.setUserMcpServers(daemonConfigStore.get().mcpServers);
             });
             daemonConfigStore.onFieldChange("appendSystemPrompt", (value) => {
               agentManager.setAppendSystemPrompt(typeof value === "string" ? value : "");

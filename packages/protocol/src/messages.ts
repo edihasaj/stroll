@@ -9,6 +9,12 @@ import {
 } from "./agent-route.js";
 import { AgentHookSummarySchema } from "./agent-hooks.js";
 import { DaemonPeerSchema } from "./daemon-peer.js";
+import { DaemonMcpServerSchema, McpServerConfigSchema } from "./daemon-mcp-server.js";
+export {
+  DaemonMcpServerSchema,
+  RESERVED_DAEMON_MCP_SERVER_NAME,
+  type DaemonMcpServer,
+} from "./daemon-mcp-server.js";
 export {
   DaemonPeerSchema,
   resolveDaemonPeer,
@@ -249,6 +255,13 @@ export const MutableDaemonConfigSchema = z
     skills: z.object({ selection: AgentSkillSelectionSchema.optional() }).strict().optional(),
     pluginsEnabled: z.boolean().optional(),
     plugins: z.record(PluginIdSchema, PluginSourceSchema).optional(),
+    // COMPAT(daemonMcpServers): added in Stroll 0.12, remove gate after 2027-04-09. An older
+    // daemon drops the key when it saves its config, so the client gates on the feature flag.
+    mcpServers: z.record(z.string(), DaemonMcpServerSchema).optional(),
+    // COMPAT(worktreeSettings): added in Stroll 0.12, remove gate after 2027-04-09. `root` is
+    // where new worktrees are created; the daemon reads it at startup, so a change applies after
+    // the host restarts. Absent means the default location under the daemon's home.
+    worktrees: z.object({ root: z.string().optional() }).optional(),
   })
   .passthrough();
 
@@ -273,6 +286,10 @@ export const MutableDaemonConfigPatchSchema = z
     peers: z.array(DaemonPeerSchema).optional(),
     pluginsEnabled: z.boolean().optional(),
     plugins: z.record(PluginIdSchema, PluginSourceSchema).optional(),
+    // A patch replaces the whole map, so a removed server is one the new map omits.
+    mcpServers: z.record(z.string(), DaemonMcpServerSchema).optional(),
+    // An empty `root` clears the setting.
+    worktrees: z.object({ root: z.string().optional() }).optional(),
   })
   .partial()
   .passthrough();
@@ -436,34 +453,6 @@ const AgentUsageSchema: z.ZodType<AgentUsage> = z.object({
   contextWindowMaxTokens: z.number().optional(),
   contextWindowUsedTokens: z.number().optional(),
 });
-
-const McpStdioServerConfigSchema = z.object({
-  type: z.literal("stdio"),
-  command: z.string(),
-  args: z.array(z.string()).optional(),
-  env: z.record(z.string(), z.string()).optional(),
-  alwaysLoad: z.boolean().optional(),
-});
-
-const McpHttpServerConfigSchema = z.object({
-  type: z.literal("http"),
-  url: z.string(),
-  headers: z.record(z.string(), z.string()).optional(),
-  alwaysLoad: z.boolean().optional(),
-});
-
-const McpSseServerConfigSchema = z.object({
-  type: z.literal("sse"),
-  url: z.string(),
-  headers: z.record(z.string(), z.string()).optional(),
-  alwaysLoad: z.boolean().optional(),
-});
-
-const McpServerConfigSchema = z.discriminatedUnion("type", [
-  McpStdioServerConfigSchema,
-  McpHttpServerConfigSchema,
-  McpSseServerConfigSchema,
-]);
 
 const ProviderOptionsSchema = z.record(z.string(), z.unknown());
 
@@ -4013,6 +4002,10 @@ export const ServerInfoStatusPayloadSchema = z
         agentProfiles: z.boolean().optional(),
         // COMPAT(agentConfigApply): added in v0.3.2, remove gate after 2027-02-11.
         agentConfigApply: z.boolean().optional(),
+        // COMPAT(daemonMcpServers): added in Stroll 0.12, remove gate after 2027-04-09.
+        daemonMcpServers: z.boolean().optional(),
+        // COMPAT(worktreeSettings): added in Stroll 0.12, remove gate after 2027-04-09.
+        worktreeSettings: z.boolean().optional(),
       })
       .optional(),
   })

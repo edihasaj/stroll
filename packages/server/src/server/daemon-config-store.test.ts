@@ -263,6 +263,70 @@ describe("DaemonConfigStore", () => {
     expect(loadPersistedConfig(paseoHome).daemon?.peers).toHaveLength(1);
   });
 
+  function createStoreAt(paseoHome: string, extra: Partial<MutableDaemonConfig> = {}) {
+    return new DaemonConfigStore(paseoHome, {
+      relay: { enabled: false },
+      mcp: { injectIntoAgents: false },
+      browserTools: { enabled: false },
+      providers: {},
+      metadataGeneration: { providers: [] },
+      autoArchiveAfterMerge: false,
+      enableTerminalAgentHooks: false,
+      appendSystemPrompt: "",
+      ...extra,
+    });
+  }
+
+  test("patch round-trips MCP servers and replaces the whole map so a removed server is gone", () => {
+    const paseoHome = mkdtempSync(path.join(tmpdir(), "paseo-daemon-config-store-"));
+    tempDirs.push(paseoHome);
+    const store = createStoreAt(paseoHome, {
+      mcpServers: {
+        docs: { config: { type: "http", url: "https://docs.example.com/mcp" } },
+        files: { enabled: false, config: { type: "stdio", command: "npx", args: ["files-mcp"] } },
+      },
+    });
+    const changes: unknown[] = [];
+    store.onFieldChange("mcpServers", (value) => changes.push(value));
+
+    store.patch({
+      mcpServers: {
+        files: { enabled: false, config: { type: "stdio", command: "npx", args: ["files-mcp"] } },
+      },
+    });
+
+    expect(Object.keys(store.get().mcpServers ?? {})).toEqual(["files"]);
+    expect(changes).toHaveLength(1);
+    expect(loadPersistedConfig(paseoHome).daemon?.mcpServers).toEqual({
+      files: { enabled: false, config: { type: "stdio", command: "npx", args: ["files-mcp"] } },
+    });
+  });
+
+  test("patch persists the worktrees root at the top of config.json and a blank root clears it", () => {
+    const paseoHome = mkdtempSync(path.join(tmpdir(), "paseo-daemon-config-store-"));
+    tempDirs.push(paseoHome);
+    writeFileSync(
+      path.join(paseoHome, "config.json"),
+      JSON.stringify({ worktrees: { servicePorts: { range: "41000-41100" } } }),
+    );
+    const store = createStoreAt(paseoHome);
+
+    store.patch({ worktrees: { root: "  /srv/worktrees  " } });
+
+    expect(store.get().worktrees).toEqual({ root: "/srv/worktrees" });
+    expect(loadPersistedConfig(paseoHome).worktrees).toEqual({
+      root: "/srv/worktrees",
+      servicePorts: { range: "41000-41100" },
+    });
+
+    store.patch({ worktrees: { root: "" } });
+
+    expect(store.get().worktrees).toEqual({});
+    expect(loadPersistedConfig(paseoHome).worktrees).toEqual({
+      servicePorts: { range: "41000-41100" },
+    });
+  });
+
   test("rolls back config when a field transition fails", () => {
     const paseoHome = mkdtempSync(path.join(tmpdir(), "paseo-daemon-config-store-"));
     tempDirs.push(paseoHome);

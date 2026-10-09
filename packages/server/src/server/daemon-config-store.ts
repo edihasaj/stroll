@@ -34,6 +34,8 @@ interface SupportedMutableConfigPatch {
   defaultAgentRoute?: MutableDaemonConfig["defaultAgentRoute"];
   defaultAgentProfile?: MutableDaemonConfig["defaultAgentProfile"];
   peers?: MutableDaemonConfig["peers"];
+  mcpServers?: MutableDaemonConfig["mcpServers"];
+  worktrees?: MutableDaemonConfig["worktrees"];
   skills?: MutableDaemonConfig["skills"];
   pluginsEnabled?: boolean;
   plugins?: MutableDaemonConfig["plugins"];
@@ -102,6 +104,28 @@ function deepMerge<T extends Record<string, unknown>>(
   }
 
   return next as T;
+}
+
+function normalizeWorktreesPatch(
+  patch: NonNullable<MutableDaemonConfig["worktrees"]>,
+): NonNullable<MutableDaemonConfig["worktrees"]> {
+  const root = patch.root?.trim();
+  return root ? { root } : {};
+}
+
+/**
+ * `worktrees.root` sits at the top of config.json, not under `daemon`, and shares its object with
+ * `servicePorts`, so a patch rewrites only `root`. Cleared (blank) removes the key.
+ */
+function mergeWorktreesPatch(
+  persisted: PersistedConfig["worktrees"],
+  patch: MutableDaemonConfig["worktrees"],
+): Pick<PersistedConfig, "worktrees"> | Record<string, never> {
+  if (patch === undefined) return {};
+  const { root: _previousRoot, ...rest } = persisted ?? {};
+  const root = patch.root?.trim();
+  const next = root ? { ...rest, root } : rest;
+  return { worktrees: Object.keys(next).length > 0 ? next : undefined };
 }
 
 function omitProvidersFromConfig<T extends { providers?: Record<string, unknown> }>(
@@ -193,6 +217,7 @@ const RELOADABLE_PATHS = [
   "daemon.defaultAgentRoute",
   "daemon.defaultAgentProfile",
   "daemon.peers",
+  "daemon.mcpServers",
   "app.baseUrl",
   "agents.providers",
   "agents.catalogRefreshTimeoutMs",
@@ -220,6 +245,7 @@ const PERSISTED_TO_MUTABLE_PATH = new Map<string, string>([
   ["daemon.defaultAgentRoute", "defaultAgentRoute"],
   ["daemon.defaultAgentProfile", "defaultAgentProfile"],
   ["daemon.peers", "peers"],
+  ["daemon.mcpServers", "mcpServers"],
   ["app.baseUrl", "app.baseUrl"],
   ["agents.providers", "providers"],
   ["agents.catalogRefreshTimeoutMs", "catalogRefreshTimeoutMs"],
@@ -285,6 +311,15 @@ function pickAgentRoutePatch(
   };
 }
 
+function pickHostResourcePatch(
+  patch: MutableDaemonConfigPatch,
+): Pick<SupportedMutableConfigPatch, "mcpServers" | "worktrees"> {
+  return {
+    ...(patch.mcpServers !== undefined ? { mcpServers: patch.mcpServers } : {}),
+    ...(patch.worktrees !== undefined ? { worktrees: patch.worktrees } : {}),
+  };
+}
+
 function pickSupportedPatchFields(patch: MutableDaemonConfigPatch): SupportedMutableConfigPatch {
   const metadataGeneration = pickMetadataGenerationPatch(patch.metadataGeneration);
   return {
@@ -314,6 +349,7 @@ function pickSupportedPatchFields(patch: MutableDaemonConfigPatch): SupportedMut
       : {}),
     ...pickAgentRoutePatch(patch),
     ...(patch.peers !== undefined ? { peers: patch.peers } : {}),
+    ...pickHostResourcePatch(patch),
     ...(patch.pluginsEnabled !== undefined ? { pluginsEnabled: patch.pluginsEnabled } : {}),
     ...(patch.plugins !== undefined ? { plugins: patch.plugins } : {}),
   };
@@ -408,6 +444,10 @@ export class DaemonConfigStore {
       merged.skills = { selection: parsedPatch.skills.selection };
     }
     if (parsedPatch.plugins !== undefined) merged.plugins = parsedPatch.plugins;
+    // A map patch replaces: deepMerge would keep a server the user removed.
+    if (parsedPatch.mcpServers !== undefined) merged.mcpServers = parsedPatch.mcpServers;
+    if (parsedPatch.worktrees !== undefined)
+      merged.worktrees = normalizeWorktreesPatch(parsedPatch.worktrees);
     const next = MutableDaemonConfigSchema.parse(
       omitMetadataGenerationProvidersFromConfig(
         omitProvidersFromConfig(merged, removedProviders),
@@ -628,6 +668,7 @@ function mergeMutablePatchIntoPersistedConfig(params: {
     ...persisted,
     ...(patch.pluginsEnabled !== undefined ? { pluginsEnabled: patch.pluginsEnabled } : {}),
     ...(patch.plugins !== undefined ? { plugins: patch.plugins } : {}),
+    ...mergeWorktreesPatch(persisted.worktrees, patch.worktrees),
     ...(daemon ? { daemon } : { daemon: undefined }),
     ...(agents ? { agents } : { agents: undefined }),
   } as PersistedConfig;
@@ -711,5 +752,6 @@ function mergeMutableDaemonPatch(
   if (patch.defaultAgentRoute !== undefined) next.defaultAgentRoute = patch.defaultAgentRoute;
   if (patch.defaultAgentProfile !== undefined) next.defaultAgentProfile = patch.defaultAgentProfile;
   if (patch.peers !== undefined) next.peers = patch.peers;
+  if (patch.mcpServers !== undefined) next.mcpServers = patch.mcpServers;
   return Object.keys(next).length > 0 ? next : undefined;
 }

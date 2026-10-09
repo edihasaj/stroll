@@ -19,6 +19,7 @@ import {
 } from "@getpaseo/protocol/agent-labels";
 import type { Logger } from "pino";
 import type { ToolPolicy } from "@getpaseo/protocol/agent-types";
+import type { DaemonMcpServer } from "@getpaseo/protocol/daemon-mcp-server";
 import type { ProviderPaseoToolsPolicy } from "@getpaseo/protocol/provider-config";
 import { z } from "zod";
 import type { TerminalManager } from "../../terminal/terminal-manager.js";
@@ -85,6 +86,7 @@ import { invokeRewindCapability, type RewindMode } from "./rewind/rewind.js";
 import { isSystemInjectedEnvelope } from "./agent-prompt.js";
 import { isStaleProviderSessionError } from "./stale-provider-session-error.js";
 import { stripInternalPaseoMcpServer, withRuntimePaseoMcpServer } from "./runtime-mcp-config.js";
+import { withUserMcpServers } from "./user-mcp-servers.js";
 import { resolveCreateAgentTitles } from "./create-agent-title.js";
 import type { PaseoToolCatalogFactory } from "./tools/types.js";
 import { isPaseoToolPolicyEnabled } from "./paseo-tool-policy.js";
@@ -349,6 +351,8 @@ export interface AgentManagerOptions {
   paseoToolCatalogFactory?: PaseoToolCatalogFactory;
   resolvePaseoToolPolicy?: (provider: AgentProvider) => ProviderPaseoToolsPolicy | undefined;
   appendSystemPrompt?: string;
+  /** MCP servers the user configured on the daemon; added to every launch config. */
+  userMcpServers?: Record<string, DaemonMcpServer>;
   agentStreamCoalesceWindowMs?: number;
   rescueTimeouts?: AgentManagerRescueTimeouts;
   providerAccounts?: ProviderAccountLaunchResolver;
@@ -821,6 +825,7 @@ export class AgentManager {
     provider: AgentProvider,
   ) => ProviderPaseoToolsPolicy | undefined;
   private appendSystemPrompt: string;
+  private userMcpServers: Record<string, DaemonMcpServer> | undefined;
   private onAgentAttention?: AgentAttentionCallback;
   private onAgentArchived?: AgentArchivedCallback;
   private onWorkspaceStateMayHaveChanged?: (params: { cwd: string }) => void;
@@ -841,6 +846,7 @@ export class AgentManager {
     this.configurePaseoTools(options);
     this.resolvePaseoToolPolicy = options.resolvePaseoToolPolicy ?? (() => undefined);
     this.appendSystemPrompt = options.appendSystemPrompt ?? "";
+    this.userMcpServers = options.userMcpServers;
     this.logger = options.logger.child({ module: "agent", component: "agent-manager" });
     this.rescueTimeouts = {
       reloadSessionCloseMs:
@@ -950,6 +956,11 @@ export class AgentManager {
 
   setAppendSystemPrompt(prompt: string | null | undefined): void {
     this.appendSystemPrompt = prompt ?? "";
+  }
+
+  /** Applies to agents started or resumed from now on; running sessions keep what they launched with. */
+  setUserMcpServers(servers: Record<string, DaemonMcpServer> | undefined): void {
+    this.userMcpServers = servers;
   }
 
   public getMetricsSnapshot(): AgentMetricsSnapshot {
@@ -5362,7 +5373,7 @@ export class AgentManager {
       : { enabled: false };
     const launchConfig = this.applyDaemonAppendSystemPrompt(
       withRuntimePaseoMcpServer({
-        config: storedConfig,
+        config: withUserMcpServers(storedConfig, this.userMcpServers),
         agentId,
         mcpBaseUrl:
           this.paseoToolsEnabled && isPaseoToolPolicyEnabled(paseoToolPolicy)
