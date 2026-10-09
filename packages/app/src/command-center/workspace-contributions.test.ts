@@ -43,6 +43,8 @@ function source(gitActions: GitActions): {
         files: "Files",
         pullRequest: "Pull request",
         openPanel: (name, placement) => `Open ${name} ${placement}`,
+        previousChat: "Previous chat",
+        nextChat: "Next chat",
         previousTab: "Previous tab",
         nextTab: "Next tab",
         closeCurrentTab: "Close current tab",
@@ -327,6 +329,31 @@ describe("workspace command center contributions", () => {
     );
     expect(focusToggles).toHaveLength(1);
     expect(focusToggles[0]?.id).toBe("pane:focus-mode-toggle");
+  });
+
+  it("offers Previous chat and Next chat with their shortcuts even before a tab is open", () => {
+    const fixture = source({ primary: null, secondary: [], menu: [] });
+    fixture.value.shortcuts = {
+      previousChat: [["mod", "alt", "Left"]],
+      nextChat: [["mod", "alt", "Right"]],
+    };
+    const contributions = buildWorkspaceCommandCenterContributions(fixture.value);
+
+    const previous = contributions.find((item) => item.id === "chat:previous");
+    const next = contributions.find((item) => item.id === "chat:next");
+    previous?.run();
+    next?.run();
+
+    expect(previous?.presentation).toMatchObject({
+      kind: "action",
+      title: "Previous chat",
+      shortcutKeys: [["mod", "alt", "Left"]],
+    });
+    expect(next?.presentation).toMatchObject({ title: "Next chat" });
+    expect(fixture.dispatched).toEqual([
+      { id: "workspace.chat.navigate-relative", scope: "workspace", delta: -1 },
+      { id: "workspace.chat.navigate-relative", scope: "workspace", delta: 1 },
+    ]);
   });
 
   it("offers Full view with its shortcut wherever the desktop pane layout exists", () => {

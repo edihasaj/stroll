@@ -2531,6 +2531,8 @@ export const zhCN: TranslationResources = {
         jumpToTab: "跳转到标签",
         previousWorkspace: "上一个 workspace",
         nextWorkspace: "下一个 workspace",
+        previousChat: "上一个聊天",
+        nextChat: "下一个聊天",
         previousTab: "上一个标签",
         nextTab: "下一个标签",
         newTerminal: "新建终端",

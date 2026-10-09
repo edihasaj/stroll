@@ -130,6 +130,7 @@ import {
   useWorkspaceTabRename,
   WorkspaceTabRenameModal,
 } from "@/screens/workspace/use-workspace-tab-rename";
+import { useWorkspaceChatHistory } from "@/screens/workspace/use-workspace-chat-history";
 import { MobileTabTrailingAccessory } from "@/screens/workspace/workspace-tab-trailing-accessory";
 import {
   WorkspaceDesktopTabsRow,
@@ -2004,6 +2005,15 @@ function WorkspaceScreenContent({
     }
     return target.terminalId;
   }, [focusedPaneTabState.activeTab]);
+  useWorkspaceChatHistory({
+    serverId: normalizedServerId,
+    workspaceId: normalizedWorkspaceId,
+    persistenceKey,
+    activeAgentId: focusedPaneAgentId,
+    rootAgentIds: workspaceAgentVisibility.autoOpenAgentIds,
+    agentsHydrated: hasHydratedAgents,
+    isRouteFocused,
+  });
 
   useEffect(() => {
     if (!isRouteFocused) {

@@ -2597,6 +2597,8 @@ export const ptBR: TranslationResources = {
         jumpToTab: "Ir para aba",
         previousWorkspace: "Workspace anterior",
         nextWorkspace: "Próximo workspace",
+        previousChat: "Chat anterior",
+        nextChat: "Próximo chat",
         previousTab: "Aba anterior",
         nextTab: "Próxima aba",
         newTerminal: "Novo terminal",

@@ -2619,6 +2619,8 @@ export const es: TranslationResources = {
         jumpToTab: "Saltar a la pestaña",
         previousWorkspace: "Espacio de trabajo anterior",
         nextWorkspace: "Siguiente espacio de trabajo",
+        previousChat: "Chat anterior",
+        nextChat: "Chat siguiente",
         previousTab: "Pestaña anterior",
         nextTab: "Pestaña siguiente",
         newTerminal: "Nueva terminal",

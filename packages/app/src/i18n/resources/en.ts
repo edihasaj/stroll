@@ -2645,6 +2645,8 @@ export const en = {
         jumpToTab: "Jump to tab",
         previousWorkspace: "Previous workspace",
         nextWorkspace: "Next workspace",
+        previousChat: "Previous chat",
+        nextChat: "Next chat",
         previousTab: "Previous tab",
         nextTab: "Next tab",
         newTerminal: "New terminal",

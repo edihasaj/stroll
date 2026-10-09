@@ -24,6 +24,8 @@ export interface WorkspaceCommandCenterLabels {
   files: string;
   pullRequest: string;
   openPanel(name: string, placement: WorkspacePanelPlacement): string;
+  previousChat: string;
+  nextChat: string;
   previousTab: string;
   nextTab: string;
   closeCurrentTab: string;
@@ -56,6 +58,8 @@ export interface WorkspaceCommandCenterIcons {
   changes?: CommandCenterIcon;
   files?: CommandCenterIcon;
   pullRequest?: CommandCenterIcon;
+  previousChat?: CommandCenterIcon;
+  nextChat?: CommandCenterIcon;
   previousTab?: CommandCenterIcon;
   nextTab?: CommandCenterIcon;
   close?: CommandCenterIcon;
@@ -80,6 +84,8 @@ export interface WorkspaceCommandCenterShortcuts {
   newAgent?: ShortcutKey[][];
   newTerminal?: ShortcutKey[][];
   archiveWorkspace?: ShortcutKey[][];
+  previousChat?: ShortcutKey[][];
+  nextChat?: ShortcutKey[][];
   previousTab?: ShortcutKey[][];
   nextTab?: ShortcutKey[][];
   closeCurrentTab?: ShortcutKey[][];
@@ -240,6 +246,31 @@ function buildPanelContributions(
     }
   }
   return contributions;
+}
+
+function buildChatHistoryContributions(
+  source: WorkspaceCommandCenterSource,
+): CommandCenterContribution[] {
+  return [
+    buildQueryAction(source, {
+      id: "chat:previous",
+      rank: 28,
+      title: source.labels.previousChat,
+      keywords: ["chat", "previous", "back", "history", "navigate"],
+      icon: source.icons.previousChat,
+      shortcutKeys: source.shortcuts.previousChat,
+      action: { id: "workspace.chat.navigate-relative", scope: "workspace", delta: -1 },
+    }),
+    buildQueryAction(source, {
+      id: "chat:next",
+      rank: 29,
+      title: source.labels.nextChat,
+      keywords: ["chat", "next", "forward", "history", "navigate"],
+      icon: source.icons.nextChat,
+      shortcutKeys: source.shortcuts.nextChat,
+      action: { id: "workspace.chat.navigate-relative", scope: "workspace", delta: 1 },
+    }),
+  ];
 }
 
 function buildActiveTabContributions(
@@ -480,6 +511,7 @@ export function buildWorkspaceCommandCenterContributions(
   const contributions = [
     ...buildCreationContributions(source),
     ...buildPanelContributions(source),
+    ...buildChatHistoryContributions(source),
     ...buildActiveTabContributions(source),
     ...(source.capabilities.hasDesktopPanes ? buildPaneContributions(source) : []),
   ];

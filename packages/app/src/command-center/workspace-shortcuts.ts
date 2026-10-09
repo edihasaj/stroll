@@ -20,6 +20,9 @@ export function resolveWorkspaceCommandCenterShortcuts({
       resolveShortcutKeysForAction("workspace-terminal-new", overrides, platform) ?? undefined,
     archiveWorkspace:
       resolveShortcutKeysForAction("archive-workspace", overrides, platform) ?? undefined,
+    previousChat:
+      resolveShortcutKeysForAction("workspace-chat-prev", overrides, platform) ?? undefined,
+    nextChat: resolveShortcutKeysForAction("workspace-chat-next", overrides, platform) ?? undefined,
     previousTab:
       resolveShortcutKeysForAction("workspace-tab-prev", overrides, platform) ?? undefined,
     nextTab: resolveShortcutKeysForAction("workspace-tab-next", overrides, platform) ?? undefined,

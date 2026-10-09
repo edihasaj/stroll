@@ -2623,6 +2623,8 @@ export const fr: TranslationResources = {
         jumpToTab: "Aller à l'onglet",
         previousWorkspace: "Espace de travail précédent",
         nextWorkspace: "Espace de travail suivant",
+        previousChat: "Conversation précédente",
+        nextChat: "Conversation suivante",
         previousTab: "Onglet précédent",
         nextTab: "Onglet suivant",
         newTerminal: "Nouvelle borne",

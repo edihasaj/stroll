@@ -22,6 +22,7 @@ export type KeyboardActionId =
   | "workspace.tab.close-current"
   | "workspace.tab.navigate-index"
   | "workspace.tab.navigate-relative"
+  | "workspace.chat.navigate-relative"
   | "workspace.tab.open"
   | "workspace.tab.rename-current"
   | "workspace.tab.reload-current"
@@ -65,6 +66,7 @@ export type KeyboardActionDefinition =
   | { id: "workspace.tab.close-current"; scope: KeyboardActionScope }
   | { id: "workspace.tab.navigate-index"; scope: KeyboardActionScope; index: number }
   | { id: "workspace.tab.navigate-relative"; scope: KeyboardActionScope; delta: 1 | -1 }
+  | { id: "workspace.chat.navigate-relative"; scope: KeyboardActionScope; delta: 1 | -1 }
   | {
       id: "workspace.tab.open";
       scope: KeyboardActionScope;

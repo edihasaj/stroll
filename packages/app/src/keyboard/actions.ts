@@ -27,6 +27,7 @@ export type KeyboardActionId =
   | "workspace.tab.close.current"
   | "workspace.tab.navigate.index"
   | "workspace.tab.navigate.relative"
+  | "workspace.chat.navigate.relative"
   | "workspace.navigate.index"
   | "workspace.navigate.relative"
   | "sidebar.toggle.left"

@@ -1286,6 +1286,89 @@ describe("Full view shortcut", () => {
   });
 });
 
+describe("chat history shortcuts", () => {
+  const cases = [
+    {
+      name: "Cmd+Alt+Left goes to the previous chat on mac",
+      event: { key: "ArrowLeft", code: "ArrowLeft", metaKey: true, altKey: true },
+      context: { isMac: true, isDesktop: true },
+      delta: -1,
+    },
+    {
+      name: "Cmd+Alt+Right goes to the next chat on mac",
+      event: { key: "ArrowRight", code: "ArrowRight", metaKey: true, altKey: true },
+      context: { isMac: true, isDesktop: true },
+      delta: 1,
+    },
+    {
+      name: "Ctrl+Alt+Left goes to the previous chat elsewhere",
+      event: { key: "ArrowLeft", code: "ArrowLeft", ctrlKey: true, altKey: true },
+      context: { isMac: false, isDesktop: true },
+      delta: -1,
+    },
+    {
+      name: "Ctrl+Alt+Right goes to the next chat elsewhere",
+      event: { key: "ArrowRight", code: "ArrowRight", ctrlKey: true, altKey: true },
+      context: { isMac: false, isDesktop: false },
+      delta: 1,
+    },
+  ] as const;
+
+  it.each(cases)("$name", ({ event, context, delta }) => {
+    expectShortcutResolution({
+      event,
+      context,
+      action: "workspace.chat.navigate.relative",
+      payload: { delta },
+    });
+  });
+
+  it("does not fire on a held key", () => {
+    expectNoShortcutResolution({
+      event: { key: "ArrowLeft", code: "ArrowLeft", metaKey: true, altKey: true, repeat: true },
+      context: { isMac: true, isDesktop: true },
+    });
+  });
+
+  it("leaves Ctrl+Alt+Arrow to a focused terminal on non-mac", () => {
+    expectNoShortcutResolution({
+      event: { key: "ArrowLeft", code: "ArrowLeft", ctrlKey: true, altKey: true },
+      context: { isMac: false, isDesktop: true, focusScope: "terminal" },
+    });
+  });
+
+  it("does not take the workspace or tab navigation chords", () => {
+    expectShortcutResolution({
+      event: { key: "[", code: "BracketLeft", metaKey: true },
+      context: { isMac: true, isDesktop: true },
+      action: "workspace.navigate.relative",
+    });
+    expectShortcutResolution({
+      event: { key: "1", code: "Digit1", metaKey: true, altKey: true },
+      context: { isMac: true, isDesktop: true },
+      action: "workspace.tab.navigate.index",
+    });
+  });
+
+  it("lists Previous chat and Next chat as rebindable workspace rows with their own keys", () => {
+    const sections = buildKeyboardShortcutHelpSections({ isMac: true, isDesktop: true });
+    const rows = sections.find((section) => section.id === "workspaces")?.rows ?? [];
+
+    expect(rows.map((row) => row.id)).toEqual(
+      expect.arrayContaining(["workspace-chat-prev", "workspace-chat-next"]),
+    );
+    expect(rows.find((row) => row.id === "workspace-chat-prev")?.chord).toEqual([
+      ["mod", "alt", "Left"],
+    ]);
+    expect(rows.find((row) => row.id === "workspace-chat-next")?.labelKey).toBe(
+      "settings.shortcuts.help.nextChat",
+    );
+    expect(getBindingIdForAction("workspace-chat-next", { isMac: false, isDesktop: true })).toBe(
+      "workspace-chat-navigate-relative-ctrl-alt-right-non-mac",
+    );
+  });
+});
+
 describe("default bindings", () => {
   const platforms = [
     { isMac: true, isDesktop: true },

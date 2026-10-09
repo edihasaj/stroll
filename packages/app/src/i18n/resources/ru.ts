@@ -2602,6 +2602,8 @@ export const ru: TranslationResources = {
         jumpToTab: "Перейти на вкладку",
         previousWorkspace: "Предыдущее рабочее пространство",
         nextWorkspace: "Следующее рабочее пространство",
+        previousChat: "Предыдущий чат",
+        nextChat: "Следующий чат",
         previousTab: "Предыдущая вкладка",
         nextTab: "Следующая вкладка",
         newTerminal: "Новый терминал",

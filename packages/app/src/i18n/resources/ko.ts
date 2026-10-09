@@ -2568,6 +2568,8 @@ export const ko: TranslationResources = {
         jumpToTab: "탭으로 이동",
         previousWorkspace: "이전 워크스페이스",
         nextWorkspace: "다음 워크스페이스",
+        previousChat: "이전 채팅",
+        nextChat: "다음 채팅",
         previousTab: "이전 탭",
         nextTab: "다음 탭",
         newTerminal: "새 터미널",

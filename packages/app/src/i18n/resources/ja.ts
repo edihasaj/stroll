@@ -2580,6 +2580,8 @@ export const ja: TranslationResources = {
         jumpToTab: "タブにジャンプ",
         previousWorkspace: "前のワークスペース",
         nextWorkspace: "次のワークスペース",
+        previousChat: "前のチャット",
+        nextChat: "次のチャット",
         previousTab: "前のタブ",
         nextTab: "次のタブ",
         newTerminal: "新しいターミナル",

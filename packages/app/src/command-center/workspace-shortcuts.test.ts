@@ -28,4 +28,14 @@ describe("resolveWorkspaceCommandCenterShortcuts", () => {
       }).toggleFullView,
     ).toEqual([["ctrl", "shift", "J"]]);
   });
+
+  it("shows the keys that move through chat history", () => {
+    const shortcuts = resolveWorkspaceCommandCenterShortcuts({
+      overrides: {},
+      platform: { isMac: true, isDesktop: true },
+    });
+
+    expect(shortcuts.previousChat).toEqual([["mod", "alt", "Left"]]);
+    expect(shortcuts.nextChat).toEqual([["mod", "alt", "Right"]]);
+  });
 });

@@ -111,6 +111,27 @@ describe("routeKeyboardShortcut — workspace.tab.navigate", () => {
       ),
     ).toEqual<ShortcutAction>({ kind: "none" });
   });
+
+  it("forwards chat history deltas to the workspace.chat.navigate-relative dispatch", () => {
+    expect(
+      routeKeyboardShortcut(
+        { action: "workspace.chat.navigate.relative", payload: { delta: 1 } },
+        makeCtx(),
+      ),
+    ).toEqual<ShortcutAction>({
+      kind: "dispatch",
+      action: { id: "workspace.chat.navigate-relative", scope: "workspace", delta: 1 },
+    });
+  });
+
+  it("returns none when the chat history delta payload is missing", () => {
+    expect(
+      routeKeyboardShortcut(
+        { action: "workspace.chat.navigate.relative", payload: null },
+        makeCtx(),
+      ),
+    ).toEqual<ShortcutAction>({ kind: "none" });
+  });
 });
 
 describe("routeKeyboardShortcut — workspace.navigate.index", () => {
