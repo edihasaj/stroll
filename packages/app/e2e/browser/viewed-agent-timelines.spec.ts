@@ -4,16 +4,9 @@ import { test } from "../support/fixtures";
 import { seedWorkspace, type SeedDaemonClient } from "../support/helpers/seed-client";
 import { getServerId } from "../support/helpers/server-id";
 import { observeTimelineSubscriptions } from "../support/helpers/timeline-delivery";
-import { waitForWorkspaceTabsVisible } from "../support/helpers/workspace-tabs";
+import { expectMainChat, waitForWorkspaceTabsVisible } from "../support/helpers/workspace-tabs";
 import { selectWorkspaceInSidebar } from "../support/helpers/sidebar";
 import { installDaemonWebSocketGate } from "../support/helpers/daemon-websocket-gate";
-import {
-  dragTabToPane,
-  mainPane,
-  openFileInSidePane,
-  preferInSidePane,
-  sidePane,
-} from "../support/helpers/side-pane";
 import {
   expectAgentIdle,
   expectInlineWorkingIndicator,
@@ -72,8 +65,8 @@ interface RestoredLayoutScenario {
 }
 
 /**
- * Two workspaces with two chats each. Opening all four leaves the persisted workspace layout
- * holding a tab per chat, which is the state a relaunch restores into.
+ * Two workspaces with two chats each. Opening all four leaves the persisted layout and the
+ * viewed-chat history holding every chat, which is the state a relaunch restores into.
  */
 async function seedRestoredLayoutScenario(): Promise<RestoredLayoutScenario> {
   const workspaces = await Promise.all([
@@ -109,22 +102,35 @@ async function seedRestoredLayoutScenario(): Promise<RestoredLayoutScenario> {
   }
 }
 
-async function openAgent(
-  page: Page,
-  scenario: { workspaceId: string },
-  agentId: string,
-  options: { recordRenders?: boolean } = {},
-) {
+async function openAgent(page: Page, scenario: { workspaceId: string }, agentId: string) {
   const route = buildHostAgentDetailRoute(getServerId(), agentId, scenario.workspaceId);
-  await page.goto(options.recordRenders ? `${route}&renderProfile=1` : route);
+  await page.goto(route);
   await page.waitForURL(
     (url) => url.pathname.includes("/workspace/") && !url.searchParams.has("open"),
   );
   await waitForWorkspaceTabsVisible(page);
 }
 
+/** The sidebar's row for a chat, found by title: chats are not tabs, the sidebar lists them. */
+function chatRowByTitle(page: Page, title: string) {
+  return page
+    .locator('[data-testid^="sidebar-chat-row-"]')
+    .filter({ visible: true })
+    .filter({ hasText: title });
+}
+
 async function selectAgent(page: Page, title: string) {
-  await page.getByRole("button", { name: title, exact: true }).click();
+  const row = chatRowByTitle(page, title);
+  // The sidebar lists five chats per workspace before "Show more".
+  const showMore = page
+    .locator('[data-testid^="sidebar-workspace-chats-show-more-"]')
+    .filter({ visible: true })
+    .first();
+  if ((await row.count()) === 0 && (await showMore.count()) > 0) {
+    await showMore.click();
+  }
+  await expect(row).toBeVisible({ timeout: 30_000 });
+  await row.click();
 }
 
 async function expectForkFailureWithoutOverlappingStatus(page: Page) {
@@ -173,16 +179,6 @@ async function observeToastReplacement(page: Page) {
   };
 }
 
-async function countChatCommits(page: Page, agentId: string) {
-  return page.evaluate(
-    (id) =>
-      (globalThis.__PASEO_RENDER_PROFILE__ ?? []).filter(
-        (sample) => sample.id === `AgentStreamSection:${id}`,
-      ).length,
-    agentId,
-  );
-}
-
 async function commitMessage(scenario: ViewedTimelineScenario, agentId: string, prompt: string) {
   await scenario.client.sendAgentMessage(agentId, prompt);
   const finish = await scenario.client.waitForFinish(agentId, 30_000);
@@ -200,8 +196,9 @@ async function startVisibleTurn(
 }
 
 async function expectAgentConsistentlyIdle(page: Page, title: string): Promise<void> {
-  const tab = page.getByRole("button", { name: title, exact: true });
-  await expect(tab.locator('[data-status-bucket="running"]')).toHaveCount(0);
+  await expect(chatRowByTitle(page, title).getByTestId("sidebar-chat-status-running")).toHaveCount(
+    0,
+  );
   await expectAgentIdle(page);
   await expect(page.getByTestId("turn-working-indicator")).toHaveCount(0);
   await expectTurnCopyButton(page);
@@ -238,11 +235,8 @@ async function openSevenChats(page: Page, scenario: ViewedTimelineScenario) {
   for (let index = 0; index < additional.length; index += 1) {
     await selectAgent(page, `Additional chat ${index + 1}`);
   }
-  await subscriptions.waitForSubscribedAgents([
-    scenario.firstAgentId,
-    scenario.secondAgentId,
-    ...additional.map((agent) => agent.id),
-  ]);
+  // Each chat replaced the one before it in the main view, so only the last stays subscribed.
+  await subscriptions.waitForSubscribedAgents([additional.at(-1)!.id]);
 }
 
 async function expectCurrentChatWithoutCatchUp(page: Page, message: string) {
@@ -256,7 +250,7 @@ test.describe("Viewed agent timelines", () => {
     const subscriptions = observeTimelineSubscriptions(page);
     const scenario = await seedRestoredLayoutScenario();
     try {
-      // One document load, then sidebar and tab clicks — the way a user reaches these chats.
+      // One document load, then sidebar clicks — the way a user reaches these chats.
       // A `page.goto` per chat would restart the app and empty the session's set each time.
       const [first, second, third, fourth] = scenario.chats;
       await openAgent(page, first!, first!.agentId);
@@ -264,31 +258,34 @@ test.describe("Viewed agent timelines", () => {
       await selectWorkspaceInSidebar(page, third!.workspaceId);
       await selectAgent(page, third!.title);
       await selectAgent(page, fourth!.title);
-      await subscriptions.waitForSubscribedAgents(scenario.chats.map((chat) => chat.agentId));
+      // Opening a chat replaces the one in its workspace's main view and releases it, so each
+      // workspace holds exactly the chat it last showed.
+      await subscriptions.waitForSubscribedAgents([second!.agentId, fourth!.agentId]);
 
-      // Relaunch. Layout comes back from disk carrying a tab for every chat above; only the
-      // one on screen may be subscribed, because subscribing resumes the agent on the daemon.
+      // Relaunch. The saved layout still holds a chat for each workspace; only the one on screen
+      // may be subscribed, because subscribing resumes the agent on the daemon.
       const restored = scenario.chats.at(-1)!;
       const sibling = scenario.chats.at(-2)!;
       subscriptions.reset();
       await page.reload();
       await waitForWorkspaceTabsVisible(page);
-      await expect(page.getByRole("button", { name: restored.title, exact: true })).toHaveAttribute(
-        "aria-selected",
-        "true",
-      );
-      await expect(page.getByRole("button", { name: sibling.title, exact: true })).toBeVisible();
+      await expectMainChat(page, restored.agentId);
+      await expect(chatRowByTitle(page, sibling.title)).toBeVisible();
       await subscriptions.waitForSubscribedAgents([restored.agentId]);
 
-      // Opening the restored sibling is what adds it, and it adds only itself.
+      // Opening the sibling is what adds it. It replaces the restored chat in the main view, which
+      // releases that chat.
       await selectAgent(page, sibling.title);
-      await subscriptions.waitForSubscribedAgents([restored.agentId, sibling.agentId]);
+      await expectMainChat(page, sibling.agentId);
+      await subscriptions.waitForSubscribedAgents([sibling.agentId]);
     } finally {
       await scenario.cleanup();
     }
   });
 
-  test("open chats stay current after switching beyond five agents", async ({ page }) => {
+  test("a chat reopened after switching through many chats shows what it missed", async ({
+    page,
+  }) => {
     await withViewedTimelineScenario(async (scenario) => {
       await openSevenChats(page, scenario);
       await commitMessage(scenario, scenario.firstAgentId, "Current after seven open chats.");
@@ -307,7 +304,7 @@ test.describe("Viewed agent timelines", () => {
       await openAgent(page, scenario, scenario.firstAgentId);
       await startVisibleTurn(page, scenario, "Finish after this chat becomes hidden.");
       await selectAgent(page, "Second viewed chat");
-      await subscriptions.waitForSubscribedAgents([scenario.firstAgentId, scenario.secondAgentId]);
+      await subscriptions.waitForSubscribedAgents([scenario.secondAgentId]);
       const finish = await scenario.client.waitForFinish(scenario.firstAgentId, 90_000);
       expect(finish.status).toBe("idle");
 
@@ -318,62 +315,34 @@ test.describe("Viewed agent timelines", () => {
     }
   });
 
-  test("a hidden retained chat stays current without rendering", async ({ page }) => {
+  test("a chat reopened after switching away keeps its draft and shows what it missed", async ({
+    page,
+  }) => {
     test.setTimeout(60_000);
     const subscriptions = observeTimelineSubscriptions(page);
     const scenario = await seedViewedTimelineScenario();
     try {
-      await openAgent(page, scenario, scenario.firstAgentId, { recordRenders: true });
+      await openAgent(page, scenario, scenario.firstAgentId);
       const composer = page.getByRole("textbox", { name: "Message agent..." });
       await composer.fill("Unsent draft survives hidden streaming");
       await selectAgent(page, "Second viewed chat");
-      await subscriptions.waitForSubscribedAgents([scenario.firstAgentId, scenario.secondAgentId]);
-      const hiddenCommits = await countChatCommits(page, scenario.firstAgentId);
-      expect(hiddenCommits).toBeGreaterThan(0);
+      await subscriptions.waitForSubscribedAgents([scenario.secondAgentId]);
       await commitMessage(
         scenario,
         scenario.firstAgentId,
-        "Committed while the first chat is hidden.",
+        "Committed while the first chat is away.",
       );
       await expect(
-        page.getByText("Committed while the first chat is hidden.", { exact: true }),
+        page.getByText("Committed while the first chat is away.", { exact: true }),
       ).toHaveCount(0);
-      expect(await countChatCommits(page, scenario.firstAgentId)).toBe(hiddenCommits);
       await selectAgent(page, "First viewed chat");
       await expect(
-        page.getByText("Committed while the first chat is hidden.", { exact: true }),
+        page.getByText("Committed while the first chat is away.", { exact: true }),
       ).toBeVisible();
       await expect(page.getByText("(end of synthetic stream)", { exact: true })).toBeVisible();
       await expect(composer).toHaveValue("Unsent draft survives hidden streaming");
       await composer.fill("Draft edited after returning");
       await expect(composer).toHaveValue("Draft edited after returning");
-    } finally {
-      await scenario.cleanup();
-    }
-  });
-
-  test("two visible chats in the main and side panes both stay current", async ({ page }) => {
-    await preferInSidePane(page);
-    const scenario = await seedViewedTimelineScenario();
-    try {
-      await openAgent(page, scenario, scenario.firstAgentId);
-      await openFileInSidePane(page, "README.md");
-      await dragTabToPane(
-        page,
-        page.getByRole("button", { name: "Second viewed chat", exact: true }),
-        sidePane(page),
-      );
-      await expect(
-        mainPane(page).getByRole("button", { name: "First viewed chat", exact: true }),
-      ).toBeVisible();
-      await expect(
-        sidePane(page).getByRole("button", { name: "Second viewed chat", exact: true }),
-      ).toBeVisible();
-      await expect(page.getByRole("textbox", { name: "Message agent..." })).toHaveCount(2);
-      await commitMessage(scenario, scenario.firstAgentId, "First visible pane update.");
-      await expect(page.getByText("First visible pane update.", { exact: true })).toBeVisible();
-      await commitMessage(scenario, scenario.secondAgentId, "Second visible pane update.");
-      await expect(page.getByText("Second visible pane update.", { exact: true })).toBeVisible();
     } finally {
       await scenario.cleanup();
     }
@@ -391,10 +360,7 @@ test.describe("Viewed agent timelines", () => {
         exact: true,
       });
       await expect(previousMessage).toBeVisible();
-      await expect(page.getByRole("button", { name: "First viewed chat" })).toHaveAttribute(
-        "aria-selected",
-        "true",
-      );
+      await expectMainChat(page, scenario.firstAgentId);
       await gate.drop();
       await gate.waitForBlockedConnection();
       await expectReconnectingToastVisible(page);
@@ -432,7 +398,7 @@ test.describe("Viewed agent timelines", () => {
     }
   });
 
-  test("preserves reconnecting toast through retained tab switches", async ({ page }) => {
+  test("preserves reconnecting toast through retained chat switches", async ({ page }) => {
     const gate = await installDaemonWebSocketGate(page);
     const scenario = await seedViewedTimelineScenario();
     try {

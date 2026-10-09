@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { test, expect } from "../support/fixtures";
 import { openSessions } from "../support/helpers/archive-tab";
+import { expectMainChat } from "../support/helpers/workspace-tabs";
 import {
   assertChatTranscript,
   cleanupRewindFlow,
@@ -82,9 +83,7 @@ test.describe("archived Codex agent recovery", () => {
       await openSessions(page);
       await page.getByTestId(`agent-row-${getServerId()}-${handle.agentId}`).click();
 
-      await expect(
-        page.getByTestId(`workspace-tab-agent_${handle.agentId}`).filter({ visible: true }).first(),
-      ).toBeVisible({ timeout: 30_000 });
+      await expectMainChat(page, handle.agentId);
       await expect(page.getByText("This agent is archived", { exact: true })).toBeVisible({
         timeout: 30_000,
       });
