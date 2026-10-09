@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useSessionStore } from "@/stores/session-store";
 import { getOrCreateClientId } from "@/utils/client-id";
 import type { WorkspaceTab } from "@/workspace-tabs/model";
-import { getAgentTabsNeedingOpenLabel } from "./open-tab-labels";
+import { getAgentTabsNeedingOpenLabel, getSubagentsLeavingTabs } from "./open-tab-labels";
 
 function increment(value: number): number {
   return value + 1;
@@ -21,6 +21,7 @@ export function useOpenAgentTabLabels(input: {
     (state) => state.sessions[input.serverId]?.agentDetails ?? null,
   );
   const pendingAgentIdsRef = useRef(new Set<string>());
+  const previousOpenAgentIdsRef = useRef(new Set<string>());
   const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [retryVersion, setRetryVersion] = useState(0);
 
@@ -47,7 +48,9 @@ export function useOpenAgentTabLabels(input: {
         pendingAgentIdsRef.current.delete(agentId);
       }
     }
-    if (openAgentIds.size === 0) {
+    const previousOpenAgentIds = previousOpenAgentIdsRef.current;
+    previousOpenAgentIdsRef.current = openAgentIds;
+    if (openAgentIds.size === 0 && previousOpenAgentIds.size === 0) {
       return;
     }
 
@@ -55,9 +58,25 @@ export function useOpenAgentTabLabels(input: {
       try {
         const clientId = await getOrCreateClientId();
         const label = getOpenAgentTabLabel(clientId);
+        const getAgent = (agentId: string) => agents?.get(agentId) ?? agentDetails?.get(agentId);
+        for (const agentId of getSubagentsLeavingTabs({
+          previousAgentIds: previousOpenAgentIds,
+          openAgentIds,
+          getAgent,
+          label,
+        })) {
+          try {
+            await client.updateAgent(agentId, { labels: { [label]: "false" } });
+          } catch (error) {
+            console.warn("[OpenAgentTabLabels] Failed to clear closed subagent tab", {
+              error,
+              agentId,
+            });
+          }
+        }
         const agentIds = getAgentTabsNeedingOpenLabel({
           tabs: input.tabs,
-          getAgent: (agentId) => agents?.get(agentId) ?? agentDetails?.get(agentId),
+          getAgent,
           label,
           pendingAgentIds: pendingAgentIdsRef.current,
         });
