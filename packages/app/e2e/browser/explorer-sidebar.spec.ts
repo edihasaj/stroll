@@ -46,6 +46,25 @@ async function expectExplorerActiveTabForeground(
 }
 
 test.describe("Explorer sidebar", () => {
+  test("Ctrl+T in a workspace without a side pane creates one launcher tab", async ({ page }) => {
+    const workspace = await seedWorkspace({ repoPrefix: "explorer-sidebar-new-tab-" });
+
+    try {
+      await gotoWorkspace(page, workspace.workspaceId);
+      await waitForWorkspaceTabsVisible(page);
+      await expect(sidePane(page)).toHaveCount(0);
+
+      await pressNewTabShortcut(page);
+
+      await expect(sidePane(page).getByTestId("workspace-new-tab-panel")).toBeVisible({
+        timeout: 30_000,
+      });
+      await expect(sidePane(page).locator('[data-testid^="workspace-tab-"]')).toHaveCount(1);
+    } finally {
+      await workspace.cleanup();
+    }
+  });
+
   test("starts with Files and Changes, switches views, and toggles without changing main", async ({
     page,
   }) => {

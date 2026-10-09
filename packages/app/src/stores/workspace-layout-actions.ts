@@ -1383,6 +1383,21 @@ function insertNewTabIntoPane(
     return null;
   }
 
+  // A pane that holds only a launcher already is the New tab the caller asks for. The side pane is
+  // created with one, so a second would leave two identical tabs after a single shortcut press.
+  const soleLauncherTab =
+    input.target.kind === "new_tab" && isSoleNewTabPane(targetPane) ? targetPane.tabs[0] : null;
+  if (soleLauncherTab) {
+    return {
+      tabId: soleLauncherTab.tabId,
+      layout: withNormalizedParentTabMap({
+        root: focusTabInPane(layout.root, targetPane.id, soleLauncherTab.tabId),
+        focusedPaneId: input.focus ? targetPane.id : layout.focusedPaneId,
+        parentTabIdByTabId: input.layout.parentTabIdByTabId,
+      }),
+    };
+  }
+
   const tabId = input.createTabId();
   const nextTab: WorkspaceTab = {
     tabId,

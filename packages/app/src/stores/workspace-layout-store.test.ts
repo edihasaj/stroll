@@ -800,6 +800,25 @@ describe("workspace-layout-store tree transforms", () => {
     expect(store.getState().sidePaneIdByWorkspace[workspaceKey]).toBe(manuallySplitPaneId);
   });
 
+  it("opening a New tab in the side pane reuses the launcher it was created with", () => {
+    const store = createWorkspaceLayoutStore(createDeterministicWorkspaceLayoutIds());
+    const workspaceKey = createWorkspaceKey();
+    const sidePaneId = store.getState().ensureSidePane(workspaceKey);
+    expect(sidePaneId).not.toBeNull();
+
+    const tabId = store.getState().openTab({
+      workspaceKey,
+      target: { kind: "new_tab" },
+      intent: "new",
+      placement: { mode: "pane", paneId: sidePaneId! },
+    });
+
+    const layout = store.getState().layoutByWorkspace[workspaceKey];
+    const sidePane = collectAllPanes(layout.root).find((pane) => pane.id === sidePaneId);
+    expect(sidePane?.tabIds).toEqual([tabId]);
+    expect(layout.focusedPaneId).toBe(sidePaneId);
+  });
+
   it("removePaneFromTree unwraps single-child groups and renormalizes siblings", () => {
     const root: SplitNode = {
       kind: "group",
