@@ -74,15 +74,19 @@ async function expectNoLoadingPane(page: Page): Promise<void> {
   await expect(page.getByText(LOADING_WORKSPACE_TEXT_PATTERN)).toHaveCount(0);
 }
 
+/** Drafts live in the main view, not in tabs. A draft header carries its id; the empty view's does not. */
 async function getVisibleDraftTabCount(page: Page): Promise<number> {
-  return page.getByTestId("main-pane-draft-header").filter({ visible: true }).count();
+  return page
+    .locator('[data-testid="main-pane-draft-header"][data-draft-id]')
+    .filter({ visible: true })
+    .count();
 }
 
 /** The main view has no tab to hover and close; the close-tab shortcut closes its draft. */
 async function closeVisibleDraft(page: Page): Promise<void> {
-  await expect(page.getByTestId("main-pane-draft-header").filter({ visible: true })).toBeVisible({
-    timeout: 30_000,
-  });
+  await expect(
+    page.locator('[data-testid="main-pane-draft-header"][data-draft-id]').filter({ visible: true }),
+  ).toBeVisible({ timeout: 30_000 });
   await page.keyboard.press("Alt+Shift+W");
 }
 
