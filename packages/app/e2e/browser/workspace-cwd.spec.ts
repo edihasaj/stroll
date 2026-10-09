@@ -8,6 +8,12 @@ import {
   setupDeterministicPrompt,
   waitForTerminalContent,
 } from "../support/helpers/terminal-perf";
+import { mainChatHeader } from "../support/helpers/workspace-tabs";
+
+/** The terminal lives in the narrow side pane, so a long path wraps; compare it without the breaks. */
+function includesWrappedPath(repoPath: string): (text: string) => boolean {
+  return (text) => text.replace(/\s+/g, "").includes(repoPath);
+}
 
 interface CreatedAgentCwdAssertion {
   workspaceId: string;
@@ -45,10 +51,10 @@ test.describe("Workspace cwd correctness", () => {
     await focusTerminalSurface(page);
     await setupDeterministicPrompt(page, `PWD_READY_${Date.now()}`);
     await typeInTerminal(page, "pwd\n");
-    await waitForTerminalContent(page, (text) => text.includes(workspace.repoPath), 10_000);
+    await waitForTerminalContent(page, includesWrappedPath(workspace.repoPath), 10_000);
   });
 
-  test("draft tab creates an agent in the workspace cwd", async ({ page }) => {
+  test("a new chat creates an agent in the workspace cwd", async ({ page }) => {
     test.setTimeout(60_000);
 
     const workspace = await seedWorkspace({ repoPrefix: "workspace-cwd-draft-agent-" });
@@ -65,9 +71,7 @@ test.describe("Workspace cwd correctness", () => {
         timeout: 30_000,
       });
 
-      await expect(page.locator('[data-testid^="workspace-tab-agent_"]').first()).toBeVisible({
-        timeout: 30_000,
-      });
+      await expect(mainChatHeader(page)).toBeVisible({ timeout: 30_000 });
 
       await expect
         .poll(() => fetchSingleAgentForWorkspace(workspace), { timeout: 30_000 })
@@ -94,6 +98,6 @@ test.describe("Workspace cwd correctness", () => {
     await focusTerminalSurface(page);
     await setupDeterministicPrompt(page, `PWD_READY_${Date.now()}`);
     await typeInTerminal(page, "pwd\n");
-    await waitForTerminalContent(page, (text) => text.includes(workspace.repoPath), 10_000);
+    await waitForTerminalContent(page, includesWrappedPath(workspace.repoPath), 10_000);
   });
 });

@@ -56,10 +56,9 @@ async function readRenderedTerminalSize(page: Page): Promise<RenderedTerminalSiz
 }
 
 async function createTerminalViaMenu(page: Page): Promise<void> {
-  // Workspaces always render a hidden explorer companion pane alongside the
-  // main pane, so an unscoped testid locator matches both; scope to the
-  // visible one.
-  await page.getByTestId("workspace-new-tab-button").filter({ visible: true }).click();
+  // The side pane and the Explorer have launcher buttons of their own once a terminal is open;
+  // the main view's header always has one.
+  await page.getByTestId("main-pane-header").getByTestId("workspace-new-tab-button").click();
   await page
     .getByTestId("workspace-new-tab-menu-terminal")
     .filter({ visible: true })
@@ -132,7 +131,7 @@ test.describe("terminal PTY size claim under lost window focus", () => {
 
     await page.goto(buildHostWorkspaceRoute(getServerId(), harness.workspaceId));
     await expect(
-      page.getByTestId("workspace-new-tab-button").filter({ visible: true }),
+      page.getByTestId("main-pane-header").getByTestId("workspace-new-tab-button"),
     ).toBeVisible({
       timeout: 30_000,
     });
@@ -174,8 +173,8 @@ test.describe("terminal PTY size claim under lost window focus", () => {
 
     // __paseoTerminal points at the most recently mounted xterm — the new terminal.
     const rendered = requireTerminalSize(await readRenderedTerminalSize(page));
-    // Sanity: the pane really rendered at a desktop size, not the PTY default.
-    expect(rendered.cols).toBeGreaterThan(80);
+    // Sanity: the side pane rendered the terminal at a size of its own, not the PTY default.
+    expect(rendered.cols).not.toBe(80);
 
     // The PTY itself must agree. Ask it via the daemon, never via the page: focusing or
     // typing in the pane triggers the focus-claim path and would mask the bug.

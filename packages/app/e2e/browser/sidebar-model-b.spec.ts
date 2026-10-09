@@ -7,6 +7,7 @@ import { getServerId } from "../support/helpers/server-id";
 import { projectEquivalenceViewKey } from "../support/helpers/project-view-key";
 import { selectSidebarStatusGrouping } from "../support/helpers/sidebar";
 import { waitForSidebarHydration } from "../support/helpers/workspace-ui";
+import { expectMainChat, sidebarChatRow } from "../support/helpers/workspace-tabs";
 
 // Model B sidebar shape: every project — git or non-git, single- or
 // multi-workspace — renders as the same expandable parent, the deepest sidebar
@@ -93,11 +94,9 @@ test.describe("Model B sidebar shape", () => {
     });
 
     try {
-      // Open the workspace and materialize both an agent tab and a terminal tab.
+      // Open the workspace and materialize both a chat in the main view and a terminal tab.
       await gotoWorkspace(page, mock.workspaceId);
-      await expect(
-        page.getByTestId(`workspace-tab-agent_${mock.agentId}`).filter({ visible: true }),
-      ).toBeVisible();
+      await expectMainChat(page, mock.agentId);
 
       await clickNewTerminal(page);
       await expect(
@@ -113,6 +112,8 @@ test.describe("Model B sidebar shape", () => {
       await expect(sidebar.locator('[data-testid^="workspace-tab-"]')).toHaveCount(0);
       await expect(sidebar.locator('[data-testid^="sidebar-agent-row-"]')).toHaveCount(0);
       await expect(sidebar.locator('[data-testid^="sidebar-terminal-row-"]')).toHaveCount(0);
+      // A workspace lists its chats under its row, but those are chats, never tabs.
+      await expect(sidebarChatRow(page, mock.agentId)).toBeVisible({ timeout: 30_000 });
     } finally {
       await mock.cleanup();
     }
