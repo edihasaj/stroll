@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "../support/fixtures";
-import { seedMockAgentWorkspace } from "../support/helpers/mock-agent";
+import { openAgentRoute, seedMockAgentWorkspace } from "../support/helpers/mock-agent";
 import { getServerId } from "../support/helpers/server-id";
 import {
   archiveMainChatFromHeader,
@@ -260,5 +260,47 @@ test("the migrated layout is saved once and survives a reload", async ({ page })
     ).toBe(blob);
   } finally {
     await workspace.cleanup();
+  }
+});
+
+test("Previous chat and Next chat cross workspaces", async ({ page }) => {
+  const first = await seedMockAgentWorkspace({
+    repoPrefix: "single-chat-history-a-",
+    title: "Alpha chat",
+  });
+  const second = await seedMockAgentWorkspace({
+    repoPrefix: "single-chat-history-b-",
+    title: "Gamma chat",
+  });
+
+  try {
+    await page.setViewportSize({ width: 1400, height: 900 });
+    await openAgentRoute(page, { workspaceId: first.workspaceId, agentId: first.agentId });
+    await waitForWorkspaceTabsVisible(page);
+    await expectMainChat(page, first.agentId);
+
+    await test.step("opening a chat in another workspace switches to it", async () => {
+      await openChatFromSidebar(page, second.agentId);
+
+      await expect(page).toHaveURL(new RegExp(`/workspace/${second.workspaceId}`));
+      await expectMainChat(page, second.agentId);
+    });
+
+    await test.step("Previous chat returns to the first workspace's chat", async () => {
+      await page.keyboard.press(PREVIOUS_CHAT_SHORTCUT);
+
+      await expect(page).toHaveURL(new RegExp(`/workspace/${first.workspaceId}`));
+      await expectMainChat(page, first.agentId);
+    });
+
+    await test.step("Next chat goes forward again", async () => {
+      await page.keyboard.press(NEXT_CHAT_SHORTCUT);
+
+      await expect(page).toHaveURL(new RegExp(`/workspace/${second.workspaceId}`));
+      await expectMainChat(page, second.agentId);
+    });
+  } finally {
+    await second.cleanup();
+    await first.cleanup();
   }
 });
