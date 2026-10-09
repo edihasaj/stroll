@@ -6,7 +6,6 @@ import {
 } from "../support/helpers/file-explorer";
 import { openAgentRoute, seedMockAgentWorkspace } from "../support/helpers/mock-agent";
 
-const APP_SETTINGS_KEY = "@paseo:app-settings";
 // The e2e fixtures pin navigator.platform to Win32, so the shortcut is Ctrl, not Cmd.
 const FULL_VIEW_SHORTCUT = "Control+Shift+B";
 
@@ -21,9 +20,6 @@ function mainPane(page: Page) {
 test("Full view shortcut covers the main pane with the side pane and restores it", async ({
   page,
 }) => {
-  await page.addInitScript((settingsKey) => {
-    localStorage.setItem(settingsKey, JSON.stringify({ openInSidePane: { explorerFiles: true } }));
-  }, APP_SETTINGS_KEY);
   const workspace = await seedMockAgentWorkspace({
     repoPrefix: "full-view-shortcut-",
     title: "Full view shortcut",
