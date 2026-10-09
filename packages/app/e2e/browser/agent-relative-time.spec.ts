@@ -4,6 +4,7 @@ import { getServerId } from "../support/helpers/server-id";
 import { seedMockAgentWorkspace } from "../support/helpers/mock-agent";
 import { openAgentRoute } from "../support/helpers/mock-agent";
 import { resetSeededPageState, openSessions } from "../support/helpers/archive-tab";
+import { sidebarChatRow } from "../support/helpers/workspace-tabs";
 
 test("agent list age advances and command center says just now for a fresh agent", async ({
   page,
@@ -28,7 +29,7 @@ test("agent list age advances and command center says just now for a fresh agent
     // tier (utils/relative-time-ticker.ts), started lazily by whichever label mounts first and
     // left running on the real clock if that happens before the fake one is installed — a label
     // that stays mounted across the fast-forward below would then never tick. Every workspace-route
-    // surface (tab tooltip, sidebar timestamp) is then read without ever leaving that route:
+    // surface (sidebar chat age, sidebar timestamp) is then read without ever leaving that route:
     // entering/re-entering a workspace route after the fake clock is already advanced leaves
     // resolveWorkspaceRouteState's `workspace` input null (its directory resync resolves against
     // the advanced clock and comes back empty), which the route reads as "Workspace unavailable".
@@ -37,10 +38,10 @@ test("agent list age advances and command center says just now for a fresh agent
     await page.clock.install({ time: Date.now() });
     await openAgentRoute(page, session);
 
-    const tab = page.getByTestId(`workspace-tab-agent_${session.agentId}`).first();
-    const tooltip = page.getByTestId(`workspace-tab-tooltip-agent_${session.agentId}`);
-    await tab.hover();
-    await expect(tooltip).toContainText("just now");
+    // The sidebar lists the chat under its workspace with a compact age on the right. Keep the
+    // pointer off the row: hovering swaps the age for the row's kebab.
+    const chatRow = sidebarChatRow(page, session.agentId);
+    await expect(chatRow).toContainText("now", { timeout: 30_000 });
 
     const commandCenter = await openCommandCenter(page);
     await commandCenter.getByTestId("command-center-input").fill("Relative time agent");
@@ -54,9 +55,7 @@ test("agent list age advances and command center says just now for a fresh agent
 
     await page.clock.fastForward("03:00");
 
-    // The tab lost hover to the command center above; re-hover before reading the advanced age.
-    await tab.hover();
-    await expect(tooltip).toContainText("3m ago");
+    await expect(chatRow).toContainText("3m");
     await expect(page.getByTestId("sidebar-workspace-timestamp").first()).toHaveText("3m");
 
     await openSessions(page);
