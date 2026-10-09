@@ -318,14 +318,14 @@ function WorkspacePaneToolbarActions({
   );
 }
 
-function WorkspaceExitFocusModeButton({
+export function WorkspaceExitFocusModeButton({
   visible,
   onPress,
   onLayout,
 }: {
   visible: boolean;
   onPress: () => void;
-  onLayout: (event: LayoutChangeEvent) => void;
+  onLayout?: (event: LayoutChangeEvent) => void;
 }) {
   const { t } = useTranslation();
   const focusModeKeys = useShortcutKeys("toggle-focus");

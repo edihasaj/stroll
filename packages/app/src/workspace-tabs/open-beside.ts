@@ -11,6 +11,7 @@ import {
 import { getPanelInstanceAttributes } from "@/panels/panel-instance-attributes";
 import { workspaceTabTargetsEqual } from "@/workspace-tabs/identity";
 import type { WorkspaceTabTarget } from "@/workspace-tabs/model";
+import { isChatTarget, isSingleChatMainActive } from "@/workspace-tabs/single-chat";
 
 export type OpenInSidePaneSource = keyof OpenInSidePanePreferences;
 export type WorkspaceTargetOpenLocation = "main" | "side";
@@ -37,6 +38,23 @@ interface OpenPreferredWorkspacePreviewInput extends OpenPreferredWorkspaceTarge
   workspaceId: string;
   explorerSidebarPaneId: string | null;
   lastMainPaneId: string | null;
+}
+
+/**
+ * Where an implicit open goes. With one chat in the main view, the target's kind decides: a chat
+ * replaces the main view's chat and everything else opens beside it, so the per-source Open
+ * location settings only apply where the main view still holds tabs.
+ */
+function resolveOpenLocation(input: {
+  isCompact: boolean;
+  source: OpenInSidePaneSource;
+  preferences: OpenInSidePanePreferences;
+  target: WorkspaceTabTarget;
+}): WorkspaceTargetOpenLocation {
+  if (isSingleChatMainActive({ isCompact: input.isCompact })) {
+    return isChatTarget(input.target) ? "main" : "side";
+  }
+  return input.preferences[input.source] ? "side" : "main";
 }
 
 function resolveMainPane(input: {
@@ -100,13 +118,16 @@ function ensureSidePanePlacement(
 
 /**
  * The side pane placement for a new target whose source prefers it, creating the pane when absent.
- * `undefined` means the caller keeps its default placement: the preference is off, or the layout is
+ * Callers pass sources that open non-chat targets, which the single-chat main view always puts
+ * beside the chat. `undefined` means the caller keeps its default placement: the preference is off, or the layout is
  * compact and has no side pane to open into.
  */
 export function resolvePreferredSidePanePlacement(
   input: ResolvePreferredSidePanePlacementInput,
 ): WorkspaceTabPlacement | undefined {
-  if (input.isCompact || !input.preferences[input.source]) return undefined;
+  const opensBeside =
+    isSingleChatMainActive({ isCompact: input.isCompact }) || input.preferences[input.source];
+  if (input.isCompact || !opensBeside) return undefined;
   return ensureSidePanePlacement(
     input.workspaceKey,
     input.background ? { focus: false } : undefined,
@@ -121,7 +142,7 @@ export function openPreferredWorkspaceTarget(
     isCompact: input.isCompact,
     workspaceKey: input.workspaceKey,
     target: input.target,
-    location: input.preferences[input.source] ? "side" : "main",
+    location: resolveOpenLocation(input),
     parentTabId: input.parentTabId,
   });
 }
@@ -174,7 +195,7 @@ export function openPreferredWorkspacePreview(
     lastMainPaneId: input.lastMainPaneId,
   });
   const destinationPaneId =
-    !input.isCompact && input.preferences[input.source]
+    !input.isCompact && resolveOpenLocation(input) === "side"
       ? store.ensureSidePane(input.workspaceKey)
       : mainPane?.id;
   if (!destinationPaneId) return null;

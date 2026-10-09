@@ -14,7 +14,7 @@ import type { WorkspaceTab, WorkspaceTabTarget } from "@/workspace-tabs/model";
  * Explorer dock. The store applies these rules only where `SINGLE_CHAT_MAIN_ENABLED` is on and the
  * device supports desktop pane splits in a non-compact layout.
  */
-export const SINGLE_CHAT_MAIN_ENABLED = false;
+export const SINGLE_CHAT_MAIN_ENABLED = true;
 
 /** Desktop only: compact windows and native layouts keep tabs in the main pane. */
 export function isSingleChatMainActive(input: { isCompact: boolean }): boolean {

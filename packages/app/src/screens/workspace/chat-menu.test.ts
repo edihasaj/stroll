@@ -5,6 +5,7 @@ const labels: ChatMenuLabels = {
   rename: "Rename",
   copyResumeCommand: "Copy resume command",
   copyAgentId: "Copy agent id",
+  reloadAgent: "Reload agent",
   archiveChat: "Archive chat",
   deleteChat: "Delete chat",
 };

@@ -7,6 +7,7 @@ const labels: ChatMenuLabels = {
   rename: "Rename",
   copyResumeCommand: "Copy resume command",
   copyAgentId: "Copy agent id",
+  reloadAgent: "Reload agent",
   archiveChat: "Archive chat",
   deleteChat: "Delete chat",
 };
@@ -15,6 +16,7 @@ describe("chat pane header menu", () => {
   const actions = {
     onCopyResumeCommand: vi.fn(),
     onCopyAgentId: vi.fn(),
+    onReload: vi.fn(),
     onArchive: vi.fn(),
     onDelete: vi.fn(),
   };
@@ -25,10 +27,11 @@ describe("chat pane header menu", () => {
     actions,
   });
 
-  it("lists Copy resume command, Copy agent id, Archive, and Delete chat", () => {
+  it("lists the copy actions, Reload agent, Archive, and Delete chat", () => {
     expect(entries.flatMap((entry) => (entry.kind === "item" ? [entry.label] : []))).toEqual([
       "Copy resume command",
       "Copy agent id",
+      "Reload agent",
       "Archive chat",
       "Delete chat",
     ]);
@@ -42,6 +45,7 @@ describe("chat pane header menu", () => {
 
   it("separates the copy actions from Archive and Delete chat, and marks Delete chat destructive", () => {
     expect(entries.map((entry) => entry.kind)).toEqual([
+      "item",
       "item",
       "item",
       "separator",
@@ -58,6 +62,7 @@ describe("chat pane header menu", () => {
 
     expect(actions.onCopyResumeCommand).toHaveBeenCalledTimes(1);
     expect(actions.onCopyAgentId).toHaveBeenCalledTimes(1);
+    expect(actions.onReload).toHaveBeenCalledTimes(1);
     expect(actions.onArchive).toHaveBeenCalledTimes(1);
     expect(actions.onDelete).toHaveBeenCalledTimes(1);
   });

@@ -16,6 +16,7 @@ import { useInstalledPlugins } from "@/plugins/registry";
 import { pluginPanelSupportsLocation } from "@/plugins/workspace-panels/locations";
 import { buildSettingsHostSectionRoute } from "@/utils/host-routes";
 import type { NewTabSelection } from "@/workspace-tabs/new-tab";
+import { useIsSingleChatMain } from "@/workspace-tabs/single-chat";
 import type { WorkspaceTabTarget } from "@/workspace-tabs/model";
 import type { TerminalProfile } from "@getpaseo/protocol/messages";
 import { panelCanLaunchInPane, panelSupportsHost, type PaneHost } from "@/panels/panel-manifest";
@@ -107,6 +108,9 @@ export function useWorkspaceTabLaunchCatalog(input: {
   invariant(launcher, "NewTabLauncherProvider is required");
   const { config } = useDaemonConfig(serverId);
   const plugins = useInstalledPlugins();
+  // With one chat in the main view, a pane's + menu only exists on the side pane, where a new
+  // agent would open in the main view instead.
+  const isSingleChatMain = useIsSingleChatMain();
   ensurePanelsRegistered();
 
   const launchSelection = useCallback(
@@ -133,7 +137,7 @@ export function useWorkspaceTabLaunchCatalog(input: {
         shortcutActionId: "workspace-tab-target-agent",
         disabled: false,
         panelKind: "draft",
-        hidden: isExplorerMenu,
+        hidden: isExplorerMenu || (isSingleChatMain && surface === "menu"),
         launch: launchSelection(BUILT_IN_SELECTIONS.agent),
       },
       terminal: {
@@ -257,6 +261,7 @@ export function useWorkspaceTabLaunchCatalog(input: {
     launchSelection,
     launcher,
     plugins,
+    isSingleChatMain,
     purpose,
     host,
     surface,

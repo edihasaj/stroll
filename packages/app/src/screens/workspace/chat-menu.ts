@@ -4,6 +4,7 @@ export interface ChatMenuLabels {
   rename: string;
   copyResumeCommand: string;
   copyAgentId: string;
+  reloadAgent: string;
   archiveChat: string;
   deleteChat: string;
 }
@@ -13,6 +14,7 @@ export interface ChatMenuActions {
   onRename?: () => void;
   onCopyResumeCommand?: () => void;
   onCopyAgentId?: () => void;
+  onReload?: () => void;
   onArchive?: () => void;
   onDelete?: () => void;
 }
@@ -63,6 +65,17 @@ export function buildChatMenuEntries(input: BuildChatMenuEntriesInput): Workspac
       hint: agentId.slice(0, 7),
       testID: `${menuTestIDBase}-copy-agent-id`,
       onSelect: actions.onCopyAgentId,
+    });
+  }
+
+  if (actions.onReload) {
+    manage.push({
+      kind: "item",
+      key: "reload-agent",
+      label: labels.reloadAgent,
+      icon: "rotate-cw",
+      testID: `${menuTestIDBase}-reload-agent`,
+      onSelect: actions.onReload,
     });
   }
 

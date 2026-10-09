@@ -72,6 +72,7 @@ import {
   type WorkspaceDesktopTabRowItem,
 } from "@/screens/workspace/workspace-desktop-tabs-row";
 import { ExplorerSidebarDock } from "@/screens/workspace/explorer-sidebar";
+import { MainPaneHeader } from "@/screens/workspace/main-pane-header";
 import {
   WorkspaceTabPresentationResolver,
   WorkspaceTabIcon,
@@ -90,6 +91,7 @@ import type { WorkspaceTab } from "@/workspace-tabs/model";
 import { RenderProfile } from "@/utils/render-profiler";
 import { isNative } from "@/constants/platform";
 import { panelTargetSupportsHost } from "@/plugins/workspace-panels/locations";
+import { resolveMainPane, useIsSingleChatMain } from "@/workspace-tabs/single-chat";
 
 interface SplitContainerProps {
   layout: WorkspaceLayout;
@@ -176,6 +178,8 @@ interface SplitNodeViewProps extends Omit<
   maximizedPaneId: string | null;
   workspaceHasMultiplePanes: boolean;
   onTogglePaneMaximized: (paneId: string) => void;
+  /** The pane that shows the one chat and has a header instead of a tab row; null keeps tab rows. */
+  mainChatPaneId: string | null;
 }
 
 interface SplitPaneViewProps extends Omit<
@@ -188,8 +192,10 @@ interface SplitPaneViewProps extends Omit<
   | "dropPreview"
   | "onResizeSplit"
   | "windowChromeCorners"
+  | "mainChatPaneId"
 > {
   pane: SplitPane;
+  isMainChatPane: boolean;
   uiTabs: WorkspaceTab[];
   isFocused: boolean;
   activeDragTabId: string | null;
@@ -353,6 +359,11 @@ export function SplitContainer({
     [layout.root, explorerSidebarPaneId],
   );
   const workspaceHasMultiplePanes = Boolean(mainRoot && hasMultipleVisiblePanes(mainRoot));
+  const isSingleChatMain = useIsSingleChatMain();
+  const mainChatPaneId =
+    isSingleChatMain && mainRoot
+      ? (resolveMainPane(mainRoot, explorerSidebarPaneId)?.id ?? null)
+      : null;
   useEffect(() => {
     if (
       maximizedPaneId &&
@@ -654,6 +665,7 @@ export function SplitContainer({
                   maximizedPaneId={maximizedPaneId}
                   workspaceHasMultiplePanes={workspaceHasMultiplePanes}
                   onTogglePaneMaximized={handleTogglePaneMaximized}
+                  mainChatPaneId={mainChatPaneId}
                   focusModeEnabled={focusModeEnabled}
                   onExitFocusMode={onExitFocusMode}
                 />
@@ -925,6 +937,7 @@ function SplitNodeView({
   maximizedPaneId,
   workspaceHasMultiplePanes,
   onTogglePaneMaximized,
+  mainChatPaneId,
   focusModeEnabled,
   onExitFocusMode,
 }: SplitNodeViewProps) {
@@ -1009,6 +1022,7 @@ function SplitNodeView({
             maximizedPaneId={maximizedPaneId}
             workspaceHasMultiplePanes={workspaceHasMultiplePanes}
             onTogglePaneMaximized={onTogglePaneMaximized}
+            isMainChatPane={node.pane.id === mainChatPaneId}
             focusModeEnabled={focusModeEnabled}
             onExitFocusMode={onExitFocusMode}
           />
@@ -1061,6 +1075,7 @@ function SplitNodeView({
               maximizedPaneId={maximizedPaneId}
               workspaceHasMultiplePanes={workspaceHasMultiplePanes}
               onTogglePaneMaximized={onTogglePaneMaximized}
+              mainChatPaneId={mainChatPaneId}
               focusModeEnabled={focusModeEnabled}
               onExitFocusMode={onExitFocusMode}
             />
@@ -1117,6 +1132,7 @@ function SplitPaneView({
   maximizedPaneId,
   workspaceHasMultiplePanes,
   onTogglePaneMaximized,
+  isMainChatPane,
   focusModeEnabled,
   onExitFocusMode,
 }: SplitPaneViewProps) {
@@ -1213,37 +1229,50 @@ function SplitPaneView({
       >
         <WindowChromeSafeArea placement="inline" style={styles.paneTabs}>
           <TitlebarDragRegion />
-          <WorkspaceDesktopTabsRow
-            paneId={pane.id}
-            isFocused={isFocused && isWorkspaceFocused}
-            tabs={desktopTabRowItems}
-            normalizedServerId={normalizedServerId}
-            normalizedWorkspaceId={normalizedWorkspaceId}
-            setHoveredCloseTabKey={setHoveredCloseTabKey}
-            onNavigateTab={onNavigateTab}
-            onCloseTab={onCloseTab}
-            onCopyResumeCommand={onCopyResumeCommand}
-            onCopyAgentId={onCopyAgentId}
-            onCopyTerminalId={onCopyTerminalId}
-            onCopyFilePath={onCopyFilePath}
-            onReloadAgent={onReloadAgent}
-            onRenameTab={onRenameTab}
-            onCloseTabsToLeft={handleCloseTabsToLeft}
-            onCloseTabsToRight={handleCloseTabsToRight}
-            onCloseOtherTabs={handleCloseOtherTabs}
-            onCreateNewTab={onCreateNewTab}
-            onReorderTabs={handleReorderTabs}
-            externalDndContext
-            activeDragTabId={activeDragTabId}
-            tabDropPreviewIndex={
-              tabDropPreview?.paneId === pane.id ? tabDropPreview.indicatorIndex : null
-            }
-            showPaneMaximizeAction={workspaceHasMultiplePanes && !focusModeEnabled}
-            paneMaximized={paneId === maximizedPaneId}
-            onTogglePaneMaximized={handleTogglePaneMaximized}
-            focusModeEnabled={Boolean(focusModeEnabled)}
-            onExitFocusMode={onExitFocusMode}
-          />
+          {isMainChatPane ? (
+            <MainPaneHeader
+              serverId={normalizedServerId}
+              workspaceId={normalizedWorkspaceId}
+              target={activeTabDescriptor?.target ?? null}
+              focusModeEnabled={Boolean(focusModeEnabled)}
+              onExitFocusMode={onExitFocusMode}
+              onCopyAgentId={onCopyAgentId}
+              onCopyResumeCommand={onCopyResumeCommand}
+              onReloadAgent={onReloadAgent}
+            />
+          ) : (
+            <WorkspaceDesktopTabsRow
+              paneId={pane.id}
+              isFocused={isFocused && isWorkspaceFocused}
+              tabs={desktopTabRowItems}
+              normalizedServerId={normalizedServerId}
+              normalizedWorkspaceId={normalizedWorkspaceId}
+              setHoveredCloseTabKey={setHoveredCloseTabKey}
+              onNavigateTab={onNavigateTab}
+              onCloseTab={onCloseTab}
+              onCopyResumeCommand={onCopyResumeCommand}
+              onCopyAgentId={onCopyAgentId}
+              onCopyTerminalId={onCopyTerminalId}
+              onCopyFilePath={onCopyFilePath}
+              onReloadAgent={onReloadAgent}
+              onRenameTab={onRenameTab}
+              onCloseTabsToLeft={handleCloseTabsToLeft}
+              onCloseTabsToRight={handleCloseTabsToRight}
+              onCloseOtherTabs={handleCloseOtherTabs}
+              onCreateNewTab={onCreateNewTab}
+              onReorderTabs={handleReorderTabs}
+              externalDndContext
+              activeDragTabId={activeDragTabId}
+              tabDropPreviewIndex={
+                tabDropPreview?.paneId === pane.id ? tabDropPreview.indicatorIndex : null
+              }
+              showPaneMaximizeAction={workspaceHasMultiplePanes && !focusModeEnabled}
+              paneMaximized={paneId === maximizedPaneId}
+              onTogglePaneMaximized={handleTogglePaneMaximized}
+              focusModeEnabled={Boolean(focusModeEnabled)}
+              onExitFocusMode={onExitFocusMode}
+            />
+          )}
         </WindowChromeSafeArea>
 
         <View style={styles.paneContent}>

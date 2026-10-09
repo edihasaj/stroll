@@ -173,7 +173,7 @@ describe("workspace subagents integration", () => {
     ).toEqual(["child-agent"]);
   });
 
-  it("moves a detached child out of the parent section and back into normal workspace tabs", () => {
+  it("moves a detached child out of the parent section and into the workspace chats", () => {
     const workspaceKey = buildWorkspaceTabPersistenceKey({
       serverId: SERVER_ID,
       workspaceId: WORKSPACE_ID,
@@ -208,10 +208,9 @@ describe("workspace subagents integration", () => {
     appendAgent({ ...child, parentAgentId: null, labels: {} });
     reconcileWorkspaceTabs(workspaceKey!, deriveVisibilityFromSession());
 
-    expect(getWorkspaceAgentTabIds(workspaceKey!)).toEqual([
-      "agent_parent-agent",
-      "agent_child-agent",
-    ]);
+    // The detached child is a root chat now, listed in the sidebar. The main view already shows
+    // the parent, and it holds one chat, so reconcile adds no second tab.
+    expect(getWorkspaceAgentTabIds(workspaceKey!)).toEqual(["agent_parent-agent"]);
     expect(
       selectSubagentsForParent(
         useSessionStore.getState(),
@@ -258,7 +257,7 @@ describe("workspace subagents integration", () => {
     ).toEqual([child.id]);
   });
 
-  it("opens a subagent in Explorer when Explorer is preferred", () => {
+  it("opens a managed subagent in the main view in place of its parent, even when Explorer is asked for", () => {
     const workspaceKey = buildWorkspaceTabPersistenceKey({
       serverId: SERVER_ID,
       workspaceId: WORKSPACE_ID,
@@ -288,13 +287,10 @@ describe("workspace subagents integration", () => {
       placement: { mode: "prefer", paneId },
     });
 
-    const state = useWorkspaceLayoutStore.getState();
-    const layout = state.layoutByWorkspace[workspaceKey!];
-    const explorerSidebarPaneId = state.explorerSidebarPaneIdByWorkspace[workspaceKey!];
+    const layout = useWorkspaceLayoutStore.getState().layoutByWorkspace[workspaceKey!];
 
-    expect(explorerSidebarPaneId).toBeTruthy();
-    expect(findPaneContainingTab(layout.root, tabId!)?.id).toBe(explorerSidebarPaneId);
-    expect(findPaneById(layout.root, explorerSidebarPaneId!)?.hidden).toBeUndefined();
+    expect(findPaneContainingTab(layout.root, tabId!)?.id).toBe("main");
+    expect(getWorkspaceAgentTabIds(workspaceKey!)).toEqual(["agent_child-agent"]);
     expect(layout.focusedPaneId).toBe("main");
   });
 

@@ -29,6 +29,7 @@ export interface ChatPaneHeaderProps {
   agentId: string;
   onCopyAgentId: (agentId: string) => Promise<void> | void;
   onCopyResumeCommand: (agentId: string) => Promise<void> | void;
+  onReloadAgent: (agentId: string) => Promise<void> | void;
 }
 
 function triggerStyle({ hovered = false }: PressableStateCallbackType & { hovered?: boolean }) {
@@ -54,6 +55,7 @@ export const ChatPaneHeader = memo(function ChatPaneHeader({
   agentId,
   onCopyAgentId,
   onCopyResumeCommand,
+  onReloadAgent,
 }: ChatPaneHeaderProps): ReactElement {
   const { t } = useTranslation();
   const provider = useSessionStore(
@@ -85,11 +87,12 @@ export const ChatPaneHeader = memo(function ChatPaneHeader({
         actions: {
           onCopyResumeCommand: () => void onCopyResumeCommand(agentId),
           onCopyAgentId: () => void onCopyAgentId(agentId),
+          onReload: () => void onReloadAgent(agentId),
           onArchive: () => void archiveChat(agentId),
           onDelete: () => void deleteChat({ agentId }),
         },
       }),
-    [agentId, archiveChat, deleteChat, labels, onCopyAgentId, onCopyResumeCommand],
+    [agentId, archiveChat, deleteChat, labels, onCopyAgentId, onCopyResumeCommand, onReloadAgent],
   );
 
   return (
@@ -143,7 +146,8 @@ export const ChatPaneHeader = memo(function ChatPaneHeader({
 
 const styles = StyleSheet.create((theme) => ({
   container: {
-    minHeight: 40,
+    flex: 1,
+    minWidth: 0,
     paddingHorizontal: theme.spacing[3],
     flexDirection: "row",
     alignItems: "center",

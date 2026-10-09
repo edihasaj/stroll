@@ -1,4 +1,12 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const layoutMock = vi.hoisted(() => ({ compact: false }));
+
+vi.mock("@/constants/layout", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/constants/layout")>()),
+  getIsCompactFormFactor: () => layoutMock.compact,
+}));
+
 import { DEFAULT_OPEN_IN_SIDE_PANE_PREFERENCES } from "@/hooks/use-settings/storage";
 import {
   collectAllPanes,
@@ -36,6 +44,7 @@ function ordinaryPaneIds(): string[] {
 }
 
 beforeEach(() => {
+  layoutMock.compact = false;
   useWorkspaceLayoutStore.setState({
     layoutByWorkspace: {},
     explorerSidebarPaneIdByWorkspace: {},
@@ -44,7 +53,7 @@ beforeEach(() => {
   });
 });
 
-describe("browser opens and the side pane preference", () => {
+describe("browser opens beside the chat", () => {
   it("opens a browser tab in the side pane when the preference is on", () => {
     openPreferredWorkspaceTarget({
       isCompact: false,
@@ -74,7 +83,7 @@ describe("browser opens and the side pane preference", () => {
     expect(ordinaryPaneIds()).toHaveLength(2);
   });
 
-  it("opens a browser tab in the main pane when the preference is off", () => {
+  it("opens a browser tab in the side pane even when the preference is off", () => {
     openPreferredWorkspaceTarget({
       isCompact: false,
       workspaceKey: WORKSPACE_KEY,
@@ -83,11 +92,13 @@ describe("browser opens and the side pane preference", () => {
       preferences: BROWSER_IN_MAIN,
     });
 
-    expect(paneHoldingBrowser()).toBe(DEFAULT_PANE_ID);
-    expect(ordinaryPaneIds()).toEqual([DEFAULT_PANE_ID]);
+    const sidePaneId = useWorkspaceLayoutStore.getState().sidePaneIdByWorkspace[WORKSPACE_KEY];
+    expect(sidePaneId).toBeTruthy();
+    expect(paneHoldingBrowser()).toBe(sidePaneId);
   });
 
   it("never opens a side pane on a compact layout", () => {
+    layoutMock.compact = true;
     openPreferredWorkspaceTarget({
       isCompact: true,
       workspaceKey: WORKSPACE_KEY,
@@ -117,17 +128,18 @@ describe("resolvePreferredSidePanePlacement", () => {
     expect(placement).toEqual({ mode: "prefer", paneId: sidePaneId });
   });
 
-  it("leaves the layout alone when the preference is off", () => {
+  it("returns the side pane even when the preference is off", () => {
     const placement = resolvePreferredSidePanePlacement({
       ...input,
       preferences: BROWSER_IN_MAIN,
     });
 
-    expect(placement).toBeUndefined();
-    expect(useWorkspaceLayoutStore.getState().layoutByWorkspace[WORKSPACE_KEY]).toBeUndefined();
+    const sidePaneId = useWorkspaceLayoutStore.getState().sidePaneIdByWorkspace[WORKSPACE_KEY];
+    expect(placement).toEqual({ mode: "prefer", paneId: sidePaneId });
   });
 
   it("leaves the layout alone on a compact layout", () => {
+    layoutMock.compact = true;
     const placement = resolvePreferredSidePanePlacement({ ...input, isCompact: true });
 
     expect(placement).toBeUndefined();

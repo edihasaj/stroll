@@ -152,18 +152,20 @@ describe("openWorkspacePullRequest", () => {
     expect(explorerPane?.hidden).not.toBe(true);
   });
 
-  it("opens PRs in the main panel when configured", () => {
+  it("opens PRs beside the chat when the saved preference is the main panel", () => {
     openWorkspacePullRequest({ ...input, destination: "main" });
 
     const state = useWorkspaceLayoutStore.getState();
     const layout = state.layoutByWorkspace[WORKSPACE_KEY];
-    const mainPane = layout ? findPaneById(layout.root, layout.focusedPaneId) : null;
+    const sidePaneId = state.sidePaneIdByWorkspace[WORKSPACE_KEY];
+    const sidePane = layout && sidePaneId ? findPaneById(layout.root, sidePaneId) : null;
+    const mainPane = layout ? findPaneById(layout.root, "main") : null;
     const pullRequestTab = layout
       ? collectAllTabs(layout.root).find((tab) => tab.target.kind === "pull_request")
       : null;
 
-    expect(mainPane?.tabIds).toContain(pullRequestTab?.tabId);
-    expect(state.sidePaneIdByWorkspace[WORKSPACE_KEY]).toBeUndefined();
+    expect(sidePane?.tabIds).toContain(pullRequestTab?.tabId);
+    expect(mainPane?.tabIds).not.toContain(pullRequestTab?.tabId);
   });
 
   it("opens PRs in the side panel when configured", () => {
@@ -220,36 +222,50 @@ describe("autoOpenWorkspacePullRequest", () => {
 });
 
 describe("automatic PR placement", () => {
-  it.each(["main", "side"] as const)(
-    "silently appends to the configured %s pane",
-    (destination) => {
-      const store = useWorkspaceLayoutStore.getState();
-      store.openTab({
-        workspaceKey: WORKSPACE_KEY,
-        target: { kind: "agent", agentId: "agent-1" },
-        intent: "reveal",
-      });
-      const paneId = destination === "main" ? "main" : store.ensureSidePane(WORKSPACE_KEY)!;
-      store.openTab({
-        workspaceKey: WORKSPACE_KEY,
-        target: { kind: "terminal", terminalId: "terminal-1" },
-        intent: "background",
-        placement: { mode: "prefer", paneId },
-      });
-      const before = useWorkspaceLayoutStore.getState().layoutByWorkspace[WORKSPACE_KEY];
-      autoOpenWorkspacePullRequest({ workspaceKey: WORKSPACE_KEY, destination });
-      const after = useWorkspaceLayoutStore.getState().layoutByWorkspace[WORKSPACE_KEY];
-      expect(findPaneById(after.root, paneId)!.tabIds).toEqual([
-        ...findPaneById(before.root, paneId)!.tabIds,
-        "pull_request",
-      ]);
-      expect(findPaneById(after.root, paneId)!.focusedTabId).toBe(
-        findPaneById(before.root, paneId)!.focusedTabId,
-      );
-      expect(after.focusedPaneId).toBe(before.focusedPaneId);
-      expect(findPaneById(after.root, "explorer")!.hidden).toBe(true);
-    },
-  );
+  it("silently appends to the side pane", () => {
+    const store = useWorkspaceLayoutStore.getState();
+    store.openTab({
+      workspaceKey: WORKSPACE_KEY,
+      target: { kind: "agent", agentId: "agent-1" },
+      intent: "reveal",
+    });
+    const paneId = store.ensureSidePane(WORKSPACE_KEY)!;
+    store.openTab({
+      workspaceKey: WORKSPACE_KEY,
+      target: { kind: "terminal", terminalId: "terminal-1" },
+      intent: "background",
+      placement: { mode: "prefer", paneId },
+    });
+    const before = useWorkspaceLayoutStore.getState().layoutByWorkspace[WORKSPACE_KEY];
+    autoOpenWorkspacePullRequest({ workspaceKey: WORKSPACE_KEY, destination: "side" });
+    const after = useWorkspaceLayoutStore.getState().layoutByWorkspace[WORKSPACE_KEY];
+    expect(findPaneById(after.root, paneId)!.tabIds).toEqual([
+      ...findPaneById(before.root, paneId)!.tabIds,
+      "pull_request",
+    ]);
+    expect(findPaneById(after.root, paneId)!.focusedTabId).toBe(
+      findPaneById(before.root, paneId)!.focusedTabId,
+    );
+    expect(after.focusedPaneId).toBe(before.focusedPaneId);
+    expect(findPaneById(after.root, "explorer")!.hidden).toBe(true);
+  });
+
+  it("appends a saved main-panel preference to the side pane, never to the chat", () => {
+    const store = useWorkspaceLayoutStore.getState();
+    store.openTab({
+      workspaceKey: WORKSPACE_KEY,
+      target: { kind: "agent", agentId: "agent-1" },
+      intent: "reveal",
+    });
+    autoOpenWorkspacePullRequest({ workspaceKey: WORKSPACE_KEY, destination: "main" });
+    const state = useWorkspaceLayoutStore.getState();
+    const layout = state.layoutByWorkspace[WORKSPACE_KEY];
+    expect(findPaneById(layout.root, "main")!.tabIds).toEqual(["agent_agent-1"]);
+    expect(findPaneById(layout.root, state.sidePaneIdByWorkspace[WORKSPACE_KEY])!.tabIds).toEqual([
+      "pull_request",
+    ]);
+    expect(layout.focusedPaneId).toBe("main");
+  });
 
   it("creates a side pane without stealing workspace focus", () => {
     const store = useWorkspaceLayoutStore.getState();
@@ -268,7 +284,7 @@ describe("automatic PR placement", () => {
   });
 
   it.each(["main", "side", "explorer"] as const)(
-    "leaves a manually moved PR in main when detection prefers %s",
+    "leaves a manually moved PR in the side pane when detection prefers %s",
     (destination) => {
       const store = useWorkspaceLayoutStore.getState();
       store.openTab({
@@ -277,13 +293,11 @@ describe("automatic PR placement", () => {
         intent: "background",
         placement: { mode: "prefer", paneId: "explorer" },
       });
-      store.moveTabToPane(WORKSPACE_KEY, "pull_request", "main");
+      const sidePaneId = store.ensureSidePane(WORKSPACE_KEY, { focus: false })!;
+      store.moveTabToPane(WORKSPACE_KEY, "pull_request", sidePaneId);
       const before = useWorkspaceLayoutStore.getState().layoutByWorkspace[WORKSPACE_KEY];
       autoOpenWorkspacePullRequest({ workspaceKey: WORKSPACE_KEY, destination });
       expect(useWorkspaceLayoutStore.getState().layoutByWorkspace[WORKSPACE_KEY]).toEqual(before);
-      expect(
-        useWorkspaceLayoutStore.getState().sidePaneIdByWorkspace[WORKSPACE_KEY],
-      ).toBeUndefined();
       store.closeTab(WORKSPACE_KEY, "pull_request");
       autoOpenWorkspacePullRequest({ workspaceKey: WORKSPACE_KEY, destination });
       expect(
@@ -291,9 +305,6 @@ describe("automatic PR placement", () => {
           useWorkspaceLayoutStore.getState().layoutByWorkspace[WORKSPACE_KEY].root,
         ).map((tab) => tab.target.kind),
       ).not.toContain("pull_request");
-      expect(
-        useWorkspaceLayoutStore.getState().sidePaneIdByWorkspace[WORKSPACE_KEY],
-      ).toBeUndefined();
     },
   );
 

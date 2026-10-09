@@ -4631,6 +4631,29 @@ describe("single-chat main", () => {
     expect(store.getState().sidePaneIdByWorkspace[workspaceKey]).toBeUndefined();
   });
 
+  it("reveals a target that already has a tab without creating a side pane", () => {
+    const workspaceKey = createWorkspaceKey();
+    const store = createSingleChatStore();
+    store
+      .getState()
+      .openTab({ workspaceKey, target: { kind: "agent", agentId: "chat-a" }, intent: "reveal" });
+    store.getState().openTab({
+      workspaceKey,
+      target: { kind: "pull_request" },
+      intent: "background",
+      placement: { mode: "prefer", paneId: "explorer" },
+    });
+
+    store.getState().openTab({
+      workspaceKey,
+      target: { kind: "pull_request" },
+      intent: "background",
+    });
+
+    expect(store.getState().sidePaneIdByWorkspace[workspaceKey]).toBeUndefined();
+    expect(paneTargets(store, "explorer")).toEqual(["files", "changes_tree", "pull_request"]);
+  });
+
   it("adds one chat on reconcile only while main has none", () => {
     const workspaceKey = createWorkspaceKey();
     const store = createSingleChatStore();

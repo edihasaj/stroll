@@ -2,7 +2,7 @@ import { useMemo, type ReactElement } from "react";
 import { Text } from "react-native";
 import { useTranslation } from "react-i18next";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
-import { Archive, Copy, Pencil, Trash2 } from "lucide-react-native";
+import { Archive, Copy, Pencil, RotateCw, Trash2 } from "lucide-react-native";
 import { DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import type { ChatMenuLabels } from "@/screens/workspace/chat-menu";
 import type { WorkspaceTabMenuEntry } from "@/screens/workspace/workspace-tab-menu";
@@ -11,6 +11,7 @@ import type { Theme } from "@/styles/theme";
 const ThemedArchive = withUnistyles(Archive);
 const ThemedCopy = withUnistyles(Copy);
 const ThemedPencil = withUnistyles(Pencil);
+const ThemedRotateCw = withUnistyles(RotateCw);
 const ThemedTrash2 = withUnistyles(Trash2);
 
 const mutedColorMapping = (theme: Theme) => ({ color: theme.colors.foregroundMuted });
@@ -27,6 +28,7 @@ export function useChatMenuLabels(): ChatMenuLabels {
       rename: t("workspace.tabs.menu.rename"),
       copyResumeCommand: t("workspace.tabs.menu.copyResumeCommand"),
       copyAgentId: t("workspace.tabs.menu.copyAgentId"),
+      reloadAgent: t("workspace.tabs.menu.reloadAgent"),
       archiveChat: t("workspace.tabs.menu.archiveChat"),
       deleteChat: t("workspace.tabs.menu.deleteChat"),
     }),
@@ -41,6 +43,8 @@ function ChatMenuItem({ entry }: { entry: ChatMenuItemEntry }): ReactElement {
         return <ThemedCopy size={ICON_SIZE} uniProps={mutedColorMapping} />;
       case "pencil":
         return <ThemedPencil size={ICON_SIZE} uniProps={mutedColorMapping} />;
+      case "rotate-cw":
+        return <ThemedRotateCw size={ICON_SIZE} uniProps={mutedColorMapping} />;
       case "archive":
         return <ThemedArchive size={ICON_SIZE} uniProps={mutedColorMapping} />;
       case "trash":

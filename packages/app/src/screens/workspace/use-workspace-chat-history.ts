@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import { useKeyboardActionHandler } from "@/hooks/use-keyboard-action-handler";
 import { buildWorkspaceKeyboardHandlerId } from "@/keyboard/handler-id";
 import type { KeyboardActionDefinition } from "@/keyboard/keyboard-action-dispatcher";
@@ -8,6 +8,34 @@ import {
   type ChatHistoryEntry,
 } from "@/stores/workspace-chat-history-store";
 import { navigateToAgent } from "@/utils/navigate-to-agent";
+import type { WorkspaceLayout } from "@/stores/workspace-layout-actions";
+import type { WorkspaceTab } from "@/workspace-tabs/model";
+import { resolveMainPane, useIsSingleChatMain } from "@/workspace-tabs/single-chat";
+
+interface HistoryAgentIdInput {
+  layout: WorkspaceLayout | null;
+  tabs: readonly WorkspaceTab[];
+  explorerSidebarPaneId: string | null;
+  /** The chat in the focused pane; stands in where the main view still holds several tabs. */
+  focusedPaneAgentId: string | null;
+}
+
+/**
+ * The chat to record in the history. With one chat in the main view that is the main pane's chat,
+ * even while the side pane has focus; otherwise it is the focused pane's chat.
+ */
+export function useHistoryAgentId(input: HistoryAgentIdInput): string | null {
+  const { layout, tabs, explorerSidebarPaneId, focusedPaneAgentId } = input;
+  const isSingleChatMain = useIsSingleChatMain();
+  return useMemo(() => {
+    if (!isSingleChatMain) {
+      return focusedPaneAgentId;
+    }
+    const mainPane = layout ? resolveMainPane(layout.root, explorerSidebarPaneId) : null;
+    const mainTab = tabs.find((tab) => tab.tabId === mainPane?.focusedTabId);
+    return mainTab?.target.kind === "agent" ? mainTab.target.agentId : null;
+  }, [explorerSidebarPaneId, focusedPaneAgentId, isSingleChatMain, layout, tabs]);
+}
 
 interface UseWorkspaceChatHistoryInput {
   serverId: string;

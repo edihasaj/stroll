@@ -1,4 +1,12 @@
-import { beforeEach, describe, expect, test } from "vitest";
+import { beforeEach, describe, expect, test, vi } from "vitest";
+
+const layoutMock = vi.hoisted(() => ({ compact: false }));
+
+vi.mock("@/constants/layout", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/constants/layout")>()),
+  getIsCompactFormFactor: () => layoutMock.compact,
+}));
+
 import type { SessionInboundMessage, SessionOutboundMessage } from "@getpaseo/protocol/messages";
 import { createJSONStorage, type StateStorage } from "zustand/middleware";
 import { mountBrowserAutomationHandler, type BrowserTabPlacementSource } from "./handler";
@@ -293,6 +301,7 @@ useWorkspaceLayoutStore.persist.setOptions({
 
 describe("mountBrowserAutomationHandler", () => {
   beforeEach(() => {
+    layoutMock.compact = false;
     browserAutomationStorage.clear();
     useBrowserStore.setState({ browsersById: {} });
     useWorkspaceLayoutStore.setState({ layoutByWorkspace: {}, sidePaneIdByWorkspace: {} });
@@ -360,10 +369,7 @@ describe("mountBrowserAutomationHandler", () => {
     ]);
   });
 
-  test.each([
-    ["the side pane preference is off", { browserInSidePane: false }],
-    ["the layout is compact", { browserInSidePane: true, compact: true }],
-  ])("browser_new_tab opens the tab in the main pane when %s", async (_name, placement) => {
+  test("browser_new_tab opens the tab in the side pane even when the side pane preference is off", async () => {
     const browser = new BrowserAutomationHandlerHarness();
     const workspaceKey = buildWorkspaceTabPersistenceKey({
       serverId: "server-1",
@@ -377,7 +383,45 @@ describe("mountBrowserAutomationHandler", () => {
       target: { kind: "draft", draftId: "human-draft" },
       intent: "reveal",
     });
-    browser.mount({ serverId: "server-1", tabPlacement: tabPlacementFor(placement) });
+    browser.mount({
+      serverId: "server-1",
+      tabPlacement: tabPlacementFor({ browserInSidePane: false }),
+    });
+
+    browser.receive(browserNewTabRequest());
+    await flushAsyncWork();
+
+    const result = newTabResultFrom(browser.client.payloadAt(0));
+    const openedTabs = workspaceBrowserTabs(workspaceKey, result.browserId);
+    const state = useWorkspaceLayoutStore.getState();
+    const layout = state.layoutByWorkspace[workspaceKey];
+    const sidePaneId = state.sidePaneIdByWorkspace[workspaceKey];
+    if (!layout || !sidePaneId) {
+      throw new Error("Expected a workspace layout with a side pane");
+    }
+    expect(findPaneById(layout.root, sidePaneId)?.tabIds).toContain(openedTabs[0]?.tabId);
+    expect(findPaneById(layout.root, "main")?.focusedTabId).toBe(previousFocusedTabId);
+  });
+
+  test("browser_new_tab opens the tab in the main pane when the layout is compact", async () => {
+    layoutMock.compact = true;
+    const browser = new BrowserAutomationHandlerHarness();
+    const workspaceKey = buildWorkspaceTabPersistenceKey({
+      serverId: "server-1",
+      workspaceId: "wks_workspace_a",
+    });
+    if (!workspaceKey) {
+      throw new Error("Expected workspace key");
+    }
+    const previousFocusedTabId = useWorkspaceLayoutStore.getState().openTab({
+      workspaceKey: workspaceKey,
+      target: { kind: "draft", draftId: "human-draft" },
+      intent: "reveal",
+    });
+    browser.mount({
+      serverId: "server-1",
+      tabPlacement: tabPlacementFor({ browserInSidePane: true, compact: true }),
+    });
 
     browser.receive(browserNewTabRequest());
     await flushAsyncWork();
@@ -389,10 +433,6 @@ describe("mountBrowserAutomationHandler", () => {
     if (!layout) {
       throw new Error("Expected workspace layout");
     }
-    // Workspaces keep a stable hidden explorer companion pane at the root
-    // (see "retain workspace explorer pane"), so the root is a group and the
-    // draft/browser tabs land in the "main" pane, not at the root directly.
-    expect(layout.root.kind).toBe("group");
     expect(findPaneById(layout.root, "main")).toEqual(
       expect.objectContaining({
         focusedTabId: previousFocusedTabId,

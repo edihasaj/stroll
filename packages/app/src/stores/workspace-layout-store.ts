@@ -57,7 +57,7 @@ import {
   type WorkspaceTabSnapshot,
   type WorkspaceLayout,
 } from "@/stores/workspace-layout-actions";
-import { normalizeWorkspaceTabTarget } from "@/workspace-tabs/identity";
+import { normalizeWorkspaceTabTarget, workspaceTabTargetsEqual } from "@/workspace-tabs/identity";
 import { createValidatedPersistStorage } from "@/storage/validated-persist-storage";
 import { panelTargetSupportsHostForWorkspaceKey } from "@/plugins/workspace-panels/locations";
 import { getIsCompactFormFactor, supportsDesktopPaneSplits } from "@/constants/layout";
@@ -572,6 +572,7 @@ function getOpenTabPlacement(
   target: WorkspaceTabTarget,
   placement: WorkspaceTabPlacement | undefined,
   singleChatMain: boolean,
+  opensNewInstance: boolean,
 ): OpenTabPlacement | null {
   const layout = getWorkspaceLayout(state.layoutByWorkspace, workspaceKey);
   const explorerSidebarPaneId = resolveExplorerSidebarPaneId(
@@ -587,8 +588,17 @@ function getOpenTabPlacement(
       explorerPaneId: explorerSidebarPaneId,
       supportsExplorer: panelTargetSupportsHostForWorkspaceKey(workspaceKey, target, "explorer"),
     });
-    return singleChatPlacement
-      ? { layout, placement: singleChatPlacement, explorerSidebarPaneId, singleChatMain }
+    if (singleChatPlacement) {
+      return { layout, placement: singleChatPlacement, explorerSidebarPaneId, singleChatMain };
+    }
+    // No side pane yet. Opening a target that already has a tab only reveals it where it is, so
+    // it must not conjure an empty side pane.
+    const revealsExistingTab =
+      !opensNewInstance &&
+      requestedPlacement.mode !== "pane" &&
+      collectAllTabs(layout.root).some((tab) => workspaceTabTargetsEqual(tab.target, target));
+    return revealsExistingTab
+      ? { layout, placement: requestedPlacement, explorerSidebarPaneId, singleChatMain }
       : null;
   }
   const supportsPane = (pane: SplitPane) =>
@@ -771,6 +781,7 @@ export function createWorkspaceLayoutStore(
             normalizedTarget,
             input.placement,
             singleChatMain,
+            input.intent === "new",
           );
           if (!placement) {
             get().ensureSidePane(normalizedWorkspaceKey, { focus: false });
@@ -780,6 +791,7 @@ export function createWorkspaceLayoutStore(
               normalizedTarget,
               input.placement,
               singleChatMain,
+              input.intent === "new",
             );
           }
           if (!placement) {
