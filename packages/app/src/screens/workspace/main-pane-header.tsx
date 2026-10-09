@@ -1,11 +1,24 @@
-import { memo, type ReactElement } from "react";
+import { memo, useCallback, useMemo, type ReactElement } from "react";
 import { Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
-import { StyleSheet } from "react-native-unistyles";
+import { SquarePen } from "lucide-react-native";
+import { StyleSheet, withUnistyles } from "react-native-unistyles";
+import { ToolbarButton, ToolbarControls } from "@/components/ui/pane-content-toolbar";
 import { WORKSPACE_SECONDARY_HEADER_HEIGHT } from "@/constants/layout";
+import { useShortcutKeys } from "@/hooks/use-shortcut-keys";
 import { ChatPaneHeader } from "@/screens/workspace/chat-pane-header";
-import { WorkspaceExitFocusModeButton } from "@/screens/workspace/workspace-desktop-tabs-row";
-import type { WorkspaceTabTarget } from "@/workspace-tabs/model";
+import {
+  WorkspaceExitFocusModeButton,
+  WorkspaceNewTabButton,
+} from "@/screens/workspace/workspace-desktop-tabs-row";
+import type { Theme } from "@/styles/theme";
+import { generateDraftId } from "@/stores/draft-keys";
+import { useWorkspaceLayoutStore } from "@/stores/workspace-layout-store";
+import { buildWorkspaceTabPersistenceKey, type WorkspaceTabTarget } from "@/workspace-tabs/model";
+
+const ThemedSquarePen = withUnistyles(SquarePen);
+const extraMutedColorMapping = (theme: Theme) => ({ color: theme.colors.foregroundExtraMuted });
+const NO_PANEL_KINDS: readonly WorkspaceTabTarget["kind"][] = [];
 
 export interface MainPaneHeaderProps {
   serverId: string;
@@ -35,6 +48,22 @@ export const MainPaneHeader = memo(function MainPaneHeader({
   onReloadAgent,
 }: MainPaneHeaderProps): ReactElement {
   const { t } = useTranslation();
+  const newChatKeys = useShortcutKeys("workspace-tab-target-agent");
+  const handleCreateChat = useCallback(() => {
+    const workspaceKey = buildWorkspaceTabPersistenceKey({ serverId, workspaceId });
+    if (!workspaceKey) {
+      return;
+    }
+    useWorkspaceLayoutStore.getState().openTab({
+      workspaceKey,
+      target: { kind: "draft", draftId: generateDraftId() },
+      intent: "reveal",
+    });
+  }, [serverId, workspaceId]);
+  const draftDataSet = useMemo(
+    () => ({ draftId: target?.kind === "draft" ? target.draftId : undefined }),
+    [target],
+  );
   return (
     <View style={styles.container} testID="main-pane-header">
       <WorkspaceExitFocusModeButton visible={focusModeEnabled} onPress={onExitFocusMode} />
@@ -48,12 +77,30 @@ export const MainPaneHeader = memo(function MainPaneHeader({
           onReloadAgent={onReloadAgent}
         />
       ) : (
-        <View style={styles.draftTitle} testID="main-pane-draft-header">
+        <View style={styles.draftTitle} testID="main-pane-draft-header" dataSet={draftDataSet}>
           <Text style={styles.title} numberOfLines={1}>
             {t("sidebar.workspace.chats.untitled")}
           </Text>
         </View>
       )}
+      <ToolbarControls style={styles.toolbar}>
+        <ToolbarButton
+          label={t("workspace.header.actions.newAgent")}
+          shortcut={newChatKeys}
+          testID="main-pane-new-chat"
+          onPress={handleCreateChat}
+        >
+          <ThemedSquarePen size={14} uniProps={extraMutedColorMapping} />
+        </ToolbarButton>
+        <WorkspaceNewTabButton
+          panePanelKinds={NO_PANEL_KINDS}
+          host="main"
+          launchPurpose="primary"
+          placement="toolbar"
+          serverId={serverId}
+          shortcutKeys={null}
+        />
+      </ToolbarControls>
     </View>
   );
 });
@@ -72,6 +119,10 @@ const styles = StyleSheet.create((theme) => ({
     flex: 1,
     minWidth: 0,
     paddingHorizontal: theme.spacing[4],
+  },
+  toolbar: {
+    paddingHorizontal: theme.spacing[1],
+    marginRight: theme.spacing[1],
   },
   title: {
     color: theme.colors.foregroundMuted,

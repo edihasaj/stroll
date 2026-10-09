@@ -65,6 +65,7 @@ export const ChatPaneHeader = memo(function ChatPaneHeader({
     (state) => state.sessions[serverId]?.agents.get(agentId)?.title ?? null,
   );
   const ProviderIcon = useProviderIcon(provider, serverId);
+  const dataSet = useMemo(() => ({ agentId }), [agentId]);
   const title = resolveChatTitle(rawTitle);
   const [isRenaming, setIsRenaming] = useState(false);
   const renameChat = useRenameChat(serverId);
@@ -96,7 +97,7 @@ export const ChatPaneHeader = memo(function ChatPaneHeader({
   );
 
   return (
-    <View style={styles.container} testID="chat-pane-header">
+    <View style={styles.container} testID="chat-pane-header" dataSet={dataSet}>
       <ProviderIcon size={16} color={styles.providerIcon.color} />
       <Pressable
         accessibilityRole={isWeb ? undefined : "button"}

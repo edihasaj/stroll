@@ -219,7 +219,7 @@ interface WorkspaceNewTabButtonProps {
   placement: "inline" | "toolbar";
 }
 
-function WorkspaceNewTabButton({
+export function WorkspaceNewTabButton({
   panePanelKinds,
   host,
   launchPurpose,
