@@ -5,7 +5,7 @@ import { EditorView } from "@codemirror/view";
 import { getLanguageForFile } from "@getpaseo/highlight";
 import type { WorkspaceFileLocation } from "@/workspace/file-open";
 import type { EditorVisualTheme } from "../editor/extensions.web";
-import { editorTheme } from "../editor/extensions.web";
+import { editorTheme, releaseSelectionOnBlur } from "../editor/extensions.web";
 import { selectSourcePresentation, type SourcePresentation } from "./presentation";
 
 interface FileSourceViewProps {
@@ -74,6 +74,7 @@ function ReadonlyCodeMirror({
         doc: values.content,
         extensions: [
           find.extension,
+          releaseSelectionOnBlur,
           EditorState.readOnly.of(true),
           EditorView.contentAttributes.of({
             tabindex: "0",

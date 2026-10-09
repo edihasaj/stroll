@@ -27,8 +27,24 @@ export interface EditorVisualTheme {
   syntax: Record<HighlightStyle, string>;
 }
 
+/**
+ * Drops the browser's text selection once focus leaves the editor for another page element.
+ *
+ * Moving focus out of a contenteditable fires `selectionchange` while the pointer is still down.
+ * React Native Web terminates the active press on that event whenever any text is selected, so a
+ * selection left in the editor (a Find match, a range the user made) swallowed the next click on
+ * an Explorer row or tab. CodeMirror keeps the selection in its own state and writes it back to
+ * the DOM when the editor regains focus. A blur caused by the window losing focus keeps it.
+ */
+export const releaseSelectionOnBlur = EditorView.domEventHandlers({
+  blur: () => {
+    if (document.hasFocus()) window.getSelection()?.removeAllRanges();
+  },
+});
+
 export function editorBaseExtensions(onSave: () => void) {
   return [
+    releaseSelectionOnBlur,
     lineNumbers(),
     history(),
     drawSelection(),

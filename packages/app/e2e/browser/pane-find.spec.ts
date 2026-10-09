@@ -205,6 +205,43 @@ test("targets the visible source after another file replaces it and refocuses an
   await page.screenshot({ path: testInfo.outputPath("switch-find.png") });
 });
 
+test("opens another Explorer file while source text is selected", async ({
+  page,
+  withWorkspace,
+}) => {
+  const workspace = await withWorkspace({ prefix: "pane-find-selected-" });
+  await writeFile(path.join(workspace.repoPath, "left.txt"), "left needle\n");
+  await writeFile(path.join(workspace.repoPath, "right.txt"), "right needle\n");
+  await workspace.navigateTo();
+  await openSource(page, "left.txt");
+  await source(page).focus();
+  await source(page).press("Control+Home");
+  await source(page).press("Shift+End");
+
+  await openFileFromExplorer(page, "right.txt");
+
+  await expect(source(page).filter({ hasText: "right needle" })).toBeVisible();
+});
+
+test("opens another Explorer file after a query was typed and Find was closed", async ({
+  page,
+  withWorkspace,
+}) => {
+  const workspace = await withWorkspace({ prefix: "pane-find-after-close-" });
+  await writeFile(path.join(workspace.repoPath, "left.txt"), "left needle\n");
+  await writeFile(path.join(workspace.repoPath, "right.txt"), "right needle\n");
+  await workspace.navigateTo();
+  await openSource(page, "left.txt");
+  await findInSource(page, "needle");
+  await expect(status(page)).toHaveText("1 of 1");
+  await closeFind(page);
+  await expect(query(page)).toBeHidden();
+
+  await openFileFromExplorer(page, "right.txt");
+
+  await expect(source(page).filter({ hasText: "right needle" })).toBeVisible();
+});
+
 test.describe("narrow touch browser", () => {
   test.use({ hasTouch: true });
   test("keeps Find controls inside a narrow source pane", async ({
