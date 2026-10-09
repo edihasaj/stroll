@@ -2,11 +2,11 @@ import { expect, type Page } from "@playwright/test";
 import { buildHostWorkspaceRoute } from "../../../src/utils/host-routes";
 import { createTempGitRepo } from "./workspace";
 import { getServerId } from "./server-id";
-import { createAgentTabFromMenu } from "./workspace-tabs";
+import { createAgentTabFromMenu, expectMainChat } from "./workspace-tabs";
 
 // ─── Navigation ────────────────────────────────────────────────────────────
 
-/** Navigate to a workspace and wait for the tab bar to appear. */
+/** Navigate to a workspace and wait for its main view to appear. */
 export async function gotoWorkspace(page: Page, workspaceId: string): Promise<void> {
   const route = buildHostWorkspaceRoute(getServerId(), workspaceId);
   await page.goto(route);
@@ -15,16 +15,17 @@ export async function gotoWorkspace(page: Page, workspaceId: string): Promise<vo
 
 // ─── Tab bar queries ───────────────────────────────────────────────────────
 
-/** Wait for the workspace tab bar to be visible. */
+/**
+ * Wait for the workspace to be on screen. The main view shows one chat and has no tab bar, so this
+ * waits for its header; the side pane and the Explorer keep their own tab bars.
+ */
 export async function waitForTabBar(page: Page): Promise<void> {
-  await expect(
-    page.getByTestId("workspace-tabs-row").filter({ visible: true }).first(),
-  ).toBeVisible({
+  await expect(page.getByTestId("main-pane-header").filter({ visible: true }).first()).toBeVisible({
     timeout: 30_000,
   });
 }
 
-/** Return all tab test IDs currently in the tab bar. */
+/** Return the test IDs of the tabs on screen: the side pane's and the Explorer's, never a chat's. */
 export async function getTabTestIds(page: Page): Promise<string[]> {
   const tabs = page
     .locator('[data-testid^="workspace-tab-"]:not([data-testid^="workspace-tab-context-"])')
@@ -96,12 +97,12 @@ export async function assertNewTabMenuTriggerVisible(page: Page): Promise<void> 
 
 // ─── Tab creation actions ─────────────────────────────────────────────────
 
-/** Choose Agent from the pane-local `+` menu. */
+/** Start a new chat from the main view's header. */
 export async function clickNewChat(page: Page): Promise<void> {
   await createAgentTabFromMenu(page);
 }
 
-/** Choose Terminal from the pane-local `+` menu. */
+/** Choose Terminal from the launcher menu; it opens in the side pane. */
 export async function clickNewTerminal(page: Page): Promise<void> {
   const trigger = page.getByTestId("workspace-new-tab-button").filter({ visible: true }).first();
   await expect(trigger).toBeVisible({ timeout: 10_000 });
@@ -227,13 +228,9 @@ export function terminalSurfaceLocator(page: Page) {
   return page.locator('[data-testid="terminal-surface"]').filter({ visible: true }).first();
 }
 
+/** The main view shows this chat. */
 export async function expectAgentTabActive(page: Page, agentId: string): Promise<void> {
-  const tabTestId = `workspace-tab-agent_${agentId}`;
-  await expect(page.getByTestId(tabTestId).filter({ visible: true })).toHaveAttribute(
-    "aria-selected",
-    "true",
-  );
-  await expect(getActiveTabTestId(page)).resolves.toBe(tabTestId);
+  await expectMainChat(page, agentId);
 }
 
 // ─── Workspace setup ───────────────────────────────────────────────────────

@@ -7,6 +7,7 @@ import { openWorkspaceWithAgents } from "./archive-tab";
 import { submitMessage } from "./composer";
 import type { SeedDaemonClient, SeededWorkspace } from "./seed-client";
 import { openAgentRoute } from "./mock-agent";
+import { openChatFromSidebar } from "./workspace-tabs";
 import { rememberTimelineViewport, userScrollsTimelineToHistoryStart } from "./timeline-pagination";
 
 const IMAGE_PREVIEW_ERROR = "Unable to load image preview.";
@@ -217,10 +218,8 @@ export async function sendFollowUpAndExpectVisibleResponse(
 }
 
 async function selectSettledAgentTab(page: Page, agent: ArchiveTabAgent): Promise<void> {
-  const tab = page.getByRole("button", { name: agent.title, exact: true });
-  await tab.click();
+  await openChatFromSidebar(page, agent.id);
   await expect(page).toHaveTitle(agent.title);
-  await expect(tab).toHaveAttribute("aria-selected", "true");
   await expect(page.locator('[data-testid="agent-chat-scroll"]:visible').first()).toBeVisible({
     timeout: 30_000,
   });
@@ -232,7 +231,7 @@ async function beginVisibleImageStabilityObservation(
   imageAgentId: string,
 ): Promise<void> {
   await page.evaluate(
-    ({ accessibleName, errorText, tabTestId }) => {
+    ({ accessibleName, errorText, agentId }) => {
       const record = {
         errorSeen: false,
         missingSeen: false,
@@ -250,8 +249,8 @@ async function beginVisibleImageStabilityObservation(
             element.textContent?.trim() === errorText &&
             isVisible(element),
         );
-        const imageTab = document.querySelector(`[data-testid="${tabTestId}"]`);
-        if (imageTab?.getAttribute("aria-selected") !== "true") return;
+        const header = document.querySelector('[data-testid="chat-pane-header"]');
+        if (header?.getAttribute("data-agent-id") !== agentId) return;
         const imageVisible = Array.from(document.querySelectorAll('[role="img"]')).some(
           (element) => element.getAttribute("aria-label") === accessibleName && isVisible(element),
         );
@@ -274,7 +273,7 @@ async function beginVisibleImageStabilityObservation(
     {
       accessibleName: alt,
       errorText: IMAGE_PREVIEW_ERROR,
-      tabTestId: `workspace-tab-agent_${imageAgentId}`,
+      agentId: imageAgentId,
     },
   );
 }

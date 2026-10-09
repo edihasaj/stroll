@@ -7,7 +7,7 @@ import { buildAgentRoute } from "./mock-agent";
 import { connectNewWorkspaceDaemonClient } from "./new-workspace";
 import { pluginRequirements } from "./plugin-fixture";
 import { seedWorkspace } from "./seed-client";
-import { ensureExplorerSidebar } from "./workspace-tabs";
+import { ensureExplorerSidebar, expectMainChat } from "./workspace-tabs";
 
 type ExplorerPanelWorkspace = Awaited<ReturnType<typeof seedWorkspace>>;
 
@@ -159,9 +159,7 @@ export async function expectExplorerPanelWithFocusedAgent(
     modeId: "load-test",
   });
   await page.goto(buildAgentRoute(workspace.workspaceId, agent.id));
-  await expect(
-    page.getByTestId(`workspace-tab-agent_${agent.id}`).filter({ visible: true }),
-  ).toHaveAttribute("aria-selected", "true");
+  await expectMainChat(page, agent.id);
   const menu = await openExplorerMenu(page);
   await expect(menu.getByRole("menuitem", { name: "Review agent", exact: true })).toHaveCount(0);
   await expect(menu.getByRole("menuitem", { name: "Other review agent", exact: true })).toHaveCount(

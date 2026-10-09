@@ -2,6 +2,7 @@ import { expect, type Locator, type Page, type TestInfo } from "@playwright/test
 
 import { launchAgent, sendMessage, type AgentHandle } from "./rewind-flow";
 import { openSubagentsTrack } from "./subagents";
+import { expectMainChat } from "./workspace-tabs";
 
 const NESTED_OWNERSHIP_PROMPT =
   "You are ROOT_OWNER. Use Claude Code's native Agent tool exactly once, never Paseo tools. " +
@@ -89,6 +90,6 @@ export async function expectNestedProviderSubagentOwnership(
 export async function reopenNestedProviderSession(handle: AgentHandle): Promise<void> {
   await handle.client.refreshAgent(handle.agentId);
   await handle.page.reload();
-  await handle.page.getByTestId(`workspace-tab-agent_${handle.agentId}`).first().click();
+  await expectMainChat(handle.page, handle.agentId);
   await expect(handle.page.getByText("ROOT_DONE", { exact: true }).last()).toBeVisible();
 }

@@ -59,7 +59,7 @@ export async function expectCreatedModelAgents(
       { timeout: 60_000 },
     )
     .toEqual(Array(count).fill(model));
-  await expect(page.getByTestId(/^workspace-tab-agent_/).filter({ visible: true })).toHaveCount(1);
+  await expect(page.getByTestId("chat-pane-header").filter({ visible: true })).toHaveCount(1);
 }
 
 export async function expectRememberedModel(page: Page, label: string) {

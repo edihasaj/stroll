@@ -4,7 +4,12 @@ import { buildCreateAgentPreferences, buildSeededHost } from "./daemon-registry"
 import { getE2EDaemonPort } from "./daemon-port";
 import { getServerId } from "./server-id";
 import { expectAppRoute } from "./route-assertions";
-import { waitForWorkspaceTabsVisible } from "./workspace-tabs";
+import {
+  archiveMainChatFromHeader,
+  expectMainChat,
+  expectNotMainChat,
+  waitForWorkspaceTabsVisible,
+} from "./workspace-tabs";
 import {
   buildHostAgentDetailRoute,
   buildHostWorkspaceRoute,
@@ -197,18 +202,14 @@ export async function openWorkspaceWithAgents(
   }
 }
 
+/** The main view shows this agent's chat. */
 export async function expectWorkspaceTabVisible(page: Page, agentId: string): Promise<void> {
-  await expect(
-    page.getByTestId(`workspace-tab-agent_${agentId}`).filter({ visible: true }).first(),
-  ).toBeVisible({ timeout: 30_000 });
+  await expectMainChat(page, agentId);
 }
 
+/** The main view is not showing this agent's chat. */
 export async function expectWorkspaceTabHidden(page: Page, agentId: string): Promise<void> {
-  await expect(
-    page.getByTestId(`workspace-tab-agent_${agentId}`).filter({ visible: true }),
-  ).toHaveCount(0, {
-    timeout: 30_000,
-  });
+  await expectNotMainChat(page, agentId);
 }
 
 export async function expectWorkspaceArchiveOutcome(
@@ -219,12 +220,10 @@ export async function expectWorkspaceArchiveOutcome(
   await expectWorkspaceTabVisible(page, input.survivingAgentId);
 }
 
+/** Archives the main view's chat from its header menu, then waits for the chat to leave. */
 export async function closeWorkspaceAgentTab(page: Page, agentId: string): Promise<void> {
-  const closeButton = page.getByTestId(`workspace-agent-close-${agentId}`).filter({
-    visible: true,
-  });
-  await expect(closeButton.first()).toBeVisible({ timeout: 30_000 });
-  await closeButton.first().click();
+  await expectMainChat(page, agentId);
+  await archiveMainChatFromHeader(page);
   await expectWorkspaceTabHidden(page, agentId);
 }
 

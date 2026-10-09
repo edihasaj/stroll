@@ -14,6 +14,7 @@ import { getServerId } from "./server-id";
 import { archiveWorkspaceFromSidebar, expectWorkspaceAbsentFromSidebar } from "./sidebar";
 import { createTempGitRepo } from "./workspace";
 import { waitForSidebarHydration } from "./workspace-ui";
+import { expectMainChat } from "./workspace-tabs";
 import type { SeedDaemonClient } from "./seed-client";
 
 const REPLY = "CODEX_WORKTREE_RESTORE_READY";
@@ -70,10 +71,7 @@ async function createCodexRestoreJourney(page: Page, client: SeedDaemonClient, i
   }
 
   async function expectSelected() {
-    await expect(page.getByTestId(`workspace-tab-agent_${created().agentId}`)).toHaveAttribute(
-      "aria-selected",
-      "true",
-    );
+    await expectMainChat(page, created().agentId);
   }
 
   return {

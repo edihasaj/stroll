@@ -1,4 +1,5 @@
 import { expect, type Locator, type Page } from "@playwright/test";
+import { getServerId } from "./server-id";
 
 export async function getWorkspaceTabTestIds(page: Page): Promise<string[]> {
   const tabs = page.locator('[data-testid^="workspace-tab-"]');
@@ -135,53 +136,86 @@ export async function openPullRequestPanel(page: Page): Promise<void> {
   await expect(visibleTestId(page, "pr-pane").first()).toBeVisible({ timeout: 15_000 });
 }
 
+/**
+ * Waits until the workspace is on screen. The main view shows one chat and has no tab row, so this
+ * waits for its header; tabs live in the side pane and the Explorer.
+ */
 export async function waitForWorkspaceTabsVisible(page: Page): Promise<void> {
-  await expect(visibleTestId(page, "workspace-tabs-row").first()).toBeVisible({
-    timeout: 30_000,
-  });
-  await expect(visibleTestId(page, "workspace-new-tab-button").first()).toBeVisible({
+  await expect(visibleTestId(page, "main-pane-header").first()).toBeVisible({
     timeout: 30_000,
   });
 }
 
-/** Open the pane-local `+` menu and pick Agent. */
+/** Starts a new chat from the main view's header. It replaces the chat in the main view. */
 export async function createAgentTabFromMenu(page: Page): Promise<void> {
-  const trigger = visibleTestId(page, "workspace-new-tab-button").first();
-  await expect(trigger).toBeVisible({ timeout: 10_000 });
-  await trigger.click();
-  const item = visibleTestId(page, "workspace-new-tab-menu-agent").first();
-  await expect(item).toBeVisible({ timeout: 10_000 });
-  await item.click();
+  const button = visibleTestId(page, "main-pane-new-chat").first();
+  await expect(button).toBeVisible({ timeout: 10_000 });
+  await button.click();
 }
 
-export async function getVisibleWorkspaceAgentTabIds(page: Page): Promise<string[]> {
-  const tabs = page.locator('[data-testid^="workspace-tab-agent_"]').filter({ visible: true });
-  const count = await tabs.count();
-  const ids: string[] = [];
-  for (let index = 0; index < count; index += 1) {
-    const testId = await tabs.nth(index).getAttribute("data-testid");
-    if (testId && !ids.includes(testId)) {
-      ids.push(testId);
-    }
+/** The header over the main view's chat, or none while it shows a draft. */
+export function mainChatHeader(page: Page): Locator {
+  return visibleTestId(page, "chat-pane-header").first();
+}
+
+/** The agent id of the chat in the main view, or null when it shows a draft or nothing. */
+export async function getMainChatAgentId(page: Page): Promise<string | null> {
+  const header = mainChatHeader(page);
+  if ((await header.count()) === 0) {
+    return null;
   }
-  return ids;
+  return header.getAttribute("data-agent-id");
 }
 
-export async function expectOnlyWorkspaceAgentTabsVisible(
+/** The main view shows this chat: its header carries the agent id. */
+export async function expectMainChat(page: Page, agentId: string, timeout = 30_000): Promise<void> {
+  await expect(mainChatHeader(page)).toHaveAttribute("data-agent-id", agentId, { timeout });
+}
+
+/** The main view is not showing this chat. */
+export async function expectNotMainChat(
   page: Page,
-  expectedAgentIds: string[],
+  agentId: string,
+  timeout = 30_000,
 ): Promise<void> {
-  const expected = new Set(expectedAgentIds.map((id) => `workspace-tab-agent_${id}`));
-  const visible = await getVisibleWorkspaceAgentTabIds(page);
-  const unexpected = visible.filter((id) => !expected.has(id));
+  await expect(
+    page.locator(`[data-testid="chat-pane-header"][data-agent-id="${agentId}"]`).filter({
+      visible: true,
+    }),
+  ).toHaveCount(0, { timeout });
+}
 
-  expect(unexpected).toEqual([]);
-  expect(visible.length).toBe(expected.size);
-  for (const expectedId of expectedAgentIds) {
-    await expect(visibleTestId(page, `workspace-tab-agent_${expectedId}`).first()).toBeVisible({
-      timeout: 30_000,
-    });
-  }
+/** The main view holds a draft: a plain header and the composer, no chat header. */
+export async function expectMainDraft(page: Page): Promise<void> {
+  await expect(visibleTestId(page, "main-pane-draft-header").first()).toBeVisible({
+    timeout: 30_000,
+  });
+}
+
+/** The sidebar's row for one of a workspace's chats. */
+export function sidebarChatRow(page: Page, agentId: string): Locator {
+  return page.getByTestId(`sidebar-chat-row-${getServerId()}:${agentId}`);
+}
+
+/** Opens a chat by pressing its sidebar row; it replaces the chat in the main view. */
+export async function openChatFromSidebar(page: Page, agentId: string): Promise<void> {
+  const row = sidebarChatRow(page, agentId);
+  await expect(row).toBeVisible({ timeout: 30_000 });
+  await row.click();
+  await expectMainChat(page, agentId);
+}
+
+/** Archives the main view's chat from the header menu and answers the confirmation. */
+export async function archiveMainChatFromHeader(page: Page): Promise<string> {
+  await visibleTestId(page, "chat-pane-menu-trigger").first().click();
+  const messages: string[] = [];
+  page.once("dialog", (dialog) => {
+    messages.push(dialog.message());
+    void dialog.accept();
+  });
+  await visibleTestId(page, "chat-pane-menu-archive").first().click();
+  await expect.poll(() => messages.length).toBe(1);
+  return messages[0];
 }
 
 export async function ensureWorkspaceAgentPaneVisible(page: Page): Promise<void> {
@@ -198,6 +232,7 @@ export async function ensureWorkspaceAgentPaneVisible(page: Page): Promise<void>
   }
 }
 
+/** No tab row is on screen. The main view never has one; the side pane and Explorer have their own. */
 export async function expectWorkspaceTabsAbsent(page: Page): Promise<void> {
   await expect(page.getByTestId("workspace-tabs-row")).toHaveCount(0);
 }

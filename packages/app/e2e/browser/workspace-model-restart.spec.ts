@@ -24,7 +24,7 @@ import {
 import { selectSidebarStatusGrouping } from "../support/helpers/sidebar";
 import { killProcessTree, spawnTsx } from "../support/helpers/spawn-node";
 import { waitForSidebarHydration } from "../support/helpers/workspace-ui";
-import { getVisibleWorkspaceAgentTabIds } from "../support/helpers/workspace-tabs";
+import { getMainChatAgentId } from "../support/helpers/workspace-tabs";
 
 const LEGACY_AGENT_ID = "10000000-0000-4000-8000-000000000001";
 const SERVER_ID = `srv_restart_${randomUUID().replace(/-/g, "").slice(0, 16)}`;
@@ -439,9 +439,7 @@ test.describe("Workspace model restart regressions", () => {
         workspaceId: seeded.workspaceB,
         indicator: "running",
       });
-      await expect
-        .poll(() => getVisibleWorkspaceAgentTabIds(page), { timeout: 30_000 })
-        .toContain(`workspace-tab-agent_${LEGACY_AGENT_ID}`);
+      await expect.poll(() => getMainChatAgentId(page), { timeout: 30_000 }).toBe(LEGACY_AGENT_ID);
 
       const reconciledProjectKey = (await client.listProjects()).projects.find(
         (project) => project.projectId === seeded.projectId,
@@ -509,14 +507,10 @@ test.describe("Workspace model restart regressions", () => {
         workspaceId: createdWorkspaceId,
         bucket: "done",
       });
-      await expect
-        .poll(() => getVisibleWorkspaceAgentTabIds(page), { timeout: 30_000 })
-        .toEqual([]);
+      await expect.poll(() => getMainChatAgentId(page), { timeout: 30_000 }).toBeNull();
 
       await page.goto(buildHostWorkspaceRoute(serverId, seeded.workspaceA));
-      await expect
-        .poll(() => getVisibleWorkspaceAgentTabIds(page), { timeout: 30_000 })
-        .toContain(`workspace-tab-agent_${LEGACY_AGENT_ID}`);
+      await expect.poll(() => getMainChatAgentId(page), { timeout: 30_000 }).toBe(LEGACY_AGENT_ID);
     } finally {
       await client.close().catch(() => undefined);
       await daemon.close();
