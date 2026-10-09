@@ -98,6 +98,39 @@ New worktrees are created under `$PASEO_HOME/worktrees` by default. To place new
 
 Relative paths are resolved against `PASEO_HOME`. Existing worktrees remain where they are; changing this setting only changes where Paseo creates and discovers Paseo-managed worktrees going forward.
 
+Settings → Worktrees edits the same value. The daemon reads it at startup, so a change applies after the host restarts.
+
+## MCP servers
+
+`daemon.mcpServers` lists MCP servers the daemon adds to every agent it starts or resumes, next to the built-in `paseo` server. Settings → MCP servers edits it. Each entry is keyed by the name agents see, and `enabled: false` keeps an entry without using it:
+
+```json
+{
+  "daemon": {
+    "mcpServers": {
+      "files": {
+        "config": {
+          "type": "stdio",
+          "command": "npx",
+          "args": ["-y", "files-mcp"],
+          "env": { "ROOT": "/repo" }
+        }
+      },
+      "docs": {
+        "enabled": false,
+        "config": {
+          "type": "http",
+          "url": "https://docs.example.com/mcp",
+          "headers": { "Authorization": "Bearer ..." }
+        }
+      }
+    }
+  }
+}
+```
+
+`type` is `stdio`, `http`, or `sse`. A server named in an agent's own request wins over one with the same name here, and `paseo` is reserved. Agents that are already running keep the servers they started with.
+
 ## Voice
 
 Voice is configured through `features.dictation` and `features.voiceMode`, with provider credentials under `providers`.

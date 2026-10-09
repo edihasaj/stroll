@@ -1,6 +1,6 @@
 # Proposal: one chat, one panel (workspace parity with Codex)
 
-Status: phases 1 and 2 shipped; phases 3 and 4 are open. Follows the parity work already shipped (`ui/sidebar-parity`, `ui/timeline-parity`,
+Status: phases 1, 2, and 3 shipped; phase 4 is open. Follows the parity work already shipped (`ui/sidebar-parity`, `ui/timeline-parity`,
 `ui/composer-parity`) and [docs/ui-gap-gpt.md](../ui-gap-gpt.md).
 
 ## Goal
@@ -65,6 +65,23 @@ the desktop platform regardless of window width, copies the old blob to
 | Add **Worktrees**             | Where worktrees live, how many to keep, and which to pin, as Codex |
 | Add **MCP servers** if absent | List, add, and remove servers; today there is only a toggle        |
 
+Old deep links to the merged pages (`/settings/editor`, `browser`, `integrations`, `permissions`)
+redirect to the page that holds the row now (`resolveLegacySettingsSectionSlug`).
+
+Worktrees and MCP servers are host pages, gated on `server_info.features.worktreeSettings` and
+`daemonMcpServers`:
+
+- **Worktrees** lists the host's worktree workspaces with pin and remove (the existing
+  `workspace.pin.set` and archive RPCs), sets where new worktrees are created
+  (`worktrees.root`, read at startup, so a change applies after the host restarts), and holds the
+  Archive merged PR workspaces switch that used to sit alone on the Workspaces page. The daemon
+  has no retention count, so "how many to keep" is not offered; the merged-PR switch is its only
+  cleanup policy.
+- **MCP servers** edits `daemon.mcpServers` through `patchDaemonConfig`. The daemon adds each
+  enabled server to the launch config of every agent it starts or resumes
+  (`agent/user-mcp-servers.ts`), never to the stored config, and a server the request names wins.
+  The `paseo` name is reserved. Running agents keep what they launched with.
+
 Per-chat approval and sandbox already exist as the mode control in the composer, so nothing new
 is added there.
 
@@ -74,7 +91,7 @@ is added there.
    default. Done.
 2. One chat in the main view: remove the tab row and splits, the layout v3 migration, explicit
    archive, back and forward. Done.
-3. Settings: the merges and the two additions.
+3. Settings: the merges and the two additions. Done.
 4. End-to-end tests: about 58 of 216 browser specs use tab ids and move to the panel and sidebar.
    Phase 2 moved the specs that asserted main-pane chat tabs; the rest follow as they are touched.
 
