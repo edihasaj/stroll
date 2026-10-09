@@ -30,11 +30,14 @@ export function SidebarGroupToggleRow({
   expanded,
   onPress,
   indented = false,
+  compact = false,
   testID,
 }: {
   expanded: boolean;
   onPress: () => void;
   indented?: boolean;
+  /** Matches the single-line chat rows rather than the two-line workspace rows. */
+  compact?: boolean;
   testID: string;
 }) {
   const { t } = useTranslation();
@@ -44,11 +47,12 @@ export function SidebarGroupToggleRow({
   const rowStyle = useCallback(
     ({ hovered = false, pressed }: PressableStateCallbackType & { hovered?: boolean }) => [
       styles.row,
+      compact && styles.rowCompact,
       indented && sidebarWorkspaceRowStyles.rowIndented,
       hovered && !pressed && styles.rowHovered,
       pressed && styles.rowPressed,
     ],
-    [indented],
+    [compact, indented],
   );
 
   return (
@@ -96,6 +100,10 @@ const styles = StyleSheet.create((theme) => ({
     alignItems: "center",
     gap: theme.spacing[2],
     userSelect: "none",
+  },
+  rowCompact: {
+    minHeight: 28,
+    paddingVertical: theme.spacing[1],
   },
   rowHovered: {
     backgroundColor: theme.colors.surfaceSidebarHover,

@@ -10,6 +10,11 @@ export interface CollapsedProjectsState {
    * means *expanded*, keyed by the parent workspace's `workspaceKey`.
    */
   expandedNestedWorkspaceKeys: Set<string>;
+  /**
+   * Workspaces whose chat list is folded away, keyed by `workspaceKey`. Chats show by default, so
+   * membership here means *collapsed*, like the project and group sets.
+   */
+  collapsedWorkspaceChatKeys: Set<string>;
 }
 
 export interface PersistedCollapsedProjects {
@@ -18,6 +23,7 @@ export interface PersistedCollapsedProjects {
   collapsedStatusGroupKeys?: string[];
   collapsedPinned?: boolean;
   expandedNestedWorkspaceKeys?: string[];
+  collapsedWorkspaceChatKeys?: string[];
 }
 
 export const PersistedCollapsedProjectsSchema: z.ZodType<PersistedCollapsedProjects> =
@@ -28,6 +34,7 @@ export const PersistedCollapsedProjectsSchema: z.ZodType<PersistedCollapsedProje
     collapsedStatusGroupKeys: z.array(z.string()).optional(),
     collapsedPinned: z.boolean().optional(),
     expandedNestedWorkspaceKeys: z.array(z.string()).optional(),
+    collapsedWorkspaceChatKeys: z.array(z.string()).optional(),
   });
 
 export function togglePinnedCollapsed(state: CollapsedProjectsState): CollapsedProjectsState {
@@ -58,6 +65,19 @@ export function toggleWorkspaceGroupCollapsed(
     next.add(workspaceGroupKey);
   }
   return { ...state, collapsedWorkspaceGroupKeys: next };
+}
+
+export function toggleWorkspaceChatsCollapsed(
+  state: CollapsedProjectsState,
+  workspaceKey: string,
+): CollapsedProjectsState {
+  const next = new Set(state.collapsedWorkspaceChatKeys);
+  if (next.has(workspaceKey)) {
+    next.delete(workspaceKey);
+  } else {
+    next.add(workspaceKey);
+  }
+  return { ...state, collapsedWorkspaceChatKeys: next };
 }
 
 export function toggleNestedWorkspaceExpanded(
@@ -108,12 +128,14 @@ export function serializeCollapsedProjects(state: CollapsedProjectsState): {
   collapsedWorkspaceGroupKeys: string[];
   collapsedPinned: boolean;
   expandedNestedWorkspaceKeys: string[];
+  collapsedWorkspaceChatKeys: string[];
 } {
   return {
     collapsedProjectKeys: Array.from(state.collapsedProjectKeys),
     collapsedWorkspaceGroupKeys: Array.from(state.collapsedWorkspaceGroupKeys),
     collapsedPinned: state.collapsedPinned,
     expandedNestedWorkspaceKeys: Array.from(state.expandedNestedWorkspaceKeys),
+    collapsedWorkspaceChatKeys: Array.from(state.collapsedWorkspaceChatKeys),
   };
 }
 
@@ -138,11 +160,15 @@ export function mergePersistedCollapsedProjects<S extends CollapsedProjectsState
   const restoredExpandedNested = deserializeCollapsedKeys(
     persisted.expandedNestedWorkspaceKeys ?? Array.from(current.expandedNestedWorkspaceKeys),
   );
+  const restoredCollapsedChats = deserializeCollapsedKeys(
+    persisted.collapsedWorkspaceChatKeys ?? Array.from(current.collapsedWorkspaceChatKeys),
+  );
   if (
     areSetsEqual(current.collapsedProjectKeys, restoredProjects) &&
     areSetsEqual(current.collapsedWorkspaceGroupKeys, restoredWorkspaceGroups) &&
     current.collapsedPinned === restoredPinned &&
-    areSetsEqual(current.expandedNestedWorkspaceKeys, restoredExpandedNested)
+    areSetsEqual(current.expandedNestedWorkspaceKeys, restoredExpandedNested) &&
+    areSetsEqual(current.collapsedWorkspaceChatKeys, restoredCollapsedChats)
   ) {
     return current;
   }
@@ -152,6 +178,7 @@ export function mergePersistedCollapsedProjects<S extends CollapsedProjectsState
     collapsedWorkspaceGroupKeys: restoredWorkspaceGroups,
     collapsedPinned: restoredPinned,
     expandedNestedWorkspaceKeys: restoredExpandedNested,
+    collapsedWorkspaceChatKeys: restoredCollapsedChats,
   };
 }
 

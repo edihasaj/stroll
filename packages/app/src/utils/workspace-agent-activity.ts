@@ -8,7 +8,7 @@ export interface WorkspaceAgentActivity {
   enteredAt: Date | null;
 }
 
-function workspaceAgentStatus(agent: Agent): Agent["status"] {
+export function workspaceAgentStatus(agent: Agent): Agent["status"] {
   if (agent.turn.phase === "open") return "running";
   return agent.status === "running" ? "idle" : agent.status;
 }

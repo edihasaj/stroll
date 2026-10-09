@@ -785,6 +785,7 @@ export const ko: TranslationResources = {
         reloadAgentTooltip:
           "스킬, MCP 또는 로그인 상태를 업데이트하려면 에이전트를 다시 로드하세요.",
         deleteChat: "채팅 삭제",
+        archiveChat: "채팅 보관",
         close: "닫기",
         renameTerminal: "터미널 이름 변경",
         renameAgent: "에이전트 이름 변경",
@@ -824,6 +825,7 @@ export const ko: TranslationResources = {
         reloadedAgent: "에이전트를 다시 로드했습니다",
         failedToReloadAgent: "에이전트를 다시 로드하지 못했습니다",
         failedToDeleteChat: "채팅을 삭제하지 못했습니다",
+        failedToArchiveChat: "채팅을 보관하지 못했습니다",
         failedToCloseAgent: "에이전트를 닫지 못했습니다",
       },
       confirmations: {
@@ -1394,6 +1396,14 @@ export const ko: TranslationResources = {
       nested: {
         count_one: "하위 에이전트 {{count}}개",
         count_other: "하위 에이전트 {{count}}개",
+      },
+      chats: {
+        menu: "채팅 작업",
+        untitled: "새 채팅",
+        hide: "채팅 숨기기",
+        show: "채팅 표시",
+        collapsed_one: "채팅 {{count}}개",
+        collapsed_other: "채팅 {{count}}개",
       },
       actions: {
         menu: "워크스페이스 작업",

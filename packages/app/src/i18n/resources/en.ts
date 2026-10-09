@@ -780,6 +780,7 @@ export const en = {
         reloadAgent: "Reload agent",
         reloadAgentTooltip: "Reload agent to update skills, MCPs or login status.",
         deleteChat: "Delete chat",
+        archiveChat: "Archive chat",
         close: "Close",
         renameTerminal: "Rename terminal",
         renameAgent: "Rename agent",
@@ -819,6 +820,7 @@ export const en = {
         reloadedAgent: "Reloaded agent",
         failedToReloadAgent: "Failed to reload agent",
         failedToDeleteChat: "Failed to delete chat",
+        failedToArchiveChat: "Failed to archive chat",
         failedToCloseAgent: "Failed to close agent",
       },
       confirmations: {
@@ -1396,6 +1398,14 @@ export const en = {
       nested: {
         count_one: "{{count}} subagent",
         count_other: "{{count}} subagents",
+      },
+      chats: {
+        menu: "Chat actions",
+        untitled: "New chat",
+        hide: "Hide chats",
+        show: "Show chats",
+        collapsed_one: "{{count}} chat",
+        collapsed_other: "{{count}} chats",
       },
       actions: {
         menu: "Workspace actions",

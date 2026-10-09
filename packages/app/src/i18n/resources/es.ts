@@ -790,6 +790,7 @@ export const es: TranslationResources = {
         reloadAgentTooltip:
           "Vuelva a cargar el agente para actualizar habilidades, MCP o estado de inicio de sesión.",
         deleteChat: "Eliminar chat",
+        archiveChat: "Archivar chat",
         close: "Cerrar",
         renameTerminal: "Cambiar nombre de terminal",
         renameAgent: "Cambiar nombre del agente",
@@ -829,6 +830,7 @@ export const es: TranslationResources = {
         reloadedAgent: "Agente recargado",
         failedToReloadAgent: "No se pudo recargar el agente",
         failedToDeleteChat: "No se pudo eliminar el chat",
+        failedToArchiveChat: "No se pudo archivar el chat",
         failedToCloseAgent: "No se pudo cerrar el agente",
       },
       confirmations: {
@@ -1424,6 +1426,14 @@ export const es: TranslationResources = {
       nested: {
         count_one: "{{count}} subagente",
         count_other: "{{count}} subagentes",
+      },
+      chats: {
+        menu: "Acciones del chat",
+        untitled: "Nuevo chat",
+        hide: "Ocultar chats",
+        show: "Mostrar chats",
+        collapsed_one: "{{count}} chat",
+        collapsed_other: "{{count}} chats",
       },
       actions: {
         menu: "AccionesWorkspace",

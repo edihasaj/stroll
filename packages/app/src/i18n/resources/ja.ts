@@ -790,6 +790,7 @@ export const ja: TranslationResources = {
         reloadAgentTooltip:
           "スキル、MCP、ログイン状態を更新するためにエージェントを再読み込みします。",
         deleteChat: "チャットを削除",
+        archiveChat: "チャットをアーカイブ",
         close: "閉じる",
         renameTerminal: "ターミナルの名前を変更",
         renameAgent: "エージェントの名前を変更",
@@ -829,6 +830,7 @@ export const ja: TranslationResources = {
         reloadedAgent: "エージェントを再読み込みしました",
         failedToReloadAgent: "エージェントの再読み込みに失敗しました",
         failedToDeleteChat: "チャットを削除できませんでした",
+        failedToArchiveChat: "チャットをアーカイブできませんでした",
         failedToCloseAgent: "エージェントを閉じられませんでした",
       },
       confirmations: {
@@ -1401,6 +1403,14 @@ export const ja: TranslationResources = {
       nested: {
         count_one: "サブエージェント {{count}} 件",
         count_other: "サブエージェント {{count}} 件",
+      },
+      chats: {
+        menu: "チャットの操作",
+        untitled: "新しいチャット",
+        hide: "チャットを隠す",
+        show: "チャットを表示",
+        collapsed_one: "{{count}} 件のチャット",
+        collapsed_other: "{{count}} 件のチャット",
       },
       actions: {
         menu: "ワークスペースアクション",

@@ -790,6 +790,7 @@ export const ru: TranslationResources = {
         reloadAgent: "Перезагрузить агента",
         reloadAgentTooltip: "Перезагрузите агента, чтобы обновить навыки, MCP или статус входа.",
         deleteChat: "Удалить чат",
+        archiveChat: "Архивировать чат",
         close: "Закрыть",
         renameTerminal: "Переименовать терминал",
         renameAgent: "Переименовать агента",
@@ -829,6 +830,7 @@ export const ru: TranslationResources = {
         reloadedAgent: "Агент перезагружен",
         failedToReloadAgent: "Не удалось перезагрузить агента",
         failedToDeleteChat: "Не удалось удалить чат",
+        failedToArchiveChat: "Не удалось архивировать чат",
         failedToCloseAgent: "Не удалось закрыть агента",
       },
       confirmations: {
@@ -1406,6 +1408,14 @@ export const ru: TranslationResources = {
       nested: {
         count_one: "{{count}} субагент",
         count_other: "Субагентов: {{count}}",
+      },
+      chats: {
+        menu: "Действия с чатом",
+        untitled: "Новый чат",
+        hide: "Скрыть чаты",
+        show: "Показать чаты",
+        collapsed_one: "{{count}} чат",
+        collapsed_other: "{{count}} чатов",
       },
       actions: {
         menu: "Действия рабочего пространства",

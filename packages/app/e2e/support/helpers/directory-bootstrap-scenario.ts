@@ -79,7 +79,9 @@ export class DirectoryBootstrapScenario {
     await expect(workspaceLink).toHaveCount(1);
     await expect(workspaceLink).toBeVisible();
     await openCommandCenter(this.page);
-    const agentLink = this.page.getByText(agent.title, { exact: true });
+    const agentLink = this.page.getByTestId("command-center-panel").getByText(agent.title, {
+      exact: true,
+    });
     await expect(agentLink).toHaveCount(1);
     await expect(agentLink).toBeVisible();
     await this.page.keyboard.press("Escape");
@@ -112,7 +114,9 @@ export class DirectoryBootstrapScenario {
     await expect(workspaceLink).toHaveCount(1);
     await expect(workspaceLink).toBeVisible();
     await openCommandCenter(this.page);
-    const agentLink = this.page.getByText(agent.title, { exact: true });
+    const agentLink = this.page.getByTestId("command-center-panel").getByText(agent.title, {
+      exact: true,
+    });
     await expect(agentLink).toHaveCount(1);
     await expect(agentLink).toBeVisible();
     await agentLink.click();

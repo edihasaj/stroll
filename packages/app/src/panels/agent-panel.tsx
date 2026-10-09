@@ -85,6 +85,7 @@ import {
   type Agent,
   useSessionStore,
 } from "@/stores/session-store";
+import { resolveChatTitle } from "@/workspace-tabs/chat-title";
 import { useWorkspaceLayoutStore } from "@/stores/workspace-layout-store";
 import { buildWorkspaceTabPersistenceKey } from "@/workspace-tabs/model";
 import { openWorkspaceChanges } from "@/workspace-tabs/open-supporting-view";
@@ -270,20 +271,6 @@ function formatProviderLabel(provider: Agent["provider"]): string {
     .join(" ");
 }
 
-function resolveWorkspaceAgentTabLabel(title: string | null | undefined): string | null {
-  if (typeof title !== "string") {
-    return null;
-  }
-  const normalized = title.trim();
-  if (!normalized) {
-    return null;
-  }
-  if (normalized.toLowerCase() === "new agent") {
-    return null;
-  }
-  return normalized;
-}
-
 function shouldStoreFetchedAgentInActiveDirectory(agent: Agent): boolean {
   return !agent.archivedAt && Boolean(agent.projectPlacement);
 }
@@ -352,7 +339,7 @@ function useAgentPanelDescriptor(
     }),
   );
   const provider = descriptorState.provider;
-  const label = resolveWorkspaceAgentTabLabel(descriptorState.title);
+  const label = resolveChatTitle(descriptorState.title);
   const icon = useProviderIcon(provider, context.serverId);
 
   return {

@@ -783,6 +783,7 @@ export const ar: TranslationResources = {
         reloadAgent: "إعادة تحميل الوكيل",
         reloadAgentTooltip: "قم بإعادة تحميل الوكيل لتحديث المهارات أو MCPs أو حالة تسجيل الدخول.",
         deleteChat: "حذف الدردشة",
+        archiveChat: "أرشفة الدردشة",
         close: "يغلق",
         renameTerminal: "إعادة تسمية المحطة",
         renameAgent: "إعادة تسمية الوكيل",
@@ -822,6 +823,7 @@ export const ar: TranslationResources = {
         reloadedAgent: "وكيل إعادة تحميل",
         failedToReloadAgent: "فشل في إعادة تحميل الوكيل",
         failedToDeleteChat: "تعذر حذف الدردشة",
+        failedToArchiveChat: "فشلت أرشفة الدردشة",
         failedToCloseAgent: "فشل في إغلاق الوكيل",
       },
       confirmations: {
@@ -1387,6 +1389,14 @@ export const ar: TranslationResources = {
       nested: {
         count_one: "{{count}} وكيل فرعي",
         count_other: "{{count}} وكلاء فرعيين",
+      },
+      chats: {
+        menu: "إجراءات الدردشة",
+        untitled: "دردشة جديدة",
+        hide: "إخفاء الدردشات",
+        show: "إظهار الدردشات",
+        collapsed_one: "{{count}} دردشة",
+        collapsed_other: "{{count}} دردشات",
       },
       actions: {
         menu: "إجراءات Workspace",

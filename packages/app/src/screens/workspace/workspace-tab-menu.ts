@@ -51,6 +51,7 @@ export type WorkspaceTabMenuEntry =
         | "arrow-right-to-line"
         | "copy-x"
         | "pencil"
+        | "archive"
         | "trash"
         | "x";
       hint?: string;

@@ -790,6 +790,7 @@ export const fr: TranslationResources = {
         reloadAgentTooltip:
           "Rechargez l'agent pour mettre à jour les compétences, les MCP ou le statut de connexion.",
         deleteChat: "Supprimer la conversation",
+        archiveChat: "Archiver la conversation",
         close: "Fermer",
         renameTerminal: "Renommer le terminal",
         renameAgent: "Renommer l'agent",
@@ -829,6 +830,7 @@ export const fr: TranslationResources = {
         reloadedAgent: "Agent rechargé",
         failedToReloadAgent: "Échec du rechargement de l'agent",
         failedToDeleteChat: "Échec de la suppression de la conversation",
+        failedToArchiveChat: "Échec de l'archivage de la conversation",
         failedToCloseAgent: "Échec de la fermeture de l'agent",
       },
       confirmations: {
@@ -1424,6 +1426,14 @@ export const fr: TranslationResources = {
       nested: {
         count_one: "{{count}} sous-agent",
         count_other: "{{count}} sous-agents",
+      },
+      chats: {
+        menu: "Actions de la conversation",
+        untitled: "Nouvelle conversation",
+        hide: "Masquer les conversations",
+        show: "Afficher les conversations",
+        collapsed_one: "{{count}} conversation",
+        collapsed_other: "{{count}} conversations",
       },
       actions: {
         menu: "ActionsWorkspace",

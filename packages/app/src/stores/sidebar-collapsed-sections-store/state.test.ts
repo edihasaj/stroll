@@ -8,6 +8,7 @@ import {
   togglePinnedCollapsed,
   toggleNestedWorkspaceExpanded,
   toggleProjectCollapsed,
+  toggleWorkspaceChatsCollapsed,
   toggleWorkspaceGroupCollapsed,
 } from "@/stores/sidebar-collapsed-sections-store/state";
 
@@ -17,6 +18,7 @@ function emptyState(): CollapsedProjectsState {
     collapsedWorkspaceGroupKeys: new Set(),
     collapsedPinned: false,
     expandedNestedWorkspaceKeys: new Set(),
+    collapsedWorkspaceChatKeys: new Set(),
   };
 }
 
@@ -39,6 +41,7 @@ describe("sidebar collapsed projects transitions", () => {
       collapsedWorkspaceGroupKeys: new Set(["running"]),
       collapsedPinned: true,
       expandedNestedWorkspaceKeys: new Set(["s1:w-parent"]),
+      collapsedWorkspaceChatKeys: new Set(["s1:w-folded"]),
     };
 
     expect(serializeCollapsedProjects(state)).toEqual({
@@ -46,6 +49,7 @@ describe("sidebar collapsed projects transitions", () => {
       collapsedWorkspaceGroupKeys: ["running"],
       collapsedPinned: true,
       expandedNestedWorkspaceKeys: ["s1:w-parent"],
+      collapsedWorkspaceChatKeys: ["s1:w-folded"],
     });
   });
 
@@ -111,5 +115,26 @@ describe("sidebar collapsed projects transitions", () => {
       "s1:w-mid",
       "s1:w-parent",
     ]);
+  });
+
+  it("tracks workspaces whose chat list is folded away and restores them", () => {
+    let state = emptyState();
+
+    state = toggleWorkspaceChatsCollapsed(state, "s1:w1");
+    state = toggleWorkspaceChatsCollapsed(state, "s1:w2");
+    state = toggleWorkspaceChatsCollapsed(state, "s1:w1");
+
+    expect(Array.from(state.collapsedWorkspaceChatKeys)).toEqual(["s1:w2"]);
+    const restored = mergePersistedCollapsedProjects(
+      { collapsedWorkspaceChatKeys: ["s1:w3"] },
+      emptyState(),
+    );
+    expect(Array.from(restored.collapsedWorkspaceChatKeys)).toEqual(["s1:w3"]);
+  });
+
+  it("keeps chat lists unfolded for a persisted value that predates them", () => {
+    const restored = mergePersistedCollapsedProjects({ collapsedPinned: true }, emptyState());
+
+    expect(restored.collapsedWorkspaceChatKeys.size).toBe(0);
   });
 });

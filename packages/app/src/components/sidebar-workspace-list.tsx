@@ -118,6 +118,7 @@ import {
   SidebarWorkspaceTrailingActionSlot,
 } from "@/components/sidebar/sidebar-workspace-row-content";
 import { useOpenKebabMenuVisibility } from "@/components/sidebar/use-open-kebab-menu-visibility";
+import { SidebarWorkspaceChats } from "@/components/sidebar/sidebar-workspace-chats";
 import {
   SidebarFilterEmptyState,
   SidebarProjectEmptyState,
@@ -1674,9 +1675,24 @@ function ProjectBlock({
           dragHandleProps={input?.dragHandleProps}
         />
       );
+      const rowWithChats = (
+        <>
+          {row}
+          <SidebarWorkspaceChats
+            serverId={item.serverId}
+            workspaceId={item.workspaceId}
+            workspaceKey={item.workspaceKey}
+            onNavigate={onWorkspacePress}
+          />
+        </>
+      );
       // Nested rows are not draggable (no `input`), so `depth` always lines up with "static,
       // indented" — a draggable top-level row is never wrapped.
-      return depth > 0 ? <IndentedWorkspaceRow depth={depth}>{row}</IndentedWorkspaceRow> : row;
+      return depth > 0 ? (
+        <IndentedWorkspaceRow depth={depth}>{rowWithChats}</IndentedWorkspaceRow>
+      ) : (
+        rowWithChats
+      );
     },
     [
       project.projectKind,

@@ -783,6 +783,7 @@ export const zhCN: TranslationResources = {
         reloadAgent: "重新加载 Agent",
         reloadAgentTooltip: "重新加载 Agent 以更新 skills、MCPs 或登录状态。",
         deleteChat: "删除聊天",
+        archiveChat: "归档聊天",
         close: "关闭",
         renameTerminal: "重命名 Terminal",
         renameAgent: "重命名 Agent",
@@ -822,6 +823,7 @@ export const zhCN: TranslationResources = {
         reloadedAgent: "已重新加载 Agent",
         failedToReloadAgent: "重新加载 Agent 失败",
         failedToDeleteChat: "删除聊天失败",
+        failedToArchiveChat: "归档聊天失败",
         failedToCloseAgent: "关闭 Agent 失败",
       },
       confirmations: {
@@ -1377,6 +1379,14 @@ export const zhCN: TranslationResources = {
       nested: {
         count_one: "{{count}} 个 subagent",
         count_other: "{{count}} 个 subagent",
+      },
+      chats: {
+        menu: "聊天操作",
+        untitled: "新聊天",
+        hide: "隐藏聊天",
+        show: "显示聊天",
+        collapsed_one: "{{count}} 个聊天",
+        collapsed_other: "{{count}} 个聊天",
       },
       actions: {
         menu: "Workspace 操作",
