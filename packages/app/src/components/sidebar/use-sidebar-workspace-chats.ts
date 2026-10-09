@@ -1,6 +1,7 @@
 import { useStoreWithEqualityFn } from "zustand/traditional";
 import { useSessionStore, type Agent } from "@/stores/session-store";
 import { normalizeWorkspaceOpaqueId } from "@/utils/workspace-identity";
+import { useSidebarCollapsedSectionsStore } from "@/stores/sidebar-collapsed-sections-store";
 import {
   areSidebarChatsEqual,
   buildWorkspaceChatIndex,
@@ -57,4 +58,24 @@ export function useSidebarWorkspaceChats(input: {
 /** The chat the host currently shows, so its row reads as selected. */
 export function useFocusedChatId(serverId: string): string | null {
   return useSessionStore((state) => state.sessions[serverId]?.focusedAgentId ?? null);
+}
+
+/**
+ * Whether the workspace's chat list is open and shows the focused chat. The workspace row then
+ * stays unhighlighted, so only the chat the user is in reads as selected.
+ */
+export function useWorkspaceListsFocusedChat(input: {
+  serverId: string;
+  workspaceId: string;
+  workspaceKey: string;
+}): boolean {
+  const chats = useSidebarWorkspaceChats({
+    serverId: input.serverId,
+    workspaceId: input.workspaceId,
+  });
+  const focusedChatId = useFocusedChatId(input.serverId);
+  const collapsed = useSidebarCollapsedSectionsStore((state) =>
+    state.collapsedWorkspaceChatKeys.has(input.workspaceKey),
+  );
+  return !collapsed && focusedChatId !== null && chats.some((chat) => chat.id === focusedChatId);
 }

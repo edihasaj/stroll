@@ -243,6 +243,8 @@ const styles = StyleSheet.create((theme) => ({
   },
   row: {
     minHeight: 28,
+    // Chats sit one step in from their workspace row, so the tree reads workspace → chats.
+    marginLeft: theme.spacing[4],
     marginBottom: theme.spacing[0.5],
     paddingVertical: theme.spacing[1],
     paddingLeft: theme.spacing[2],

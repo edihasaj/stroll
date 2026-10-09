@@ -119,6 +119,7 @@ import {
 } from "@/components/sidebar/sidebar-workspace-row-content";
 import { useOpenKebabMenuVisibility } from "@/components/sidebar/use-open-kebab-menu-visibility";
 import { SidebarWorkspaceChats } from "@/components/sidebar/sidebar-workspace-chats";
+import { useWorkspaceListsFocusedChat } from "@/components/sidebar/use-sidebar-workspace-chats";
 import {
   SidebarFilterEmptyState,
   SidebarProjectEmptyState,
@@ -1416,6 +1417,11 @@ function WorkspaceRowItem({
   isDragging = false,
   dragHandleProps,
 }: WorkspaceRowItemProps) {
+  const listsFocusedChat = useWorkspaceListsFocusedChat({
+    serverId: workspace.serverId,
+    workspaceId: workspace.workspaceId,
+    workspaceKey: workspace.workspaceKey,
+  });
   const handlePress = useCallback(() => {
     if (!workspace.serverId) {
       return;
@@ -1437,12 +1443,14 @@ function WorkspaceRowItem({
       onToggleWorkspacePin={onToggleWorkspacePin}
       reserveIdleStatusIndicatorSpace={reserveIdleStatusIndicatorSpace}
       isCreating={isCreating}
-      selected={isWorkspaceSelected({
-        selection: activeWorkspaceSelection,
-        serverId: workspace.serverId,
-        workspaceId: workspace.workspaceId,
-        enabled: selectionEnabled,
-      })}
+      selected={
+        isWorkspaceSelected({
+          selection: activeWorkspaceSelection,
+          serverId: workspace.serverId,
+          workspaceId: workspace.workspaceId,
+          enabled: selectionEnabled,
+        }) && !listsFocusedChat
+      }
       onPress={handlePress}
       drag={drag ?? noop}
       isDragging={isDragging}

@@ -225,6 +225,7 @@ export const SidebarWorkspaceChats = memo(function SidebarWorkspaceChats(
 const styles = StyleSheet.create((theme) => ({
   collapsedRow: {
     minHeight: 28,
+    marginLeft: theme.spacing[4],
     marginBottom: theme.spacing[0.5],
     paddingVertical: theme.spacing[1],
     paddingLeft: theme.spacing[2],
