@@ -99,12 +99,16 @@ function deriveVisibilityFromSession(): WorkspaceAgentVisibility {
   });
 }
 
-function reconcileWorkspaceTabs(workspaceKey: string, visibility: WorkspaceAgentVisibility): void {
+function reconcileWorkspaceTabs(
+  workspaceKey: string,
+  visibility: WorkspaceAgentVisibility,
+  options: { agentsHydrated?: boolean } = {},
+): void {
   useWorkspaceLayoutStore.getState().reconcileTabs(
     workspaceKey,
     buildWorkspaceTabSnapshot({
       agentVisibility: visibility,
-      agentsHydrated: true,
+      agentsHydrated: options.agentsHydrated ?? true,
       terminalsHydrated: true,
       knownTerminalIds: [],
       standaloneTerminalIds: [],
@@ -152,7 +156,11 @@ describe("workspace subagents integration", () => {
 
     initializeAgents([child]);
 
-    reconcileWorkspaceTabs(workspaceKey!, deriveVisibilityFromSession());
+    // Still hydrating: a hydrated, empty workspace would open the new-chat composer in the main
+    // view, and that composer (not the late parent) would hold the single chat slot.
+    reconcileWorkspaceTabs(workspaceKey!, deriveVisibilityFromSession(), {
+      agentsHydrated: false,
+    });
 
     expect(getWorkspaceAgentTabIds(workspaceKey!)).toEqual([]);
 
