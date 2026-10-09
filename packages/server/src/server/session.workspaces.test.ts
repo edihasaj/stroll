@@ -621,21 +621,15 @@ function createSessionForWorkspaceTests(
             updatedAt: "2026-03-01T12:00:00.000Z",
           })
         : null,
+    // Same contract as the real registry: read the current record through `get`, apply the updater,
+    // and persist through `upsert`. Tests override `get`/`upsert` on the registry, so resolve both
+    // late; a canned record here would make restore paths look like they persisted nothing.
     update: async (workspaceId, updater) => {
-      if (workspaceId !== "ws-repo-running") {
-        return null;
-      }
-      return updater(
-        createPersistedWorkspaceRecord({
-          workspaceId: "ws-repo-running",
-          projectId: "proj-repo-running",
-          cwd: REPO_CWD,
-          kind: "directory",
-          displayName: "repo",
-          createdAt: "2026-03-01T12:00:00.000Z",
-          updatedAt: "2026-03-01T12:00:00.000Z",
-        }),
-      );
+      const current = await workspaceRegistry.get(workspaceId);
+      if (!current) return null;
+      const next = updater(current);
+      await workspaceRegistry.upsert(next);
+      return next;
     },
     upsert: async () => {},
     archive: async () => {},

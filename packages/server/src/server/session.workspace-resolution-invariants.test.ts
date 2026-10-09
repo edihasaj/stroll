@@ -161,6 +161,16 @@ function createHarness(input: {
       upsert: async (record: PersistedWorkspaceRecord) => {
         workspaces.set(record.workspaceId, record);
       },
+      update: async (
+        id: string,
+        updater: (record: PersistedWorkspaceRecord) => PersistedWorkspaceRecord,
+      ) => {
+        const current = workspaces.get(id);
+        if (!current) return null;
+        const next = updater(current);
+        workspaces.set(id, next);
+        return next;
+      },
       archive: async (id: string, archivedAt: string) => {
         const w = workspaces.get(id);
         if (w) workspaces.set(id, { ...w, archivedAt });
