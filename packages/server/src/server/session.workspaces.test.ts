@@ -5928,6 +5928,42 @@ test("archive_workspace_request hides non-destructive workspace records", async 
   expect(response?.payload.error).toBeNull();
 });
 
+test("archive_workspace_request reports an error when the record stays live", async () => {
+  const emitted: SessionOutboundMessage[] = [];
+  const session = createSessionForWorkspaceTests();
+  const workspace = createPersistedWorkspaceRecord({
+    workspaceId: "ws-repo-archive-blocked",
+    projectId: "proj-repo-archive-blocked",
+    cwd: REPO_CWD,
+    kind: "local_checkout",
+    displayName: "repo",
+    createdAt: "2026-03-01T12:00:00.000Z",
+    updatedAt: "2026-03-01T12:00:00.000Z",
+  });
+
+  session.emit = (message) => {
+    if (isSessionOutboundMessage(message)) emitted.push(message);
+  };
+  session.workspaceRegistry.get = async () => workspace;
+  session.workspaceRegistry.archive = async () => {
+    throw new Error("Workspace registry mutations are blocked until daemon restart");
+  };
+  session.workspaceRegistry.list = async () => [workspace];
+
+  await session.handleMessage({
+    type: "archive_workspace_request",
+    workspaceId: "ws-repo-archive-blocked",
+    requestId: "req-archive-blocked",
+  });
+
+  expect(workspace.archivedAt).toBeNull();
+  const response = emitted.find((message) => message.type === "archive_workspace_response") as
+    | { payload: Record<string, unknown> }
+    | undefined;
+  expect(response?.payload.archivedAt).toBeNull();
+  expect(response?.payload.error).toContain("blocked until daemon restart");
+});
+
 test("archive_workspace_request archives a worktree-kind workspace and removes the directory on last reference", async () => {
   const tempDir = mkdtempSync(path.join(tmpdir(), "session-worktree-kind-archive-"));
   const repoDir = path.join(tempDir, "repo");

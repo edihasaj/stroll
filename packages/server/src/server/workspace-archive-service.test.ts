@@ -12,6 +12,7 @@ import type { ManagedAgent } from "./agent/agent-manager.js";
 import type { AgentStorage, StoredAgentRecord } from "./agent/agent-storage.js";
 import type { WorkspaceGitService } from "./workspace-git-service.js";
 import {
+  ARCHIVE_TEARDOWN_STEP_TIMEOUT_MS,
   archiveByScope,
   type ActiveWorkspaceRef,
   type ArchiveDependencies,
@@ -841,6 +842,86 @@ describe("archiveByScope", () => {
     expect(result.archivedWorkspaceIds).toHaveLength(3);
     expect(result.removedDirectory).toBe(true);
     expect(existsSync(worktree.worktreePath)).toBe(false);
+  });
+});
+
+describe("archiveByScope with same-cwd workspaces", () => {
+  const twinWorkspaces = (cwd: string): ActiveWorkspaceRef[] => [
+    { workspaceId: "ws-twin-a", cwd, kind: "local_checkout" },
+    { workspaceId: "ws-twin-b", cwd, kind: "local_checkout" },
+  ];
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  test("archiving one twin leaves the other live", async () => {
+    const dir = mkdtempSync(path.join(tmpdir(), "workspace-archive-twin-"));
+    cleanupPaths.push(dir);
+    const deps = createArchiveDeps({ paseoHome: dir, activeWorkspaces: twinWorkspaces(dir) });
+
+    const result = await archiveByScope(deps, {
+      scope: { kind: "workspace", workspaceId: "ws-twin-b" },
+      requestId: "req-twin",
+    });
+
+    expect(result.archivedWorkspaceIds).toEqual(["ws-twin-b"]);
+    expect(result.failedWorkspaces).toEqual([]);
+    expect((await deps.listActiveWorkspaces()).map((workspace) => workspace.workspaceId)).toEqual([
+      "ws-twin-a",
+    ]);
+  });
+
+  test("an archive that cannot write the record fails instead of reporting success", async () => {
+    const dir = mkdtempSync(path.join(tmpdir(), "workspace-archive-failed-"));
+    cleanupPaths.push(dir);
+    const deps = createArchiveDeps({ paseoHome: dir, activeWorkspaces: twinWorkspaces(dir) });
+    deps.archiveWorkspaceRecord = async () => {
+      throw new Error("Workspace registry mutations are blocked until daemon restart");
+    };
+
+    await expect(
+      archiveByScope(deps, {
+        scope: { kind: "workspace", workspaceId: "ws-twin-a" },
+        requestId: "req-failed",
+      }),
+    ).rejects.toThrow(
+      "Failed to archive workspace ws-twin-a: Workspace registry mutations are blocked until daemon restart",
+    );
+
+    // The row must leave its "archiving" state and be re-announced as the live record it still is.
+    expect(deps.clearWorkspaceArchiving).toHaveBeenCalledWith(["ws-twin-a"]);
+    expect(deps.emitWorkspaceUpdatesForWorkspaceIds).toHaveBeenCalledTimes(2);
+    expect((await deps.listActiveWorkspaces()).map((workspace) => workspace.workspaceId)).toEqual([
+      "ws-twin-a",
+      "ws-twin-b",
+    ]);
+  });
+
+  test("an agent that never finishes closing does not hold the workspace archive open", async () => {
+    vi.useFakeTimers();
+    const dir = mkdtempSync(path.join(tmpdir(), "workspace-archive-hung-"));
+    cleanupPaths.push(dir);
+    const deps = createArchiveDeps({ paseoHome: dir, activeWorkspaces: twinWorkspaces(dir) });
+    deps.agentManager = {
+      ...deps.agentManager,
+      listAgents: () => [{ id: "agent-hung", workspaceId: "ws-twin-a" } as ManagedAgent],
+      getAgent: () => ({ id: "agent-hung" }) as ManagedAgent,
+      archiveAgent: vi.fn(() => new Promise<{ archivedAt: string }>(() => {})),
+    };
+
+    const archived = archiveByScope(deps, {
+      scope: { kind: "workspace", workspaceId: "ws-twin-a" },
+      requestId: "req-hung",
+    });
+    await vi.advanceTimersByTimeAsync(ARCHIVE_TEARDOWN_STEP_TIMEOUT_MS + 1);
+    const result = await archived;
+
+    expect(result.archivedWorkspaceIds).toEqual(["ws-twin-a"]);
+    expect(deps.clearWorkspaceArchiving).toHaveBeenCalledWith(["ws-twin-a"]);
+    expect((await deps.listActiveWorkspaces()).map((workspace) => workspace.workspaceId)).toEqual([
+      "ws-twin-b",
+    ]);
   });
 });
 

@@ -30,6 +30,15 @@ Workspace archive runs lifecycle teardown from the exact `cwd` but removes only 
 `worktreeRoot` after its last active reference disappears. Worktree recovery recreates that backing
 checkout from `mainRepoRoot`, then restores the relative path from `worktreeRoot` to `cwd`.
 
+Several live workspaces may share one `cwd` (every create-agent and `workspace.create` mints its own),
+so archive is scoped to the workspace record. An archive of a single workspace reports success only
+once that record is archived: a record that stays live fails the request with the reason, instead of
+answering success and letting the next snapshot bring the row back. Each teardown step (agent close,
+terminal kill, setup stop) is bounded, so a provider session that never closes cannot leave a
+workspace stuck in `archiving`. Registry writes that follow a slow read (placement refresh on reopen,
+unarchive) update the current record's fields; they never write back the earlier snapshot, which
+would clear an archive or a rename that landed in between.
+
 Paseo uses **file-based JSON persistence** instead of a traditional database. All data is validated at runtime with Zod schemas. Most stores write atomically (write to temp file, then rename); a few still use plain `writeFile` — see each section. There is no schema-versioning/migration framework — schemas rely on optional fields with defaults for forward compatibility, with a small amount of inline normalization in `persisted-config.ts` for legacy provider/speech entries.
 
 All server-side stores live under `$PASEO_HOME` (defaults to `~/.stroll`).

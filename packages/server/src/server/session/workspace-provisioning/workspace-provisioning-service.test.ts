@@ -309,6 +309,7 @@ test("uses one workspace snapshot when reopening an archived workspace", async (
     existsOnDisk: () => workspaceRegistry.existsOnDisk(),
     list: async () => (reads++ === 0 ? archived : []),
     get: (workspaceId) => workspaceRegistry.get(workspaceId),
+    update: (workspaceId, updater) => workspaceRegistry.update(workspaceId, updater),
     upsert: (workspace) => workspaceRegistry.upsert(workspace),
     archive: (workspaceId, archivedAt) => workspaceRegistry.archive(workspaceId, archivedAt),
     remove: (workspaceId) => workspaceRegistry.remove(workspaceId),
@@ -918,5 +919,97 @@ test("a directory that goes away while the git read is in flight keeps its place
     workspaceId: created.workspaceId,
     kind: "local_checkout",
     branch: "feature/vanishing",
+  });
+});
+
+function provisioningWithCheckoutHook(
+  onCheckout: () => Promise<void>,
+): WorkspaceProvisioningService {
+  const base = gitService();
+  return createWorkspaceProvisioningService({
+    workspaceRegistry,
+    projectRegistry,
+    isDirectory,
+    logger,
+    workspaceGitService: createNoopWorkspaceGitService({
+      peekSnapshot: () => null,
+      getSnapshot: base.getSnapshot.bind(base),
+      getCheckout: async (cwd: string) => {
+        const checkout = await base.getCheckout(cwd);
+        await onCheckout();
+        return checkout;
+      },
+    }),
+  });
+}
+
+test("a workspace archived while its placement is read stays archived", async () => {
+  const repo = path.join(tmpDir, "repo");
+  mkdirSync(repo, { recursive: true });
+  const first = await provisioning.createWorkspaceForDirectory(repo);
+  const second = await provisioning.createWorkspaceForDirectory(repo, null, first.projectId);
+  // The directory became a git checkout, so reopening has placement to write back to `first`.
+  gitRoots.add(repo);
+  let archivedDuringRead = false;
+  const racing = provisioningWithCheckoutHook(async () => {
+    if (archivedDuringRead) return;
+    archivedDuringRead = true;
+    await workspaceRegistry.archive(first.workspaceId, ARCHIVED_AT);
+  });
+
+  const opened = await racing.findOrCreateWorkspaceForDirectory(repo);
+
+  expect(await workspaceRegistry.get(first.workspaceId)).toMatchObject({ archivedAt: ARCHIVED_AT });
+  expect(opened.workspaceId).toBe(second.workspaceId);
+  expect(opened.archivedAt).toBeNull();
+});
+
+test("archiving one of two same-cwd workspaces survives opening, importing and refreshing the directory", async () => {
+  const repo = path.join(tmpDir, "repo");
+  mkdirSync(repo, { recursive: true });
+  gitRoots.add(repo);
+  const older = await provisioning.createWorkspaceForDirectory(repo, "Audit app launch readiness");
+  const newer = await provisioning.createWorkspaceForDirectory(
+    repo,
+    "Audit app launch readiness",
+    older.projectId,
+  );
+  await workspaceRegistry.archive(newer.workspaceId, ARCHIVED_AT);
+
+  const opened = await provisioning.findOrCreateWorkspaceForDirectory(repo);
+  const imported = await provisioning.runInImportWorkspace({ cwd: repo }, async (workspace) => {
+    return workspace.workspaceId;
+  });
+  gitBranches.set(repo, "feature/moved");
+  const refreshed = await provisioning.findOrCreateWorkspaceForDirectory(repo);
+
+  expect(opened.workspaceId).toBe(older.workspaceId);
+  expect(imported.value).toBe(older.workspaceId);
+  expect(refreshed).toMatchObject({ workspaceId: older.workspaceId, branch: "feature/moved" });
+  expect(await workspaceRegistry.get(newer.workspaceId)).toMatchObject({
+    archivedAt: ARCHIVED_AT,
+  });
+  expect((await workspaceRegistry.list()).filter((record) => !record.archivedAt)).toHaveLength(1);
+});
+
+test("unarchiving a workspace keeps a title changed while its placement was read", async () => {
+  const repo = path.join(tmpDir, "repo");
+  mkdirSync(repo, { recursive: true });
+  const created = await provisioning.createWorkspaceForDirectory(repo);
+  await workspaceRegistry.archive(created.workspaceId, ARCHIVED_AT);
+  const archived = await workspaceRegistry.get(created.workspaceId);
+  if (!archived) throw new Error("expected archived workspace");
+  const racing = provisioningWithCheckoutHook(async () => {
+    await workspaceRegistry.update(created.workspaceId, (current) => ({
+      ...current,
+      title: "Renamed during restore",
+    }));
+  });
+
+  await racing.ensureWorkspaceRecordUnarchived(archived);
+
+  expect(await workspaceRegistry.get(created.workspaceId)).toMatchObject({
+    archivedAt: null,
+    title: "Renamed during restore",
   });
 });

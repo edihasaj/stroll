@@ -7,6 +7,7 @@ import {
   generateWorkspaceId,
   initialWorkspacePlacement,
   reconcileWorkspacePlacement,
+  type MutableWorkspacePlacement,
 } from "../../workspace-registry-model.js";
 import {
   createPersistedWorkspaceRecord,
@@ -330,7 +331,13 @@ export function createWorkspaceProvisioningService(deps: {
           Date.parse(left.createdAt) - Date.parse(right.createdAt) ||
           left.workspaceId.localeCompare(right.workspaceId),
       )[0];
-    if (active) return refreshWorkspaceRecord(active);
+    if (active) {
+      const refreshed = await refreshWorkspaceRecord(active);
+      // The placement read is slow. A workspace archived while it ran stays archived; this request
+      // is then ordered after the archive and resolves like any request that arrives later.
+      if (!refreshed.archivedAt) return refreshed;
+      return findOrCreateWorkspaceForDirectory(normalizedCwd);
+    }
     const archived = workspaces
       .filter(
         (workspace) => workspace.archivedAt && areEquivalentPaths(workspace.cwd, normalizedCwd),
@@ -388,12 +395,14 @@ export function createWorkspaceProvisioningService(deps: {
     const autoArchivedChangeRequestUrl =
       await resolveRestoredAutoArchiveChangeRequestUrl(workspace);
     let next: PersistedWorkspaceRecord | null = null;
+    let placementFields: Partial<MutableWorkspacePlacement> = {};
     if (workspace.archivedAt) {
       const placementUpdate = reconcileWorkspacePlacement({
         workspace,
         checkout,
         updatedAt: timestamp,
       });
+      placementFields = placementUpdate?.fields ?? {};
       next = {
         ...(placementUpdate?.workspace ?? workspace),
         archivedAt: null,
@@ -425,8 +434,21 @@ export function createWorkspaceProvisioningService(deps: {
       }
     }
     if (!next) return workspace;
-    await workspaceRegistry.upsert(next);
-    return next;
+    const unarchivedRecord = next;
+    // Write against the current record, not the one read before the placement and project
+    // lookups above, so a concurrent title, label or pin change is not rolled back.
+    const unarchived = await workspaceRegistry.update(workspace.workspaceId, (current) =>
+      current.archivedAt
+        ? {
+            ...current,
+            ...placementFields,
+            archivedAt: null,
+            autoArchivedChangeRequestUrl: unarchivedRecord.autoArchivedChangeRequestUrl,
+            updatedAt: unarchivedRecord.updatedAt,
+          }
+        : current,
+    );
+    return unarchived ?? unarchivedRecord;
   }
 
   async function refreshWorkspaceRecord(
@@ -437,14 +459,15 @@ export function createWorkspaceProvisioningService(deps: {
     if (project && !project.archivedAt) {
       await refreshProjectKind(project, workspace.cwd, checkout ?? undefined);
     }
-    const update = reconcileWorkspacePlacement({
-      workspace,
-      checkout,
-      updatedAt: new Date().toISOString(),
-    });
+    const updatedAt = new Date().toISOString();
+    const update = reconcileWorkspacePlacement({ workspace, checkout, updatedAt });
     if (!update) return workspace;
-    await workspaceRegistry.upsert(update.workspace);
-    return update.workspace;
+    // Apply only the observed placement fields to the current record. Writing back the snapshot
+    // read before the git observation would clear an archive that landed in the meantime.
+    const current = await workspaceRegistry.update(workspace.workspaceId, (existing) =>
+      existing.archivedAt ? existing : { ...existing, ...update.fields, updatedAt },
+    );
+    return current ?? update.workspace;
   }
 
   async function refreshProjectKind(
