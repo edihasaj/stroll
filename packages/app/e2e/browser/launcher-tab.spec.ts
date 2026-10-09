@@ -1,23 +1,16 @@
 import { test, expect } from "../support/fixtures";
-import type { Locator } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
 import {
   gotoWorkspace,
-  assertNewChatTileVisible,
-  assertNewTabMenuTriggerVisible,
-  assertSingleNewTabButton,
-  openNewTabMenuWithShortcut,
   clickNewChat,
   clickNewTerminal,
-  countTabsOfKind,
-  waitForTabBar,
-  pressNewTabShortcut,
-  pressDirectNewTabShortcut,
   getTabTestIds,
+  waitForTabBar,
   measureTileTransition,
-  sampleTabsDuringTransition,
-  expectTabTitleFits,
   terminalSurfaceLocator,
 } from "../support/helpers/launcher";
+import { expectMainDraft, getMainChatAgentId } from "../support/helpers/workspace-tabs";
+import { sidePane } from "../support/helpers/side-pane";
 import { expectComposerVisible, composerLocator } from "../support/helpers/composer";
 import { expectTerminalSurfaceVisible } from "../support/helpers/terminal-perf";
 import { seedWorkspace, type SeededWorkspace } from "../support/helpers/seed-client";
@@ -48,8 +41,75 @@ async function tabTestIds(tabs: Locator): Promise<(string | null)[]> {
   );
 }
 
-function tabIdentityKey(snapshot: Array<{ id: string }>): string {
-  return JSON.stringify(snapshot.map(({ id }) => id));
+// The e2e fixtures pin navigator.platform to Win32, so every chord here is a Ctrl chord even when the
+// suite runs on a Mac host.
+const NEW_TAB_SHORTCUT = "Control+t";
+const SHORTCUT_PREFIX = /Ctrl.*Shift/;
+
+/** The New tab launchers open in the side pane; the main view never holds one as a tab. */
+function launcherTabs(page: Page): Locator {
+  return page.locator('[data-testid^="workspace-tab-tab_"]').filter({ visible: true });
+}
+
+/** The launcher panel shown by the side pane's active New tab. */
+function sideLauncherPanel(page: Page): Locator {
+  return sidePane(page).getByTestId("workspace-new-tab-panel").filter({ visible: true }).first();
+}
+
+/** The launcher menu's trigger in the main view's header (the side pane has its own). */
+function mainLauncherTrigger(page: Page): Locator {
+  return page.getByTestId("main-pane-header").getByTestId("workspace-new-tab-button");
+}
+
+async function openMainLauncherMenu(page: Page): Promise<Locator> {
+  await mainLauncherTrigger(page).click();
+  const menu = page.getByTestId("workspace-new-tab-menu").filter({ visible: true });
+  await expect(menu).toBeVisible();
+  return menu;
+}
+
+async function openNewTabWithShortcut(page: Page): Promise<void> {
+  const before = await launcherTabs(page).count();
+  await page.keyboard.press(NEW_TAB_SHORTCUT);
+  await expect.poll(() => launcherTabs(page).count()).toBeGreaterThan(before);
+  await expect(sideLauncherPanel(page)).toBeVisible();
+}
+
+type MainPaneState = "launcher" | "composer" | "blank";
+
+/** Records, on every frame, what the main view shows: the launcher panel, the composer, or nothing. */
+async function sampleMainPaneDuring(
+  page: Page,
+  action: () => Promise<void>,
+  durationMs = 2_000,
+): Promise<MainPaneState[]> {
+  await page.evaluate((duration) => {
+    const scope = globalThis as typeof globalThis & { __paseoMainPaneFrames?: string[] };
+    scope.__paseoMainPaneFrames = [];
+    const startedAt = performance.now();
+    const shows = (selector: string) =>
+      Array.from(document.querySelectorAll<HTMLElement>(selector)).some(
+        (element) => element.getClientRects().length > 0,
+      );
+    function sample() {
+      let state = "blank";
+      if (shows('[data-testid="workspace-new-tab-panel"]')) state = "launcher";
+      else if (shows('[aria-label="Message agent..."]')) state = "composer";
+      scope.__paseoMainPaneFrames?.push(state);
+      if (performance.now() - startedAt < duration) {
+        requestAnimationFrame(sample);
+      }
+    }
+    sample();
+  }, durationMs);
+  await action();
+  await page.waitForTimeout(durationMs + 100);
+  const frames = await page.evaluate(
+    () =>
+      (globalThis as typeof globalThis & { __paseoMainPaneFrames?: string[] })
+        .__paseoMainPaneFrames ?? [],
+  );
+  return frames as MainPaneState[];
 }
 
 test.beforeAll(async () => {
@@ -73,7 +133,9 @@ test.afterAll(async () => {
 // ═══════════════════════════════════════════════════════════════════════════
 
 test.describe("Tab creation", () => {
-  test("Cmd+T keeps creating a New tab after workspace switches", async ({ page }) => {
+  test("Ctrl+T keeps creating a New tab in the side pane after workspace switches", async ({
+    page,
+  }) => {
     if (!secondWorkspaceId) {
       throw new Error("Secondary workspace was not created");
     }
@@ -96,65 +158,56 @@ test.describe("Tab creation", () => {
     const sequence = [workspace.workspaceId, secondWorkspaceId];
     for (let i = 0; i < 8; i++) {
       await switchWorkspaceRow(sequence[i % sequence.length]);
-      await pressNewTabShortcut(page);
-      await expect(
-        page.getByTestId("workspace-new-tab-panel").filter({ visible: true }),
-        `New tab did not open after switch ${i}`,
-      ).toBeVisible({
-        timeout: 5_000,
-      });
+      await openNewTabWithShortcut(page);
     }
   });
 
   test("retained inactive workspaces cannot own New tab shortcuts", async ({ page }) => {
     await gotoWorkspace(page, workspace.workspaceId);
     const workspaceUrl = page.url();
-    const modifier = process.platform === "darwin" ? "Meta" : "Control";
-    const newTabCountBefore = await countTabsOfKind(page, "new_tab");
+    const newTabCountBefore = await launcherTabs(page).count();
 
-    await page.keyboard.press(`${modifier}+Comma`);
+    await page.keyboard.press("Control+Comma");
     await expect(page.getByRole("navigation", { name: "Settings" })).toBeVisible();
 
-    await page.keyboard.press(`${modifier}+t`);
+    await page.keyboard.press(NEW_TAB_SHORTCUT);
 
     await page.goto(workspaceUrl);
-    await assertNewTabMenuTriggerVisible(page);
-    await expect.poll(() => countTabsOfKind(page, "new_tab")).toBe(newTabCountBefore);
+    await waitForTabBar(page);
+    await expect(mainLauncherTrigger(page)).toBeVisible();
+    await expect.poll(() => launcherTabs(page).count()).toBe(newTabCountBefore);
   });
 
   test("opens the menu, then creates independent New tabs without creating agents", async ({
     page,
   }) => {
     await gotoWorkspace(page, workspace.workspaceId);
-    await pressNewTabShortcut(page);
-    const newTabs = page
+    await openNewTabWithShortcut(page);
+    const newTabs = sidePane(page)
       .locator('[data-testid^="workspace-tab-tab_"]')
       .filter({ hasText: "New tab" });
     await expect(newTabs.first()).toBeVisible();
     const countBefore = await newTabs.count();
-    const draftCount = await countTabsOfKind(page, "draft");
 
-    await test.step("opening the plus menu leaves the current tabs intact", async () => {
-      await page.getByTestId("workspace-new-tab-button").filter({ visible: true }).click();
-      await expect(
-        page.getByTestId("workspace-new-tab-menu").filter({ visible: true }),
-      ).toBeVisible();
+    await test.step("opening the launcher menu leaves the current tabs intact", async () => {
+      await openMainLauncherMenu(page);
       await expect(newTabs).toHaveCount(countBefore);
       await page.keyboard.press("Escape");
     });
     await test.step("two shortcuts open two independent launchers", async () => {
-      await pressNewTabShortcut(page);
+      await openNewTabWithShortcut(page);
       await expect(newTabs).toHaveCount(countBefore + 1);
       const firstIds = await tabTestIds(newTabs);
-      await pressNewTabShortcut(page);
+      await openNewTabWithShortcut(page);
       await expect(newTabs).toHaveCount(countBefore + 2);
       const ids = await tabTestIds(newTabs);
       expect(new Set(ids).size).toBe(ids.length);
       expect(ids).toEqual(expect.arrayContaining(firstIds));
-      expect(await countTabsOfKind(page, "draft")).toBe(draftCount);
-      await expect(
-        page.getByTestId("workspace-new-tab-panel").filter({ visible: true }),
-      ).toBeVisible();
+      await expect(sideLauncherPanel(page)).toBeVisible();
+    });
+    await test.step("no chat was created", async () => {
+      expect(await getMainChatAgentId(page)).toBeNull();
+      await expect(sidePane(page).locator('[data-testid^="workspace-tab-agent_"]')).toHaveCount(0);
     });
   });
 
@@ -162,16 +215,15 @@ test.describe("Tab creation", () => {
     page,
   }) => {
     await gotoWorkspace(page, workspace.workspaceId);
-    await openNewTabMenuWithShortcut(page);
+    await openNewTabWithShortcut(page);
 
-    const panel = page.getByTestId("workspace-new-tab-panel").filter({ visible: true });
+    const panel = sideLauncherPanel(page);
     const agent = panel.getByRole("button", { name: /^Agent/ });
     const terminal = panel.getByRole("button", { name: /^Terminal/ });
     const diff = panel.getByRole("button", { name: /Diff/ });
-    const shortcutPrefix = process.platform === "darwin" ? /⇧⌘/ : /Ctrl.*Shift/;
-    await expect(agent).toContainText(new RegExp(`${shortcutPrefix.source}.*A`));
-    await expect(terminal).toContainText(new RegExp(`${shortcutPrefix.source}.*T`));
-    await expect(diff).toContainText(new RegExp(`${shortcutPrefix.source}.*G`));
+    await expect(agent).toContainText(new RegExp(`${SHORTCUT_PREFIX.source}.*A`));
+    await expect(terminal).toContainText(new RegExp(`${SHORTCUT_PREFIX.source}.*T`));
+    await expect(diff).toContainText(new RegExp(`${SHORTCUT_PREFIX.source}.*G`));
     await expect(agent).toBeFocused();
 
     await page.keyboard.press("ArrowDown");
@@ -179,7 +231,7 @@ test.describe("Tab creation", () => {
     await page.keyboard.press("ArrowUp");
     await expect(agent).toBeFocused();
 
-    await pressDirectNewTabShortcut(page, "e");
+    await page.keyboard.press("Control+Shift+e");
     await expect(page.getByTestId("workspace-explorer-sidebar")).toBeVisible();
     await expect(
       page.getByTestId("file-explorer-tree-scroll").filter({ visible: true }),
@@ -190,16 +242,16 @@ test.describe("Tab creation", () => {
     await expect(agent).toBeFocused();
   });
 
-  test("clicking new agent tab creates a draft tab", async ({ page }) => {
+  test("clicking New chat starts a draft in the main view, not a tab", async ({ page }) => {
     await gotoWorkspace(page, workspace.workspaceId);
 
     await clickNewChat(page);
 
     await expectComposerVisible(page);
+    await expectMainDraft(page);
 
     const tabsAfter = await getTabTestIds(page);
-    const draftCountAfter = tabsAfter.filter((id) => id.includes("draft")).length;
-    expect(draftCountAfter).toBeGreaterThanOrEqual(1);
+    expect(tabsAfter.filter((id) => id.includes("draft"))).toEqual([]);
   });
 
   test("clicking terminal button creates a standalone terminal", async ({ page }) => {
@@ -223,12 +275,8 @@ test.describe("Tab creation", () => {
 
     try {
       await gotoWorkspace(page, workspace.workspaceId);
-      await page.getByTestId("workspace-new-tab-button").filter({ visible: true }).click();
-      await page
-        .getByTestId("workspace-new-tab-menu")
-        .filter({ visible: true })
-        .getByRole("menuitem", { name: EMPTY_PROMPT_PROFILE.name })
-        .click();
+      const menu = await openMainLauncherMenu(page);
+      await menu.getByRole("menuitem", { name: EMPTY_PROMPT_PROFILE.name }).click();
 
       await expectTerminalOutputContains(page, "prompt-args: 0");
     } finally {
@@ -238,9 +286,7 @@ test.describe("Tab creation", () => {
 
   test("terminal profiles are grouped with a settings action", async ({ page }) => {
     await gotoWorkspace(page, workspace.workspaceId);
-    await page.getByTestId("workspace-new-tab-button").filter({ visible: true }).click();
-
-    const menu = page.getByTestId("workspace-new-tab-menu").filter({ visible: true });
+    const menu = await openMainLauncherMenu(page);
     await expect(menu.getByText("Terminal profiles", { exact: true })).toBeVisible();
 
     const editProfiles = menu.getByTestId("workspace-new-tab-menu-edit-terminal-profiles");
@@ -267,9 +313,7 @@ test.describe("Tab creation", () => {
 
     try {
       await gotoWorkspace(page, workspace.workspaceId);
-      await page.getByTestId("workspace-new-tab-button").filter({ visible: true }).click();
-
-      const menu = page.getByTestId("workspace-new-tab-menu").filter({ visible: true });
+      const menu = await openMainLauncherMenu(page);
       const menuIconPath = (name: string) =>
         menu
           .getByRole("menuitem", { name })
@@ -296,11 +340,15 @@ test.describe("Tab creation", () => {
     }
   });
 
-  test("tab bar shows action buttons per pane", async ({ page }) => {
+  test("the main view header shows New chat and the launcher menu", async ({ page }) => {
     await gotoWorkspace(page, workspace.workspaceId);
-    await assertSingleNewTabButton(page);
-    await assertNewChatTileVisible(page);
-    await assertNewTabMenuTriggerVisible(page);
+    await expect(
+      page.getByTestId("main-pane-header").getByTestId("main-pane-new-chat"),
+    ).toBeVisible();
+    await expect(mainLauncherTrigger(page)).toBeVisible();
+    await expect(
+      page.getByTestId("main-pane-header").getByTestId("workspace-tabs-row"),
+    ).toHaveCount(0);
   });
 });
 
@@ -309,35 +357,24 @@ test.describe("Tab creation", () => {
 // ═══════════════════════════════════════════════════════════════════════════
 
 test.describe("Tab transitions (no flash)", () => {
-  test("New agent tab transition has no blank intermediate tab state", async ({
-    page,
-    withWorkspace,
-  }) => {
+  test("New agent transition has no blank intermediate frame", async ({ page, withWorkspace }) => {
     const isolatedWorkspace = await withWorkspace({ prefix: "launcher-no-flash-" });
     await isolatedWorkspace.navigateTo();
-    await pressNewTabShortcut(page);
+    // An empty workspace opens on the launcher; choosing Agent replaces it with the composer.
     await expect(
       page.getByTestId("workspace-new-tab-panel").filter({ visible: true }),
     ).toBeVisible();
 
-    // Sample the single New → Agent replacement, not the separate action that
-    // creates the New tab in the first place.
-    const snapshots = await sampleTabsDuringTransition(page, async () => {
+    const frames = await sampleMainPaneDuring(page, async () => {
       await page.getByTestId("workspace-new-tab-agent").filter({ visible: true }).first().click();
     });
 
-    // Every snapshot should have at least one tab — no blank/zero-tab frames
-    for (const snapshot of snapshots) {
-      expect(snapshot.length).toBeGreaterThanOrEqual(1);
-    }
-
-    // Replacement is atomic: the set of identities changes once, while its size stays fixed.
-    const counts = snapshots.map((snapshot) => snapshot.length);
-    const initialCount = counts[0] ?? 0;
-
-    expect(counts.every((count) => count === initialCount)).toBe(true);
-    expect(new Set(snapshots.map(tabIdentityKey)).size).toBeLessThanOrEqual(2);
-    await expectTabTitleFits(page, "New Agent", { min: 64, max: 160 });
+    // No blank frame, and the launcher gives way to the composer once, never back.
+    expect(frames).not.toContain("blank");
+    const firstComposer = frames.indexOf("composer");
+    expect(firstComposer).toBeGreaterThan(-1);
+    expect(frames.slice(firstComposer).every((state) => state === "composer")).toBe(true);
+    await expectMainDraft(page);
   });
 
   test("Terminal transition completes within visual budget", async ({ page }) => {

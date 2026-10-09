@@ -2,6 +2,7 @@ import { expect } from "@playwright/test";
 import { test } from "../support/fixtures";
 import { gotoWorkspace } from "../support/helpers/launcher";
 import { seedWorkspace } from "../support/helpers/seed-client";
+import { expectMainChat } from "../support/helpers/workspace-tabs";
 
 test("a workspace with an existing agent never presents New during startup", async ({ page }) => {
   const workspace = await seedWorkspace({ repoPrefix: "new-tab-startup-agent-" });
@@ -34,9 +35,7 @@ test("a workspace with an existing agent never presents New during startup", asy
     });
 
     await gotoWorkspace(page, workspace.workspaceId);
-    await expect(
-      page.getByTestId(`workspace-tab-agent_${agent.id}`).filter({ visible: true }),
-    ).toHaveAttribute("aria-selected", "true", { timeout: 30_000 });
+    await expectMainChat(page, agent.id);
     await expect(page.getByTestId("workspace-new-tab-panel").filter({ visible: true })).toHaveCount(
       0,
     );
