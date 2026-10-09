@@ -33,14 +33,15 @@ export interface UseOpenSubagentResult {
 }
 
 /**
- * Opens a subagent beside the parent (per `settings.openInSidePane.subagents`) or as a normal tab
- * in the parent's pane when `forceTab` is set — the Cmd/Ctrl-click and middle-click gesture. One
- * seam shared by the subagents track and the in-transcript subagent rows, so both open the same
- * way.
+ * Opens a subagent from its parent's view. On desktop a managed subagent is a chat, so it replaces
+ * the parent in the main view (back returns to the parent) and a provider subagent opens in the side
+ * pane; the per-source Open location setting no longer applies. `forceTab` is the Cmd/Ctrl-click and
+ * middle-click gesture, which opens a normal tab in the parent's pane on layouts that still have
+ * tabs. One seam shared by the subagents track and the in-transcript subagent rows, so both open the
+ * same way.
  *
- * A same-workspace managed subagent splits the parent's pane; a cross-workspace one already
- * auto-opens as a tab in its own workspace (docs/agent-lifecycle.md "Tabs vs archive"), so
- * clicking it always navigates there instead — there is no beside-vs-tab choice to make.
+ * A cross-workspace managed subagent already auto-opens in its own workspace
+ * (docs/agent-lifecycle.md "The main view vs archive"), so clicking it always navigates there.
  */
 export function useOpenSubagent(input: UseOpenSubagentInput): UseOpenSubagentResult {
   const { serverId, workspaceId } = input;
