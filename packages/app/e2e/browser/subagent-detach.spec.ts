@@ -22,7 +22,7 @@ test.describe("Subagent detach", () => {
     await workspace?.cleanup();
   });
 
-  test("detaching a subagent focuses it as a workspace tab", async ({ page }) => {
+  test("detaching a subagent opens it as the main view chat", async ({ page }) => {
     const agents = await seedParentWithSubagent(workspace, {
       parentTitle: "Detach parent",
       childTitle: "Detached child",
