@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useState, type ReactElement } from "react";
+import { memo, useCallback, useEffect, useMemo, useState, type ReactElement } from "react";
 import { Pressable, Text, View, type PressableStateCallbackType } from "react-native";
 import { useTranslation } from "react-i18next";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
@@ -27,6 +27,8 @@ export interface ChatPaneHeaderProps {
   serverId: string;
   workspaceId: string;
   agentId: string;
+  /** False while another route (Settings) covers the workspace; open modals close with it. */
+  isRouteFocused: boolean;
   onCopyAgentId: (agentId: string) => Promise<void> | void;
   onCopyResumeCommand: (agentId: string) => Promise<void> | void;
   onReloadAgent: (agentId: string) => Promise<void> | void;
@@ -53,6 +55,7 @@ export const ChatPaneHeader = memo(function ChatPaneHeader({
   serverId,
   workspaceId,
   agentId,
+  isRouteFocused,
   onCopyAgentId,
   onCopyResumeCommand,
   onReloadAgent,
@@ -72,6 +75,14 @@ export const ChatPaneHeader = memo(function ChatPaneHeader({
   const archiveChat = useArchiveChat(serverId);
   const deleteChat = useDeleteChat({ serverId, workspaceId });
   const labels = useChatMenuLabels();
+
+  // The workspace stays mounted under Settings. The rename modal's backdrop would otherwise stay
+  // in the overlay root and cover the Settings screen, Back button included.
+  useEffect(() => {
+    if (!isRouteFocused) {
+      setIsRenaming(false);
+    }
+  }, [isRouteFocused]);
 
   const handleStartRename = useCallback(() => setIsRenaming(true), []);
   const handleCloseRename = useCallback(() => setIsRenaming(false), []);

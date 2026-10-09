@@ -25,6 +25,8 @@ export interface MainPaneHeaderProps {
   workspaceId: string;
   /** What the main pane shows: a chat, a draft, or nothing yet. */
   target: WorkspaceTabTarget | null;
+  /** False while another route (Settings) covers the workspace. */
+  isRouteFocused: boolean;
   focusModeEnabled: boolean;
   onExitFocusMode: () => void;
   onCopyAgentId: (agentId: string) => Promise<void> | void;
@@ -41,6 +43,7 @@ export const MainPaneHeader = memo(function MainPaneHeader({
   serverId,
   workspaceId,
   target,
+  isRouteFocused,
   focusModeEnabled,
   onExitFocusMode,
   onCopyAgentId,
@@ -72,6 +75,7 @@ export const MainPaneHeader = memo(function MainPaneHeader({
           serverId={serverId}
           workspaceId={workspaceId}
           agentId={target.agentId}
+          isRouteFocused={isRouteFocused}
           onCopyAgentId={onCopyAgentId}
           onCopyResumeCommand={onCopyResumeCommand}
           onReloadAgent={onReloadAgent}

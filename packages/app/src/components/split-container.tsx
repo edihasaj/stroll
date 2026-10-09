@@ -1234,6 +1234,7 @@ function SplitPaneView({
               serverId={normalizedServerId}
               workspaceId={normalizedWorkspaceId}
               target={activeTabDescriptor?.target ?? null}
+              isRouteFocused={isWorkspaceFocused}
               focusModeEnabled={Boolean(focusModeEnabled)}
               onExitFocusMode={onExitFocusMode}
               onCopyAgentId={onCopyAgentId}

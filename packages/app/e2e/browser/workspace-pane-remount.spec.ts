@@ -125,11 +125,7 @@ test.describe("Workspace pane mounting", () => {
     }
   });
 
-  // Suspected app bug, found when the chat header replaced the tab context menu: the chat's rename
-  // modal (opened from `chat-pane-title`) is not closed by the Settings shortcut. Its "Dismiss"
-  // backdrop stays in the overlay root and intercepts every click on the Settings screen, including
-  // Back. The old tab rename modal closed with the route. Remove the fixme once Settings closes it.
-  test.fixme("desktop Settings closes an open chat rename modal", async ({ page }) => {
+  test("desktop Settings closes an open chat rename modal", async ({ page }) => {
     test.setTimeout(90_000);
     const workspace = await seedWorkspace({ repoPrefix: "pane-remount-rename-" });
 
