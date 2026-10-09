@@ -1,3 +1,4 @@
+import { supportsDesktopPaneSplits, useIsCompactFormFactor } from "@/constants/layout";
 import type {
   SplitNode,
   SplitPane,
@@ -14,6 +15,15 @@ import type { WorkspaceTab, WorkspaceTabTarget } from "@/workspace-tabs/model";
  * device supports desktop pane splits in a non-compact layout.
  */
 export const SINGLE_CHAT_MAIN_ENABLED = false;
+
+/** Desktop only: compact windows and native layouts keep tabs in the main pane. */
+export function isSingleChatMainActive(input: { isCompact: boolean }): boolean {
+  return SINGLE_CHAT_MAIN_ENABLED && supportsDesktopPaneSplits() && !input.isCompact;
+}
+
+export function useIsSingleChatMain(): boolean {
+  return isSingleChatMainActive({ isCompact: useIsCompactFormFactor() });
+}
 
 type PanePlacement = Extract<WorkspaceTabPlacement, { paneId: string }>;
 
@@ -55,7 +65,7 @@ export function resolveMainPane(root: SplitNode, explorerPaneId: string | null):
   return panes.find((pane) => pane.id === DEFAULT_PANE_ID) ?? panes[0] ?? null;
 }
 
-function resolveSidePane(root: SplitNode, explorerPaneId: string | null): SplitPane | null {
+export function resolveSidePane(root: SplitNode, explorerPaneId: string | null): SplitPane | null {
   const mainPaneId = resolveMainPane(root, explorerPaneId)?.id;
   return listOrdinaryPanes(root, explorerPaneId).find((pane) => pane.id !== mainPaneId) ?? null;
 }

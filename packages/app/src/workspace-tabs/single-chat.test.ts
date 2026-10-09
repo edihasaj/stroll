@@ -12,6 +12,7 @@ import {
   collapseToSingleChat,
   findReplaceableChatTab,
   isChatTarget,
+  isSingleChatMainActive,
   mainPaneHasChat,
   resolveMainPane,
   resolveSingleChatPlacement,
@@ -102,8 +103,9 @@ function shape(node: SplitNode): unknown {
 }
 
 describe("single-chat rules", () => {
-  it("is not enabled in production yet", () => {
+  it("is not enabled in production yet, and never applies to a compact window", () => {
     expect(SINGLE_CHAT_MAIN_ENABLED).toBe(false);
+    expect(isSingleChatMainActive({ isCompact: true })).toBe(false);
   });
 
   it("treats agents and drafts as chats", () => {

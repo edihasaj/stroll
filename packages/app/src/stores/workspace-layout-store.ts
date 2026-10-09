@@ -2,7 +2,6 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useEffect, useState } from "react";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import type { z } from "zod";
 import { WorkspaceLayoutPersistedStateSchema } from "./workspace-layout-storage";
 import type { JsonValue } from "@getpaseo/protocol/agent-types";
 import type { WorkspaceTab, WorkspaceTabTarget } from "@/workspace-tabs/model";
@@ -65,9 +64,17 @@ import { getIsCompactFormFactor, supportsDesktopPaneSplits } from "@/constants/l
 import {
   canMoveTabInSingleChat,
   canReplaceTabInSingleChat,
+  isSingleChatMainActive,
   resolveSingleChatPlacement,
   SINGLE_CHAT_MAIN_ENABLED,
 } from "@/workspace-tabs/single-chat";
+import {
+  collapsePersistedLayoutsToSingleChat,
+  SINGLE_CHAT_LAYOUT_VERSION,
+  WORKSPACE_LAYOUT_PRE_SINGLE_CHAT_BACKUP_KEY,
+  withPreMigrationBackup,
+  type WorkspaceLayoutPersistedState,
+} from "@/stores/workspace-layout-migration";
 
 export {
   AMBIENT_PLACEMENT,
@@ -183,7 +190,7 @@ interface WorkspaceFocusRestorationState {
 const MAX_TREE_DEPTH = 5;
 
 const LEGACY_EXPLORER_SIDEBAR_REFERENCE_WIDTH = 1440;
-const WORKSPACE_LAYOUT_PERSIST_VERSION = 2;
+const WORKSPACE_LAYOUT_PERSIST_VERSION = SINGLE_CHAT_LAYOUT_VERSION;
 
 function convertLegacyExplorerSidebarRatios(
   ratiosByWorkspace: Record<string, number>,
@@ -335,37 +342,45 @@ function migrateVersionOneWorkspaceLayout(input: {
   };
 }
 
-function migrateWorkspaceLayoutPersistedState(
-  persistedState: unknown,
-  version: number,
+function migrateVersionOneWorkspaceLayouts(
+  state: WorkspaceLayoutPersistedState,
   ids: WorkspaceLayoutIdSource,
-): z.infer<typeof WorkspaceLayoutPersistedStateSchema> {
-  const result = WorkspaceLayoutPersistedStateSchema.safeParse(persistedState);
-  if (!result.success || version >= WORKSPACE_LAYOUT_PERSIST_VERSION) {
-    return result.success ? result.data : { layoutByWorkspace: {} };
-  }
-
+): WorkspaceLayoutPersistedState {
   const layoutByWorkspace: Record<string, WorkspaceLayout> = {};
   const explorerPaneIdByWorkspace: Record<string, string | null> = {};
-  const sidePaneIdByWorkspace = { ...result.data.sidePaneIdByWorkspace };
-  for (const [workspaceKey, layout] of Object.entries(result.data.layoutByWorkspace)) {
+  const sidePaneIdByWorkspace = { ...state.sidePaneIdByWorkspace };
+  for (const [workspaceKey, layout] of Object.entries(state.layoutByWorkspace)) {
     const migrated = migrateVersionOneWorkspaceLayout({
       layout,
-      legacyExplorerPaneId: result.data.explorerPaneIdByWorkspace?.[workspaceKey],
-      rememberedSidePaneId: result.data.sidePaneIdByWorkspace?.[workspaceKey],
+      legacyExplorerPaneId: state.explorerPaneIdByWorkspace?.[workspaceKey],
+      rememberedSidePaneId: state.sidePaneIdByWorkspace?.[workspaceKey],
       ids,
     });
     layoutByWorkspace[workspaceKey] = migrated.layout;
     explorerPaneIdByWorkspace[workspaceKey] = migrated.explorerPaneId;
     sidePaneIdByWorkspace[workspaceKey] = migrated.sidePaneId;
   }
+  return { ...state, layoutByWorkspace, explorerPaneIdByWorkspace, sidePaneIdByWorkspace };
+}
 
-  return {
-    ...result.data,
-    layoutByWorkspace,
-    explorerPaneIdByWorkspace,
-    sidePaneIdByWorkspace,
-  };
+function migrateWorkspaceLayoutPersistedState(input: {
+  persistedState: unknown;
+  version: number;
+  ids: WorkspaceLayoutIdSource;
+  collapseToSingleChat: boolean;
+}): WorkspaceLayoutPersistedState {
+  const result = WorkspaceLayoutPersistedStateSchema.safeParse(input.persistedState);
+  if (!result.success) {
+    return { layoutByWorkspace: {} };
+  }
+  let state = result.data;
+  if (input.version < 2) {
+    state = migrateVersionOneWorkspaceLayouts(state, input.ids);
+  }
+  if (input.version < SINGLE_CHAT_LAYOUT_VERSION && input.collapseToSingleChat) {
+    state = collapsePersistedLayoutsToSingleChat(state, input.ids);
+  }
+  return state;
 }
 
 function trimNonEmpty(value: string | null | undefined): string | null {
@@ -691,13 +706,21 @@ function createExplorerSidebarPane(
 interface WorkspaceLayoutEnv {
   /** Whether the main pane holds one chat and everything else opens beside it. */
   singleChatMain: () => boolean;
+  /**
+   * Whether saved layouts collapse to one chat on upgrade. This follows the platform, not the
+   * window width: a desktop app in a narrow window still owns a layout the wide window uses.
+   */
+  collapseSavedLayouts: () => boolean;
 }
 
-const INACTIVE_ENV: WorkspaceLayoutEnv = { singleChatMain: () => false };
+const INACTIVE_ENV: WorkspaceLayoutEnv = {
+  singleChatMain: () => false,
+  collapseSavedLayouts: () => false,
+};
 
 const DEVICE_ENV: WorkspaceLayoutEnv = {
-  singleChatMain: () =>
-    SINGLE_CHAT_MAIN_ENABLED && supportsDesktopPaneSplits() && !getIsCompactFormFactor(),
+  singleChatMain: () => isSingleChatMainActive({ isCompact: getIsCompactFormFactor() }),
+  collapseSavedLayouts: () => SINGLE_CHAT_MAIN_ENABLED && supportsDesktopPaneSplits(),
 };
 
 export function createWorkspaceLayoutStore(
@@ -1777,9 +1800,22 @@ export function createWorkspaceLayoutStore(
       {
         name: "workspace-layout-state",
         version: WORKSPACE_LAYOUT_PERSIST_VERSION,
-        storage: createValidatedPersistStorage(AsyncStorage, WorkspaceLayoutPersistedStateSchema),
+        storage: createValidatedPersistStorage(
+          withPreMigrationBackup({
+            storage: AsyncStorage,
+            backupKey: WORKSPACE_LAYOUT_PRE_SINGLE_CHAT_BACKUP_KEY,
+            beforeVersion: SINGLE_CHAT_LAYOUT_VERSION,
+            enabled: env.collapseSavedLayouts,
+          }),
+          WorkspaceLayoutPersistedStateSchema,
+        ),
         migrate: (persistedState, version) =>
-          migrateWorkspaceLayoutPersistedState(persistedState, version, ids),
+          migrateWorkspaceLayoutPersistedState({
+            persistedState,
+            version,
+            ids,
+            collapseToSingleChat: env.collapseSavedLayouts(),
+          }),
         partialize: (state) => {
           const layoutByWorkspace: Record<string, WorkspaceLayout> = {};
           for (const key in state.layoutByWorkspace) {

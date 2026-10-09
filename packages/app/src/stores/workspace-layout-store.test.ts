@@ -555,7 +555,7 @@ describe("workspace-layout-store version 2 migration", () => {
         const persisted = JSON.parse(
           (await AsyncStorage.getItem("workspace-layout-state")) ?? "{}",
         );
-        expect(persisted.version).toBe(2);
+        expect(persisted.version).toBe(3);
       });
     },
   );
@@ -572,7 +572,7 @@ describe("workspace-layout-store version 2 migration", () => {
     });
   });
 
-  it("writes version 2 preserving the existing Explorer key", async () => {
+  it("writes the current version preserving the existing Explorer key", async () => {
     await persistVersionOneLayout("v0.6");
     const restored = createWorkspaceLayoutStore(createDeterministicWorkspaceLayoutIds());
 
@@ -580,7 +580,7 @@ describe("workspace-layout-store version 2 migration", () => {
 
     await vi.waitFor(async () => {
       const persisted = JSON.parse((await AsyncStorage.getItem("workspace-layout-state")) ?? "{}");
-      expect(persisted.version).toBe(2);
+      expect(persisted.version).toBe(3);
       expect(Object.keys(persisted.state).sort()).toEqual([
         "explorerPaneIdByWorkspace",
         "explorerSidebarWidthByWorkspace",
@@ -615,7 +615,7 @@ describe("workspace-layout-store version 2 migration", () => {
 
     await vi.waitFor(async () => {
       const persisted = JSON.parse((await AsyncStorage.getItem("workspace-layout-state")) ?? "{}");
-      expect(persisted.version).toBe(2);
+      expect(persisted.version).toBe(3);
     });
     const reloaded = createWorkspaceLayoutStore(createDeterministicWorkspaceLayoutIds());
     await reloaded.persist.rehydrate();
@@ -4520,6 +4520,7 @@ describe("single-chat main", () => {
   function createSingleChatStore(): SingleChatStore {
     return createWorkspaceLayoutStore(createDeterministicWorkspaceLayoutIds(), {
       singleChatMain: () => true,
+      collapseSavedLayouts: () => false,
     });
   }
 
