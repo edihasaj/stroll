@@ -35,6 +35,8 @@ export interface NavigateToWorkspaceDeps extends PrepareWorkspaceTabDeps {
   getSessionWorkspaces: (serverId: string) => Map<string, WorkspaceDescriptor> | null | undefined;
   getSessionAgents: (serverId: string) => Iterable<Agent>;
   isWorkspaceLayoutHydrated: () => boolean;
+  /** Whether the workspace's main view already shows a chat that a bare workspace open must keep. */
+  mainViewShowsChat: (workspaceKey: string) => boolean;
   rememberLastWorkspace: (selection: ActiveWorkspaceSelection) => void;
   navigateToRoute: (route: string) => void;
 }
@@ -105,9 +107,12 @@ export function navigateToWorkspace(
         )
       : [];
     const attentionAgentId = pickAttentionAgent(workspaceAgents);
-    if (attentionAgentId && resolvedWorkspaceId) {
+    const workspaceKey = `${input.serverId}:${resolvedWorkspaceId}`;
+    // Opening a workspace is not a request to swap its chat: with one chat in the main view, the
+    // attention agent would replace the chat the user left there. Its sidebar row stays marked.
+    if (attentionAgentId && resolvedWorkspaceId && !deps.mainViewShowsChat(workspaceKey)) {
       deps.openTab({
-        workspaceKey: `${input.serverId}:${resolvedWorkspaceId}`,
+        workspaceKey,
         target: { kind: "agent", agentId: attentionAgentId },
         intent: "reveal",
       });

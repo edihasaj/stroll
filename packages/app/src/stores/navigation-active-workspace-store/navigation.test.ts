@@ -25,6 +25,7 @@ function createFakeDeps(overrides: Partial<NavigateToWorkspaceDeps> = {}) {
     getSessionWorkspaces: () => null,
     getSessionAgents: () => [] as Agent[],
     isWorkspaceLayoutHydrated: () => true,
+    mainViewShowsChat: () => false,
     openTab: ({ workspaceKey, target, pin = false }) => {
       openedTabs.push({ workspaceKey, target, pin });
       return target.kind === "agent" ? target.agentId : null;
@@ -101,6 +102,30 @@ describe("workspace navigation", () => {
         pin: false,
       },
     ]);
+  });
+
+  it("keeps the chat in the main view when a workspace opens without a target", () => {
+    const workspace = {
+      id: "workspace-a",
+      workspaceDirectory: "/repo/workspace-a",
+    } as WorkspaceDescriptor;
+    const agent = {
+      id: "agent-1",
+      cwd: "/repo/workspace-a",
+      workspaceId: "workspace-a",
+      requiresAttention: true,
+      attentionReason: "permission",
+    } as unknown as Agent;
+    const { deps, openedTabs, navigations } = createFakeDeps({
+      getSessionWorkspaces: () => new Map([[workspace.id, workspace]]),
+      getSessionAgents: () => [agent],
+      mainViewShowsChat: (workspaceKey) => workspaceKey === "server-1:workspace-a",
+    });
+
+    navigateToWorkspace({ serverId: "server-1", workspaceId: "workspace-a" }, deps);
+
+    expect(openedTabs).toEqual([]);
+    expect(navigations).toEqual(["/h/server-1/workspace/workspace-a"]);
   });
 
   it("keeps an explicit tab authoritative over an attention agent", () => {
