@@ -2008,10 +2008,9 @@ function WorkspaceScreenContent({
   useWorkspaceChatHistory({
     serverId: normalizedServerId,
     workspaceId: normalizedWorkspaceId,
-    persistenceKey,
     activeAgentId: focusedPaneAgentId,
-    rootAgentIds: workspaceAgentVisibility.autoOpenAgentIds,
     agentsHydrated: hasHydratedAgents,
+    activeAgentIds: workspaceAgentVisibility.activeAgentIds,
     isRouteFocused,
   });
 

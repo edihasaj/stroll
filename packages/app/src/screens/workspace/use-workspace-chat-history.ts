@@ -2,64 +2,78 @@ import { useCallback, useEffect } from "react";
 import { useKeyboardActionHandler } from "@/hooks/use-keyboard-action-handler";
 import { buildWorkspaceKeyboardHandlerId } from "@/keyboard/handler-id";
 import type { KeyboardActionDefinition } from "@/keyboard/keyboard-action-dispatcher";
-import { useWorkspaceChatHistoryStore } from "@/stores/workspace-chat-history-store";
+import { useSessionStore } from "@/stores/session-store";
+import {
+  useWorkspaceChatHistoryStore,
+  type ChatHistoryEntry,
+} from "@/stores/workspace-chat-history-store";
 import { navigateToAgent } from "@/utils/navigate-to-agent";
 
 interface UseWorkspaceChatHistoryInput {
   serverId: string;
   workspaceId: string;
-  persistenceKey: string | null;
-  /** The chat showing in the focused pane, or null when a non-chat tab is showing. */
+  /** The chat showing in the main view, or null when it holds a draft or nothing. */
   activeAgentId: string | null;
-  /** The workspace's non-archived root chats; subagents open beside their parent and are skipped. */
-  rootAgentIds: ReadonlySet<string>;
   agentsHydrated: boolean;
+  /** The workspace's non-archived agents; a change means a chat may have been archived or deleted. */
+  activeAgentIds: ReadonlySet<string>;
+  /** Whether this workspace is the one on screen; only it records opens and answers the keys. */
   isRouteFocused: boolean;
 }
 
 /**
- * Remembers the chats a workspace opens and answers Previous chat / Next chat. A chat opened by
- * any route (sidebar, notification, Command Center) lands in the history the moment it becomes
- * the focused pane's chat, so the history needs no knowledge of how it was opened.
+ * A chat counts while its agent exists and is not archived. A host whose agents have not loaded
+ * yet gets the benefit of the doubt, so a reconnect does not empty the history.
+ */
+function isChatLive(entry: ChatHistoryEntry): boolean {
+  const session = useSessionStore.getState().sessions[entry.serverId];
+  if (!session?.hasHydratedAgents) {
+    return true;
+  }
+  const agent = session.agents.get(entry.agentId);
+  return Boolean(agent) && !agent?.archivedAt;
+}
+
+/**
+ * Records the chats the main view shows, across every workspace, and answers Previous chat / Next
+ * chat. A chat opened by any route (sidebar, notification, Command Center) lands in the history
+ * the moment it becomes the focused workspace's main chat, so the history needs no knowledge of
+ * how it was opened. Going back to a chat in another workspace is a normal agent navigation.
  */
 export function useWorkspaceChatHistory(input: UseWorkspaceChatHistoryInput): void {
-  const {
-    serverId,
-    workspaceId,
-    persistenceKey,
-    activeAgentId,
-    rootAgentIds,
-    agentsHydrated,
-    isRouteFocused,
-  } = input;
+  const { serverId, workspaceId, activeAgentId, agentsHydrated, activeAgentIds, isRouteFocused } =
+    input;
 
   useEffect(() => {
-    if (!persistenceKey || !activeAgentId || !rootAgentIds.has(activeAgentId)) {
+    if (!isRouteFocused || !activeAgentId) {
       return;
     }
-    useWorkspaceChatHistoryStore.getState().recordOpen(persistenceKey, activeAgentId);
-  }, [activeAgentId, persistenceKey, rootAgentIds]);
+    useWorkspaceChatHistoryStore
+      .getState()
+      .recordOpen({ serverId, workspaceId, agentId: activeAgentId });
+  }, [activeAgentId, isRouteFocused, serverId, workspaceId]);
 
   useEffect(() => {
-    if (!persistenceKey || !agentsHydrated) {
+    if (!agentsHydrated) {
       return;
     }
-    useWorkspaceChatHistoryStore.getState().prune(persistenceKey, rootAgentIds);
-  }, [agentsHydrated, persistenceKey, rootAgentIds]);
+    useWorkspaceChatHistoryStore.getState().prune(isChatLive);
+  }, [agentsHydrated, activeAgentIds]);
 
-  const handleAction = useCallback(
-    (action: KeyboardActionDefinition): boolean => {
-      if (action.id !== "workspace.chat.navigate-relative" || !persistenceKey) {
-        return false;
-      }
-      const agentId = useWorkspaceChatHistoryStore.getState().step(persistenceKey, action.delta);
-      if (agentId) {
-        navigateToAgent({ serverId, agentId, workspaceId });
-      }
-      return true;
-    },
-    [persistenceKey, serverId, workspaceId],
-  );
+  const handleAction = useCallback((action: KeyboardActionDefinition): boolean => {
+    if (action.id !== "workspace.chat.navigate-relative") {
+      return false;
+    }
+    const entry = useWorkspaceChatHistoryStore.getState().step(action.delta, isChatLive);
+    if (entry) {
+      navigateToAgent({
+        serverId: entry.serverId,
+        agentId: entry.agentId,
+        workspaceId: entry.workspaceId,
+      });
+    }
+    return true;
+  }, []);
 
   useKeyboardActionHandler({
     handlerId: buildWorkspaceKeyboardHandlerId({
