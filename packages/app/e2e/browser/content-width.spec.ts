@@ -51,6 +51,9 @@ test("widens chat and Markdown files to the chosen content width and resets to t
 
       await openFileExplorer(page);
       await openFileFromExplorer(page, "README.md");
+      // The file opens in the side pane, which is narrower than the custom width. Full view gives
+      // the pane the whole canvas, so the column is bounded by the setting and not the pane.
+      await page.getByTestId("workspace-maximize-pane").filter({ visible: true }).first().click();
       await expectContentColumnWidth(markdownPreview, { min: 1200, max: 1600 });
       await page.screenshot({ path: testInfo.outputPath("markdown-custom-width.png") });
     });

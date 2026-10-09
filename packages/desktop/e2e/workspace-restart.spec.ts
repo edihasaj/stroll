@@ -131,29 +131,31 @@ function inspectChatDragExclusions(scroll: Element) {
   if (!content || !focusScope) throw new Error("Expected chat content and its focus scope");
   const contentRect = content.getBoundingClientRect();
   const chatX = (contentRect.left + contentRect.right) / 2;
-  const tabRow = [...document.querySelectorAll('[data-testid="workspace-tabs-row"]')].find(
+  // The main view has no tab row; its chat header is the strip that crosses the chat column.
+  const paneHeader = [...document.querySelectorAll('[data-testid="main-pane-header"]')].find(
     (row) => {
       const rect = row.getBoundingClientRect();
       return rect.left < chatX && rect.right > chatX && rect.height > 0;
     },
   );
-  if (!tabRow) throw new Error("Expected the chat pane's tab row");
-  const tabRect = tabRow.getBoundingClientRect();
-  const tabY = tabRect.top + tabRect.height / 2;
+  if (!paneHeader) throw new Error("Expected the chat pane's header");
+  const paneHeaderRect = paneHeader.getBoundingClientRect();
+  const paneHeaderY = paneHeaderRect.top + paneHeaderRect.height / 2;
   const exclusions = [...scroll.querySelectorAll("*")].filter((element) => {
     const rect = element.getBoundingClientRect();
     const style = getComputedStyle(element);
     return (
       style.visibility === "visible" &&
       style.getPropertyValue("-webkit-app-region") === "no-drag" &&
-      ((rect.top < headerY && rect.bottom > headerY) || (rect.top < tabY && rect.bottom > tabY)) &&
+      ((rect.top < headerY && rect.bottom > headerY) ||
+        (rect.top < paneHeaderY && rect.bottom > paneHeaderY)) &&
       rect.right > headerRect.left &&
       rect.left < headerRect.right
     );
   });
   return {
     contentCrossesHeader: contentRect.top < headerY && contentRect.bottom > headerY,
-    contentCrossesTabRow: contentRect.top < tabY && contentRect.bottom > tabY,
+    contentCrossesPaneHeader: contentRect.top < paneHeaderY && contentRect.bottom > paneHeaderY,
     focusScopeRegion: getComputedStyle(focusScope).getPropertyValue("-webkit-app-region"),
     exclusions: exclusions.length,
   };
@@ -193,7 +195,7 @@ test("scrolled chat does not exclude the workspace titlebar from dragging", asyn
         .poll(() => chat.evaluate(inspectChatDragExclusions))
         .toEqual({
           contentCrossesHeader: true,
-          contentCrossesTabRow: true,
+          contentCrossesPaneHeader: true,
           focusScopeRegion: "no-drag",
           exclusions: 0,
         });

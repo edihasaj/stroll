@@ -3,7 +3,7 @@ import { buildHostAgentDetailRoute } from "@/utils/host-routes";
 import { installDaemonWebSocketGate } from "./daemon-websocket-gate";
 import { seedWorkspace, type SeededWorkspace } from "./seed-client";
 import { getServerId } from "./server-id";
-import { waitForWorkspaceTabsVisible } from "./workspace-tabs";
+import { mainChatHeader, waitForWorkspaceTabsVisible } from "./workspace-tabs";
 import { expectReconnectingToastGone, expectReconnectingToastVisible } from "./workspace-ui";
 
 interface SeededDirectoryAgent {
@@ -33,6 +33,13 @@ async function createRunningMockAgent(
   return { id: agent.id, title };
 }
 
+/** The chat in the main view carries this title in its header; a chat is no tab. */
+async function expectMainChatTitle(page: Page, title: string): Promise<void> {
+  await expect(mainChatHeader(page).getByTestId("chat-pane-title")).toContainText(title, {
+    timeout: 30_000,
+  });
+}
+
 async function openCommandCenter(page: Page): Promise<void> {
   await page.getByTestId("sidebar-search").click();
 }
@@ -57,7 +64,7 @@ export class DirectoryBootstrapScenario {
       (url) => url.pathname.includes("/workspace/") && !url.searchParams.has("open"),
     );
     await waitForWorkspaceTabsVisible(page);
-    await expect(page.getByRole("button", { name: agent.title, exact: true })).toBeVisible();
+    await expectMainChatTitle(page, agent.title);
     return scenario;
   }
 
@@ -125,10 +132,7 @@ export class DirectoryBootstrapScenario {
         `/workspace/${workspace.workspaceId}/agent/${agent.id}|/workspace/${workspace.workspaceId}`,
       ),
     );
-    await expect(this.page.getByRole("button", { name: agent.title, exact: true })).toHaveAttribute(
-      "aria-selected",
-      "true",
-    );
+    await expectMainChatTitle(this.page, agent.title);
     const pings = this.gate.getClientRequestCount("ping");
     await expect
       .poll(() => this.gate.getClientRequestCount("ping"), { timeout: 30_000 })

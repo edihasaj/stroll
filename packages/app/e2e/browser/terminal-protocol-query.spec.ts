@@ -50,7 +50,9 @@ test.describe("Terminal protocol queries", () => {
       await waitForTerminalContent(page, (text) => text.includes("PASEO_OSC11_CAPTURE:"), 10_000);
       await page.waitForTimeout(500);
 
-      const text = await getTerminalBufferText(page);
+      // The terminal sits in the narrower side pane, so the capture line wraps. A wrapped row only
+      // adds a line break, never a character.
+      const text = (await getTerminalBufferText(page)).replaceAll("\n", "");
 
       expect(text).toContain("rgb:0b0b/0b0b/0b0b");
       expect(text).not.toContain("rgb:ffff/ffff/ffff");

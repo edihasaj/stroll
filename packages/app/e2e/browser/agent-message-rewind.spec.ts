@@ -60,6 +60,9 @@ test.describe("Agent message rewind", () => {
 
     try {
       const rewindCompletion = await holdRewindCompletion(page, agent.agentId);
+      // A short viewport makes the two short turns overflow the transcript, so the test can scroll
+      // the chat well away from the bottom.
+      await page.setViewportSize({ width: 1280, height: 560 });
       await openAgentRoute(page, agent);
       await expectComposerVisible(page);
       await completeSubmittedTurn(page, agent, retainedPrompt);
