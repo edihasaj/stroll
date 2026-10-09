@@ -5,6 +5,27 @@ import { expect, test, type Page } from "../support/fixtures";
 import { TerminalE2EHarness } from "../support/helpers/terminal-dsl";
 import { getTerminalBufferText, buildTerminalWorkspaceUrl } from "../support/helpers/terminal-perf";
 
+/**
+ * The e2e fixtures pin navigator.platform to Win32 on every host, so the default chord is Ctrl+F.
+ * A test that wants another platform's keyboard policy overrides the platform again afterwards.
+ */
+async function overrideNavigatorPlatform(page: Page, platform: string) {
+  await page.addInitScript((value) => {
+    Object.defineProperty(navigator, "platform", { get: () => value, configurable: true });
+  }, platform);
+}
+
+/**
+ * Terminals open in the side pane, which shares the canvas with the chat. Tests that read exact
+ * bytes, rows or widget positions give it the whole canvas with the pane's Full view button, so a
+ * narrow pane does not wrap their output.
+ */
+async function openTerminalInFullView(page: Page, terminalId: string) {
+  await harness.openTerminal(page, { terminalId });
+  await page.getByTestId("workspace-maximize-pane").filter({ visible: true }).first().click();
+  await expect(page.getByTestId("workspace-restore-pane").first()).toBeVisible();
+}
+
 function query(page: Page) {
   return page.getByRole("textbox", { name: "Find in pane", exact: true }).filter({ visible: true });
 }
@@ -18,7 +39,7 @@ function input(page: Page) {
     .locator(".xterm-helper-textarea");
 }
 async function openFind(page: Page, text?: string) {
-  await input(page).press("ControlOrMeta+f");
+  await input(page).press("Control+f");
   await expect(query(page)).toBeFocused();
   if (text !== undefined) await query(page).fill(text);
 }
@@ -86,7 +107,7 @@ async function openControlCharacterTerminal(page: Page) {
       // input lets cat print it immediately, without waiting for Enter.
       args: ["--noprofile", "--norc", "-c", "stty -echo -icanon; printf 'CAT_READY\\n'; cat -v"],
     });
-    await harness.openTerminal(page, { terminalId: terminal.id });
+    await openTerminalInFullView(page, terminal.id);
     await expect.poll(() => getTerminalBufferText(page)).toContain("CAT_READY");
   });
 }
@@ -120,8 +141,11 @@ async function expectVimPageDown(page: Page, before: { topLine: number; lastLine
   await test.step("Vim pages down while Find stays closed", async () => {
     try {
       // Vim's Ctrl+F keeps two lines of overlap, so the new page starts before the old page ends.
+      // The pane's height sets the page size, so derive the new top from the first page's last line.
       await expect.poll(() => visibleTopLineNumber(page)).toBeGreaterThan(before.topLine);
-      await expect.poll(() => visibleTopLineNumber(page)).toBeGreaterThanOrEqual(40);
+      await expect
+        .poll(() => visibleTopLineNumber(page))
+        .toBeGreaterThanOrEqual(before.lastLine - 1);
       await expectFindClosed(page);
     } finally {
       await recordTerminalEvidence("vim-after-control-f", await getTerminalBufferText(page));
@@ -153,7 +177,7 @@ async function openNumberedFileInVim(page: Page) {
         "seq 1 300 > numbered-lines.txt && vim -u NONE -i NONE numbered-lines.txt; printf 'VIM_EXITED\\n'; cat",
       ],
     });
-    await harness.openTerminal(page, { terminalId: terminal.id });
+    await openTerminalInFullView(page, terminal.id);
     await expectVimFirstPage(page);
     const screen = await readVimScreen(page);
     await recordTerminalEvidence("vim-before-control-f", screen.text);
@@ -221,7 +245,7 @@ async function openKeyboardCapture(page: Page) {
       `,
       ],
     });
-    await harness.openTerminal(page, { terminalId: terminal.id });
+    await openTerminalInFullView(page, terminal.id);
     await expect.poll(() => getTerminalBufferText(page)).toContain("KEYBOARD_READY");
   });
 }
@@ -253,6 +277,10 @@ test.describe("macOS terminal shortcuts", () => {
   test.use({
     userAgent:
       "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
+  });
+
+  test.beforeEach(async ({ page }) => {
+    await overrideNavigatorPlatform(page, "MacIntel");
   });
 
   test("encodes editing chords without confusing Control and Command", async ({ page }) => {
@@ -305,6 +333,7 @@ async function useLinuxKeyboardPlatform(page: Page) {
       "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
     platform: "Linux x86_64",
   });
+  await overrideNavigatorPlatform(page, "Linux x86_64");
 }
 
 test("Linux terminal chords keep Control, Alt and Meta distinct", async ({ page }) => {
@@ -358,7 +387,7 @@ test("searches retained output without sending Find input to the shell", async (
     command: "bash",
     args: ["--noprofile", "--norc", "-c", script],
   });
-  await harness.openTerminal(page, { terminalId: terminal.id });
+  await openTerminalInFullView(page, terminal.id);
   await expect.poll(() => getTerminalBufferText(page)).toContain("READY");
   await openFind(page, "a.b");
   await expect(status(page)).toHaveText("2 of 2");
@@ -382,7 +411,7 @@ test("searches retained output without sending Find input to the shell", async (
   await expectUncoveredMatch(page);
   await query(page).press("Enter");
   await expect(status(page)).toHaveText("1 of 2");
-  await query(page).press("ControlOrMeta+f");
+  await query(page).press("Control+f");
   await expectSelectedQuery(page, "a.b");
   await query(page).fill("A.B");
   await expect(status(page)).toHaveText("1 of 2");
@@ -428,7 +457,7 @@ test("keeps terminal Find owned by retained tabs", async ({ page }) => {
   await expect(status(page).filter({ visible: true })).toHaveText("2 of 2");
   await query(page).filter({ visible: true }).press("Escape");
   await page.getByTestId(`workspace-tab-terminal_${first.id}`).first().click();
-  await input(page).press("ControlOrMeta+f");
+  await input(page).press("Control+f");
   await expectSelectedQuery(page, "needle");
   await expect(status(page).filter({ visible: true })).toHaveText("1 of 1");
   await query(page).filter({ visible: true }).press("Escape");
