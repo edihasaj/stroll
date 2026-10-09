@@ -9,7 +9,9 @@ import { StartupSplashScreen } from "@/screens/startup-splash-screen";
 import {
   buildSettingsHostSectionRoute,
   buildSettingsRoute,
+  buildSettingsSectionRoute,
   isSettingsSectionSlug,
+  resolveLegacySettingsSectionSlug,
   type SettingsSectionSlug,
 } from "@/utils/host-routes";
 
@@ -48,6 +50,12 @@ export default function SettingsSectionRoute() {
         <SettingsDaemonRedirect />
       </HostRouteBootstrapBoundary>
     );
+  }
+
+  // COMPAT(settingsPageMerge): added 2026-10-09, remove after 2027-04-09.
+  const movedTo = resolveLegacySettingsSectionSlug(rawSection);
+  if (movedTo) {
+    return <Redirect href={buildSettingsSectionRoute(movedTo)} />;
   }
 
   return <SettingsScreen view={view} openAddHostIntent={openAddHostIntent} />;

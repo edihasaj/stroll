@@ -39,6 +39,10 @@ export function DesktopNotificationsSection() {
     void requestPermission("notifications");
   }, [requestPermission]);
 
+  const handleRequestMicrophone = useCallback(() => {
+    void requestPermission("microphone");
+  }, [requestPermission]);
+
   const handlePlaySoundChange = useCallback(
     (playSound: boolean) => {
       void updateSettings({ notifications: { playSound } }).catch(() => {
@@ -93,6 +97,14 @@ export function DesktopNotificationsSection() {
           status={snapshot?.notifications ?? null}
           isRequesting={requestingPermission === "notifications"}
           onRequest={handleRequestNotifications}
+          labels={permissionLabels}
+        />
+        <DesktopPermissionRow
+          title={t("settings.permissions.microphone")}
+          showBorder
+          status={snapshot?.microphone ?? null}
+          isRequesting={requestingPermission === "microphone"}
+          onRequest={handleRequestMicrophone}
           labels={permissionLabels}
         />
         <View style={[settingsStyles.row, settingsStyles.rowBorder]}>

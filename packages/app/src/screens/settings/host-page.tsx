@@ -51,6 +51,8 @@ import {
   useHosts,
 } from "@/runtime/host-runtime";
 import { ProvidersSection } from "@/screens/settings/providers-section";
+import { McpServersSection } from "@/screens/settings/mcp-servers/mcp-servers-section";
+import { WorktreesSection } from "@/screens/settings/worktrees/worktrees-section";
 import { ProviderAccountsSettingsSection } from "@/provider-accounts";
 import { HostUsageSection } from "@/usage";
 import { HostAppearanceSection } from "@/screens/settings/host-appearance-section";
@@ -304,10 +306,8 @@ export function HostAgentsPage({ serverId }: { serverId: string }) {
   );
 }
 
-export function HostWorkspacesPage({ serverId }: { serverId: string }) {
-  const { t } = useTranslation();
+export function HostWorktreesPage({ serverId }: { serverId: string }) {
   const host = useHostProfile(serverId);
-  const isConnected = useHostRuntimeIsConnected(serverId);
 
   if (!host) {
     return <HostNotFound />;
@@ -315,15 +315,21 @@ export function HostWorkspacesPage({ serverId }: { serverId: string }) {
 
   return (
     <View>
-      {isConnected ? (
-        <SettingsSection title={t("settings.hostSections.workspaces")}>
-          <AutoArchiveMergedWorkspacesCard serverId={serverId} />
-        </SettingsSection>
-      ) : (
-        <View style={[settingsStyles.card, styles.emptyCard]}>
-          <Text style={styles.emptyText}>{t("settings.host.workspaces.unavailable")}</Text>
-        </View>
-      )}
+      <WorktreesSection serverId={serverId} />
+    </View>
+  );
+}
+
+export function HostMcpServersPage({ serverId }: { serverId: string }) {
+  const host = useHostProfile(serverId);
+
+  if (!host) {
+    return <HostNotFound />;
+  }
+
+  return (
+    <View>
+      <McpServersSection serverId={serverId} />
     </View>
   );
 }
@@ -909,45 +915,6 @@ function InjectPaseoToolsCard({ serverId }: { serverId: string }) {
           value={config?.mcp.injectIntoAgents !== false}
           onValueChange={handleValueChange}
           accessibilityLabel={t("settings.host.orchestration.enableTools.accessibilityLabel")}
-        />
-      </View>
-    </View>
-  );
-}
-
-function AutoArchiveMergedWorkspacesCard({ serverId }: { serverId: string }) {
-  const isConnected = useHostRuntimeIsConnected(serverId);
-  const { config, patchConfig } = useDaemonConfig(serverId);
-
-  const handleValueChange = useCallback(
-    (next: boolean) => {
-      void patchConfig({ autoArchiveAfterMerge: next }).catch((error) => {
-        console.error("[HostPage] Failed to update auto-archive after merge", error);
-        Alert.alert(
-          "Unable to update workspaces",
-          error instanceof Error ? error.message : String(error),
-        );
-      });
-    },
-    [patchConfig],
-  );
-
-  if (!isConnected) return null;
-
-  return (
-    <View style={settingsStyles.card} testID="host-page-auto-archive-merged-workspaces-card">
-      <View style={settingsStyles.row}>
-        <View style={settingsStyles.rowContent}>
-          <Text style={settingsStyles.rowTitle}>Archive merged PR workspaces</Text>
-          <Text style={settingsStyles.rowHint}>
-            Automatically archive clean Paseo workspaces after their pull request is merged
-          </Text>
-        </View>
-        <Switch
-          value={config?.autoArchiveAfterMerge === true}
-          onValueChange={handleValueChange}
-          accessibilityLabel="Archive merged PR workspaces"
-          testID="host-page-auto-archive-merged-workspaces-switch"
         />
       </View>
     </View>

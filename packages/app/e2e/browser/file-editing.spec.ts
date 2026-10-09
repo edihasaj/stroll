@@ -727,7 +727,7 @@ test.describe("CodeMirror workspace file editing", () => {
     const workspace = await withWorkspace({ prefix: "file-editing-vim-" });
     await writeFile(path.join(workspace.repoPath, "vim.ts"), "const vim = true;\n", "utf8");
 
-    await page.goto("/settings/editor");
+    await page.goto("/settings/general");
     const toggle = page.getByRole("switch", { name: "Vim keybindings" });
     await expect(toggle).toBeVisible();
     await toggle.click();

@@ -23,12 +23,9 @@ const SECTION_LABELS = {
   chat: "Chat",
   appearance: "Appearance",
   sidebar: "Sidebar",
-  editor: "Editor",
   terminal: "Terminal",
-  browser: "Browser",
   shortcuts: "Shortcuts",
-  integrations: "Integrations",
-  permissions: "Permissions",
+  notifications: "Notifications",
   diagnostics: "Diagnostics",
   about: "About",
 } as const;
@@ -41,8 +38,9 @@ type HostSection =
   | "pair-device"
   | "agents"
   | "metadata"
-  | "workspaces"
+  | "worktrees"
   | "providers"
+  | "mcp-servers"
   | "usage"
   | "terminals"
   | "plugins"
@@ -400,7 +398,7 @@ export async function expectRetiredSidebarSectionsAbsent(page: Page): Promise<vo
   await expect(sidebar.getByTestId("settings-host-section-connections")).toBeVisible();
   await expect(sidebar.getByTestId("settings-host-section-projects")).toBeVisible();
   await expect(sidebar.getByTestId("settings-host-section-agents")).toBeVisible();
-  await expect(sidebar.getByTestId("settings-host-section-workspaces")).toBeVisible();
+  await expect(sidebar.getByTestId("settings-host-section-worktrees")).toBeVisible();
   await expect(sidebar.getByTestId("settings-host-section-providers")).toBeVisible();
   await expect(sidebar.getByTestId("settings-host-section-usage")).toBeVisible();
   await expect(sidebar.getByTestId("settings-host-section-host")).toBeVisible();

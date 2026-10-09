@@ -17,6 +17,7 @@ import {
   encodeWorkspaceIdForPathSegment,
   isSettingsSectionSlug,
   normalizeHostSectionSlug,
+  resolveLegacySettingsSectionSlug,
   normalizeProjectSettingsRouteId,
   parseHostAgentRouteFromPathname,
   parseHostWorkspaceOpenIntentFromPathname,
@@ -255,7 +256,8 @@ describe("host settings section slugs", () => {
     expect(normalizeHostSectionSlug("pair-device")).toBe("pair-device");
     expect(normalizeHostSectionSlug("agents")).toBe("agents");
     expect(normalizeHostSectionSlug("metadata")).toBe("metadata");
-    expect(normalizeHostSectionSlug("workspaces")).toBe("workspaces");
+    expect(normalizeHostSectionSlug("worktrees")).toBe("worktrees");
+    expect(normalizeHostSectionSlug("mcp-servers")).toBe("mcp-servers");
     expect(normalizeHostSectionSlug("projects")).toBe("projects");
     expect(normalizeHostSectionSlug("providers")).toBe("providers");
     expect(normalizeHostSectionSlug("usage")).toBe("usage");
@@ -265,6 +267,7 @@ describe("host settings section slugs", () => {
   it("maps old host settings sections to their new names", () => {
     expect(normalizeHostSectionSlug("orchestration")).toBe("agents");
     expect(normalizeHostSectionSlug("daemon")).toBe("host");
+    expect(normalizeHostSectionSlug("workspaces")).toBe("worktrees");
   });
 });
 
@@ -275,6 +278,19 @@ describe("settings section slugs", () => {
 
   it("no longer treats daemon as a valid app-level settings section", () => {
     expect(isSettingsSectionSlug("daemon")).toBe(false);
+  });
+
+  it("sends merged one-option pages to the page that holds their row", () => {
+    for (const [old, target] of [
+      ["editor", "general"],
+      ["browser", "diagnostics"],
+      ["integrations", "about"],
+      ["permissions", "notifications"],
+    ] as const) {
+      expect(isSettingsSectionSlug(old)).toBe(false);
+      expect(resolveLegacySettingsSectionSlug(old)).toBe(target);
+    }
+    expect(resolveLegacySettingsSectionSlug("general")).toBeNull();
   });
 });
 

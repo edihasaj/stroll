@@ -504,17 +504,26 @@ export const SETTINGS_SECTION_SLUGS = [
   "sidebar",
   "chat",
   "terminal",
-  "browser",
-  "editor",
   "shortcuts",
-  "integrations",
   "notifications",
-  "permissions",
   "diagnostics",
   "about",
 ] as const;
 
 export type SettingsSectionSlug = (typeof SETTINGS_SECTION_SLUGS)[number];
+
+// COMPAT(settingsPageMerge): added 2026-10-09, remove after 2027-04-09. One-option pages moved
+// into a neighbor; bookmarks and old deep links still land on the page that holds the row now.
+const LEGACY_SETTINGS_SECTION_SLUGS: Record<string, SettingsSectionSlug> = {
+  editor: "general",
+  browser: "diagnostics",
+  integrations: "about",
+  permissions: "notifications",
+};
+
+export function resolveLegacySettingsSectionSlug(value: string): SettingsSectionSlug | null {
+  return LEGACY_SETTINGS_SECTION_SLUGS[value] ?? null;
+}
 
 export function isSettingsSectionSlug(value: string): value is SettingsSectionSlug {
   return (SETTINGS_SECTION_SLUGS as readonly string[]).includes(value);
@@ -526,8 +535,9 @@ export const HOST_SECTION_SLUGS = [
   "pair-device",
   "agents",
   "metadata",
-  "workspaces",
+  "worktrees",
   "providers",
+  "mcp-servers",
   "routes",
   "usage",
   "terminals",
@@ -540,6 +550,8 @@ export type HostSectionSlug = (typeof HOST_SECTION_SLUGS)[number];
 const LEGACY_HOST_SECTION_SLUGS: Record<string, HostSectionSlug> = {
   orchestration: "agents",
   daemon: "host",
+  // COMPAT(settingsPageMerge): added 2026-10-09, remove after 2027-04-09.
+  workspaces: "worktrees",
 };
 
 export function isHostSectionSlug(value: string): value is HostSectionSlug {

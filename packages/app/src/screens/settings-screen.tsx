@@ -28,20 +28,18 @@ import {
   Stethoscope,
   Info,
   Bell,
-  Shield,
-  Puzzle,
   Plus,
   FolderGit2,
   SquareTerminal,
-  Code2,
   Smartphone,
   Sparkles,
   Blocks,
-  Globe,
   PanelLeft,
   MessageSquare,
   ChevronRight,
   Route,
+  GitBranch,
+  Plug,
 } from "lucide-react-native";
 import { DropdownTrigger } from "@/components/ui/dropdown-trigger";
 import { ComboboxTrigger } from "@/components/ui/combobox-trigger";
@@ -83,10 +81,9 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
-import { DesktopPermissionsSection } from "@/desktop/components/desktop-permissions-section";
 import { DesktopNotificationsSection } from "@/desktop/components/desktop-notifications-section";
 import { BrowserDataSection } from "@/desktop/browser/settings/browser-data-section";
-import { IntegrationsSection } from "@/desktop/components/integrations-section";
+import { CliInstallRow } from "@/desktop/components/cli-install-row";
 import { isElectronRuntime } from "@/desktop/host";
 import { useDesktopAppUpdater } from "@/desktop/updates/use-desktop-app-updater";
 import { formatVersionWithPrefix } from "@/desktop/updates/desktop-updates";
@@ -111,7 +108,8 @@ import {
   HostProvidersPage,
   HostRoutesPage,
   HostUsagePage,
-  HostWorkspacesPage,
+  HostWorktreesPage,
+  HostMcpServersPage,
   HostTerminalsPage,
 } from "@/screens/settings/host-page";
 import { PluginSettingsContent } from "@/plugins/settings";
@@ -145,7 +143,6 @@ interface SidebarSectionItem {
   labelKey: string;
   icon: ComponentType<{ size: number; color: string; strokeWidth?: number }>;
   desktopOnly?: boolean;
-  webOnly?: boolean;
   /** The page body, for pages that need nothing from the settings screen. */
   Content?: ComponentType;
 }
@@ -172,32 +169,11 @@ const SIDEBAR_SECTION_ITEMS: SidebarSectionItem[] = [
     Content: TerminalSection,
   },
   {
-    id: "browser",
-    labelKey: "settings.sections.browser",
-    icon: Globe,
-    desktopOnly: true,
-    Content: BrowserDataSection,
-  },
-  {
-    id: "editor",
-    labelKey: "settings.sections.editor",
-    icon: Code2,
-    webOnly: true,
-    Content: EditorSection,
-  },
-  {
     id: "shortcuts",
     labelKey: "settings.sections.shortcuts",
     icon: Keyboard,
     desktopOnly: true,
     Content: KeyboardShortcutsSection,
-  },
-  {
-    id: "integrations",
-    labelKey: "settings.sections.integrations",
-    icon: Puzzle,
-    desktopOnly: true,
-    Content: IntegrationsSection,
   },
   {
     id: "notifications",
@@ -206,19 +182,12 @@ const SIDEBAR_SECTION_ITEMS: SidebarSectionItem[] = [
     desktopOnly: true,
     Content: DesktopNotificationsSection,
   },
-  {
-    id: "permissions",
-    labelKey: "settings.sections.permissions",
-    icon: Shield,
-    desktopOnly: true,
-    Content: DesktopPermissionsSection,
-  },
   { id: "diagnostics", labelKey: "settings.sections.diagnostics", icon: Stethoscope },
   { id: "about", labelKey: "settings.sections.about", icon: Info },
 ];
 
 function isSectionAvailable(item: SidebarSectionItem, isDesktopApp: boolean): boolean {
-  return (!item.desktopOnly || isDesktopApp) && (!item.webOnly || isWeb);
+  return !item.desktopOnly || isDesktopApp;
 }
 
 interface HostSectionItem {
@@ -234,8 +203,9 @@ const HOST_SECTION_ITEMS: HostSectionItem[] = [
   { id: "pair-device", labelKey: "openProject.tiles.pairDevice.title", icon: Smartphone },
   { id: "agents", labelKey: "settings.hostSections.agents", icon: Bot },
   { id: "metadata", labelKey: "settings.hostSections.metadata", icon: Sparkles },
-  { id: "workspaces", labelKey: "settings.hostSections.workspaces", icon: FolderGit2 },
+  { id: "worktrees", labelKey: "settings.hostSections.worktrees", icon: GitBranch },
   { id: "providers", labelKey: "settings.hostSections.providers", icon: Boxes },
+  { id: "mcp-servers", labelKey: "settings.hostSections.mcpServers", icon: Plug },
   { id: "routes", labelKey: "settings.hostSections.routes", icon: Route },
   { id: "usage", labelKey: "settings.hostSections.usage", icon: Gauge },
   { id: "terminals", labelKey: "settings.hostSections.terminals", icon: SquareTerminal },
@@ -257,8 +227,10 @@ function renderHostSettingsContent(
       return <HostAgentsPage serverId={view.serverId} />;
     case "metadata":
       return <MetadataGenerationPage serverId={view.serverId} />;
-    case "workspaces":
-      return <HostWorkspacesPage serverId={view.serverId} />;
+    case "worktrees":
+      return <HostWorktreesPage serverId={view.serverId} />;
+    case "mcp-servers":
+      return <HostMcpServersPage serverId={view.serverId} />;
     case "providers":
       return <HostProvidersPage serverId={view.serverId} />;
     case "routes":
@@ -372,6 +344,7 @@ function GeneralSection({ settings, handleLanguageChange }: GeneralSectionProps)
 }
 
 interface DiagnosticsSectionProps {
+  isDesktopApp: boolean;
   useLegacyTerminalRenderer: boolean;
   onUseLegacyTerminalRendererChange: (value: boolean) => void;
   voiceAudioEngine: ReturnType<typeof useVoiceAudioEngineOptional>;
@@ -381,6 +354,7 @@ interface DiagnosticsSectionProps {
 }
 
 function DiagnosticsSection({
+  isDesktopApp,
   useLegacyTerminalRenderer,
   onUseLegacyTerminalRendererChange,
   voiceAudioEngine,
@@ -394,57 +368,60 @@ function DiagnosticsSection({
     void handlePlaybackTest();
   }, [handlePlaybackTest]);
   return (
-    <SettingsSection title={t("settings.diagnostics.title")}>
-      <View style={settingsStyles.card}>
-        {isNative ? (
-          <View style={settingsStyles.row} testID="legacy-terminal-renderer-row">
-            <View style={settingsStyles.rowContent}>
-              <Text style={settingsStyles.rowTitle}>
-                {t("settings.diagnostics.legacyTerminalRenderer.label")}
-              </Text>
-              <Text style={settingsStyles.rowHint}>
-                {t("settings.diagnostics.legacyTerminalRenderer.description")}
-              </Text>
+    <>
+      <SettingsSection title={t("settings.diagnostics.title")}>
+        <View style={settingsStyles.card}>
+          {isNative ? (
+            <View style={settingsStyles.row} testID="legacy-terminal-renderer-row">
+              <View style={settingsStyles.rowContent}>
+                <Text style={settingsStyles.rowTitle}>
+                  {t("settings.diagnostics.legacyTerminalRenderer.label")}
+                </Text>
+                <Text style={settingsStyles.rowHint}>
+                  {t("settings.diagnostics.legacyTerminalRenderer.description")}
+                </Text>
+              </View>
+              <Switch
+                value={useLegacyTerminalRenderer}
+                onValueChange={onUseLegacyTerminalRendererChange}
+                accessibilityLabel={t(
+                  "settings.diagnostics.legacyTerminalRenderer.accessibilityLabel",
+                )}
+                testID="legacy-terminal-renderer-switch"
+              />
             </View>
-            <Switch
-              value={useLegacyTerminalRenderer}
-              onValueChange={onUseLegacyTerminalRendererChange}
-              accessibilityLabel={t(
-                "settings.diagnostics.legacyTerminalRenderer.accessibilityLabel",
-              )}
-              testID="legacy-terminal-renderer-switch"
-            />
+          ) : null}
+          <View style={settingsStyles.row} testID="app-diagnostic-row">
+            <View style={settingsStyles.rowContent}>
+              <Text style={settingsStyles.rowTitle}>{t("settings.diagnostics.app.rowTitle")}</Text>
+              <Text style={settingsStyles.rowHint}>{t("settings.diagnostics.app.rowHint")}</Text>
+            </View>
+            <Button variant="secondary" size="sm" onPress={openAppDiagnostic}>
+              {t("settings.diagnostics.app.run")}
+            </Button>
           </View>
-        ) : null}
-        <View style={settingsStyles.row} testID="app-diagnostic-row">
-          <View style={settingsStyles.rowContent}>
-            <Text style={settingsStyles.rowTitle}>{t("settings.diagnostics.app.rowTitle")}</Text>
-            <Text style={settingsStyles.rowHint}>{t("settings.diagnostics.app.rowHint")}</Text>
+          <View style={settingsStyles.row}>
+            <View style={settingsStyles.rowContent}>
+              <Text style={settingsStyles.rowTitle}>{t("settings.diagnostics.testAudio")}</Text>
+              {playbackTestResult ? (
+                <Text style={settingsStyles.rowHint}>{playbackTestResult}</Text>
+              ) : null}
+            </View>
+            <Button
+              variant="secondary"
+              size="sm"
+              onPress={handlePlayPress}
+              disabled={!voiceAudioEngine || isPlaybackTestRunning}
+            >
+              {isPlaybackTestRunning
+                ? t("settings.diagnostics.playing")
+                : t("settings.diagnostics.playTest")}
+            </Button>
           </View>
-          <Button variant="secondary" size="sm" onPress={openAppDiagnostic}>
-            {t("settings.diagnostics.app.run")}
-          </Button>
         </View>
-        <View style={settingsStyles.row}>
-          <View style={settingsStyles.rowContent}>
-            <Text style={settingsStyles.rowTitle}>{t("settings.diagnostics.testAudio")}</Text>
-            {playbackTestResult ? (
-              <Text style={settingsStyles.rowHint}>{playbackTestResult}</Text>
-            ) : null}
-          </View>
-          <Button
-            variant="secondary"
-            size="sm"
-            onPress={handlePlayPress}
-            disabled={!voiceAudioEngine || isPlaybackTestRunning}
-          >
-            {isPlaybackTestRunning
-              ? t("settings.diagnostics.playing")
-              : t("settings.diagnostics.playTest")}
-          </Button>
-        </View>
-      </View>
-    </SettingsSection>
+      </SettingsSection>
+      {isDesktopApp ? <BrowserDataSection /> : null}
+    </>
   );
 }
 
@@ -469,6 +446,7 @@ function AboutSection({ appVersion, appVersionText, isDesktopApp }: AboutSection
           </View>
           <WhatsNewRow />
           {isDesktopApp ? <DesktopAppUpdateRow /> : null}
+          {isDesktopApp ? <CliInstallRow /> : null}
         </View>
       </SettingsSection>
       <ConnectedHostsSection clientVersion={appVersion} />
@@ -1361,11 +1339,13 @@ export default function SettingsScreen({ view, openAddHostIntent = null }: Setti
               <GeneralSection settings={settings} handleLanguageChange={handleLanguageChange} />
               <SendingSection />
               {isDesktopApp ? <OpenLocationSection /> : null}
+              {isWeb ? <EditorSection /> : null}
             </>
           );
         case "diagnostics":
           return (
             <DiagnosticsSection
+              isDesktopApp={isDesktopApp}
               useLegacyTerminalRenderer={settings.useLegacyTerminalRenderer}
               onUseLegacyTerminalRendererChange={handleUseLegacyTerminalRendererChange}
               voiceAudioEngine={voiceAudioEngine}
