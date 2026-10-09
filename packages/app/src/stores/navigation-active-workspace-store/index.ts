@@ -20,7 +20,11 @@ import {
   useWorkspaceLayoutStore,
 } from "@/stores/workspace-layout-store";
 import { getIsCompactFormFactor } from "@/constants/layout";
-import { isSingleChatMainActive, mainPaneHasChat } from "@/workspace-tabs/single-chat";
+import {
+  isSingleChatMainActive,
+  mainPaneHasChat,
+  resolveMainPane,
+} from "@/workspace-tabs/single-chat";
 import { stripHostWorkspaceRouteEchoSearchFromBrowserUrlAfterCommit } from "@/utils/host-route-browser";
 import { navigateToHostWorkspaceRoute } from "@/navigation/workspace-route-navigation";
 
@@ -53,6 +57,22 @@ function mainViewShowsChat(workspaceKey: string): boolean {
   return mainPaneHasChat(layout.root, explorerPaneId);
 }
 
+function focusMainPaneIfUnfocused(workspaceKey: string): void {
+  const state = useWorkspaceLayoutStore.getState();
+  const layout = state.layoutByWorkspace[workspaceKey];
+  if (!layout || layout.focusedPaneId !== null) {
+    return;
+  }
+  const explorerPaneId = resolveExplorerSidebarPaneId(
+    layout,
+    state.explorerSidebarPaneIdByWorkspace[workspaceKey],
+  );
+  const mainPane = resolveMainPane(layout.root, explorerPaneId);
+  if (mainPane) {
+    state.focusPane(workspaceKey, mainPane.id);
+  }
+}
+
 function navigateDeps(): NavigateToWorkspaceDeps {
   return {
     getSessionWorkspaces: (serverId) => useSessionStore.getState().sessions[serverId]?.workspaces,
@@ -60,6 +80,7 @@ function navigateDeps(): NavigateToWorkspaceDeps {
       useSessionStore.getState().sessions[serverId]?.agents.values() ?? [],
     isWorkspaceLayoutHydrated: () => useWorkspaceLayoutStore.persist.hasHydrated(),
     mainViewShowsChat,
+    focusMainPaneIfUnfocused,
     openTab: (input) => useWorkspaceLayoutStore.getState().openTab(input),
     rememberLastWorkspace: (selection) => lastWorkspaceSelectionStore.remember(selection),
     navigateToRoute: (route) => {

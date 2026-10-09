@@ -37,6 +37,12 @@ export interface NavigateToWorkspaceDeps extends PrepareWorkspaceTabDeps {
   isWorkspaceLayoutHydrated: () => boolean;
   /** Whether the workspace's main view already shows a chat that a bare workspace open must keep. */
   mainViewShowsChat: (workspaceKey: string) => boolean;
+  /**
+   * Gives the main chat pane focus when no pane has it. Marking a workspace unread ends viewing
+   * (no focused pane); opening the workspace again is what makes its chat viewed, and the manual
+   * unread clears with that focus.
+   */
+  focusMainPaneIfUnfocused: (workspaceKey: string) => void;
   rememberLastWorkspace: (selection: ActiveWorkspaceSelection) => void;
   navigateToRoute: (route: string) => void;
 }
@@ -110,7 +116,9 @@ export function navigateToWorkspace(
     const workspaceKey = `${input.serverId}:${resolvedWorkspaceId}`;
     // Opening a workspace is not a request to swap its chat: with one chat in the main view, the
     // attention agent would replace the chat the user left there. Its sidebar row stays marked.
-    if (attentionAgentId && resolvedWorkspaceId && !deps.mainViewShowsChat(workspaceKey)) {
+    if (resolvedWorkspaceId && deps.mainViewShowsChat(workspaceKey)) {
+      deps.focusMainPaneIfUnfocused(workspaceKey);
+    } else if (attentionAgentId && resolvedWorkspaceId) {
       deps.openTab({
         workspaceKey,
         target: { kind: "agent", agentId: attentionAgentId },

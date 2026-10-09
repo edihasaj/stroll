@@ -21,11 +21,13 @@ function createFakeDeps(overrides: Partial<NavigateToWorkspaceDeps> = {}) {
   const navigations: string[] = [];
   const remembered: ActiveWorkspaceSelection[] = [];
   const openedTabs: RecordedTab[] = [];
+  const focusedMainPanes: string[] = [];
   const deps: NavigateToWorkspaceDeps = {
     getSessionWorkspaces: () => null,
     getSessionAgents: () => [] as Agent[],
     isWorkspaceLayoutHydrated: () => true,
     mainViewShowsChat: () => false,
+    focusMainPaneIfUnfocused: (workspaceKey) => focusedMainPanes.push(workspaceKey),
     openTab: ({ workspaceKey, target, pin = false }) => {
       openedTabs.push({ workspaceKey, target, pin });
       return target.kind === "agent" ? target.agentId : null;
@@ -34,7 +36,7 @@ function createFakeDeps(overrides: Partial<NavigateToWorkspaceDeps> = {}) {
     navigateToRoute: (route) => navigations.push(route),
     ...overrides,
   };
-  return { deps, navigations, remembered, openedTabs };
+  return { deps, navigations, remembered, openedTabs, focusedMainPanes };
 }
 
 function createLastSelectionDeps(
@@ -116,7 +118,7 @@ describe("workspace navigation", () => {
       requiresAttention: true,
       attentionReason: "permission",
     } as unknown as Agent;
-    const { deps, openedTabs, navigations } = createFakeDeps({
+    const { deps, openedTabs, navigations, focusedMainPanes } = createFakeDeps({
       getSessionWorkspaces: () => new Map([[workspace.id, workspace]]),
       getSessionAgents: () => [agent],
       mainViewShowsChat: (workspaceKey) => workspaceKey === "server-1:workspace-a",
@@ -125,6 +127,8 @@ describe("workspace navigation", () => {
     navigateToWorkspace({ serverId: "server-1", workspaceId: "workspace-a" }, deps);
 
     expect(openedTabs).toEqual([]);
+    // The kept chat is viewed again, so a manual unread on it clears.
+    expect(focusedMainPanes).toEqual(["server-1:workspace-a"]);
     expect(navigations).toEqual(["/h/server-1/workspace/workspace-a"]);
   });
 

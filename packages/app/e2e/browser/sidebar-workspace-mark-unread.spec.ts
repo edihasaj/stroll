@@ -226,11 +226,7 @@ test("opening the marked chat of a multi-agent workspace clears its unread", asy
   await expectSelectedAgent(page, newest.id);
 });
 
-// Suspected app bug, found when the main view moved to one chat: pressing a workspace's sidebar row
-// brings back the chat that was already in its main view, but a manual unread on that chat stays
-// (the chat row and the workspace row keep their green dot after 10s). Opening the chat from its
-// sidebar row clears it, which the tests above cover. Remove the fixme once reopening clears it.
-test.fixme("reopening a workspace by its row clears manual unread on the chat already in its main view", async ({
+test("reopening a workspace by its row clears manual unread on the chat already in its main view", async ({
   page,
   workspaces,
 }) => {
