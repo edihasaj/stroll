@@ -82,6 +82,7 @@ import { useWorkspaceFullViewStore } from "@/stores/workspace-full-view-store";
 import {
   createDefaultLayout,
   findPaneById,
+  resolveExplorerSidebarPaneId,
   useWorkspaceLayoutStore,
   type SplitNode,
   type SplitPane,
@@ -334,8 +335,15 @@ export function SplitContainer({
   );
   const toggleFullView = useWorkspaceFullViewStore((state) => state.toggleFullView);
   const exitFullView = useWorkspaceFullViewStore((state) => state.exitFullView);
-  const explorerSidebarPaneId = useWorkspaceLayoutStore(
+  const registeredExplorerSidebarPaneId = useWorkspaceLayoutStore(
     (state) => state.explorerSidebarPaneIdByWorkspace[workspaceKey] ?? null,
+  );
+  // A layout that never showed the Explorer has no registered id yet but already carries its
+  // default (hidden) pane. Leaving that pane in the canvas tree would nest the main pane one
+  // level deeper the moment the side pane splits the root, and remount the chat.
+  const explorerSidebarPaneId = useMemo(
+    () => resolveExplorerSidebarPaneId(layout, registeredExplorerSidebarPaneId),
+    [layout, registeredExplorerSidebarPaneId],
   );
 
   const sensors = useSensors(

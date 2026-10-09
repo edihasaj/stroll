@@ -150,13 +150,7 @@ test.describe("Workspace pane mounting", () => {
     }
   });
 
-  // Suspected app bug: opening the first file from a chat link creates the side pane, and that
-  // replaces the chat's transcript node (and shifts a reader's scroll position in a long chat by
-  // roughly 150px). Opening a file through the Explorer first, or any later file, keeps the
-  // transcript mounted, which the reading-position test covers. Remove the fixme once it holds.
-  test.fixme("opening the first linked file keeps the chat transcript mounted", async ({
-    page,
-  }) => {
+  test("opening the first linked file keeps the chat transcript mounted", async ({ page }) => {
     test.setTimeout(90_000);
     const workspace = await seedWorkspace({
       repoPrefix: "pane-remount-first-file-",
