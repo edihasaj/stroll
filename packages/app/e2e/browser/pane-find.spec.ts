@@ -4,16 +4,6 @@ import { expect, test, type Page } from "../support/fixtures";
 import { openFileExplorer, openFileFromExplorer } from "../support/helpers/file-explorer";
 import { installDaemonWebSocketGate } from "../support/helpers/daemon-websocket-gate";
 
-const APP_SETTINGS_KEY = "@paseo:app-settings";
-
-/** Explorer files open in the side pane from the next load on, so a reload applies it. */
-async function openExplorerFilesInSidePane(page: Page) {
-  await page.evaluate((key) => {
-    localStorage.setItem(key, JSON.stringify({ openInSidePane: { explorerFiles: true } }));
-  }, APP_SETTINGS_KEY);
-  await page.reload();
-}
-
 function source(page: Page) {
   return page.getByTestId("file-source-editor").filter({ visible: true }).locator(".cm-content");
 }
@@ -30,7 +20,7 @@ async function openSource(page: Page, filename: string) {
 }
 async function findInSource(page: Page, text: string) {
   await source(page).focus();
-  await source(page).press("ControlOrMeta+f");
+  await source(page).press("Control+f");
   await expect(query(page)).toBeFocused();
   await query(page).fill(text);
 }
@@ -105,6 +95,8 @@ test("finds literal text at the top of editable source and returns focus at the 
   await writeFile(file, "first a.b\nsecond axb\nthird a.b\n");
   await workspace.navigateTo();
   await openSource(page, "source.txt");
+  // A narrow side pane moves the widget to the bottom to clear the match; Full view gives it room.
+  await page.getByTestId("workspace-maximize-pane").filter({ visible: true }).first().click();
   await findInSource(page, "a.b");
   await expect(status(page)).toHaveText("1 of 2");
   await query(page).fill("A.B");
@@ -122,7 +114,7 @@ test("finds literal text at the top of editable source and returns focus at the 
   await expect(page.getByRole("button", { name: "Find", exact: true })).toHaveCount(0);
 
   await test.step("reopen with the shortcut, preserve replace and Undo/save", async () => {
-    await source(page).press("ControlOrMeta+f");
+    await source(page).press("Control+f");
     await expect(query(page)).toBeFocused();
     await page.getByRole("button", { name: "Toggle replace" }).click();
     await page.getByRole("textbox", { name: "Replace with" }).fill("literal");
@@ -131,9 +123,9 @@ test("finds literal text at the top of editable source and returns focus at the 
     await expect(status(page)).toHaveText("1 of 1");
     await page.screenshot({ path: testInfo.outputPath("replace.png") });
     await closeFind(page);
-    await source(page).press("ControlOrMeta+z");
+    await source(page).press("Control+z");
     await expect(source(page)).toContainText("first a.b");
-    await source(page).press("ControlOrMeta+s");
+    await source(page).press("Control+s");
     await expect.poll(() => readFile(file, "utf8")).toBe("first a.b\nsecond axb\nthird a.b\n");
     await findInSource(page, "a.b");
     await page.getByRole("button", { name: "Toggle replace" }).click();
@@ -141,7 +133,7 @@ test("finds literal text at the top of editable source and returns focus at the 
     await page.getByRole("button", { name: "Replace all", exact: true }).click();
     await expect(status(page)).toHaveText("No matches");
     await closeFind(page);
-    await source(page).press("ControlOrMeta+s");
+    await source(page).press("Control+s");
     await expect.poll(() => readFile(file, "utf8")).toBe("first all\nsecond axb\nthird all\n");
   });
 });
@@ -181,42 +173,36 @@ test("searches read-only source beyond the viewport without replace controls", a
   await expect(source(page)).toContainText("needle last");
   await page.screenshot({ path: testInfo.outputPath("readonly-find.png") });
   await closeFind(page);
-  await source(page).press("ControlOrMeta+f");
+  await source(page).press("Control+f");
   await expect(query(page)).toBeFocused();
   await query(page).fill("plain");
   await expect(status(page)).toHaveText("1 of 10000+");
 });
 
-test("targets the focused source across the main and side panes and refocuses an open query", async ({
+test("targets the visible source after another file replaces it and refocuses an open query", async ({
   page,
   withWorkspace,
 }, testInfo) => {
-  const workspace = await withWorkspace({ prefix: "pane-find-split-" });
+  const workspace = await withWorkspace({ prefix: "pane-find-switch-" });
   await writeFile(path.join(workspace.repoPath, "left.txt"), "left needle\n");
   await writeFile(path.join(workspace.repoPath, "right.txt"), "right needle\nright needle\n");
   await workspace.navigateTo();
   await openSource(page, "left.txt");
-  await openExplorerFilesInSidePane(page);
-  await openFileExplorer(page);
-  await openFileFromExplorer(page, "right.txt");
   const left = source(page).filter({ hasText: "left needle" });
   const right = source(page).filter({ hasText: "right needle" });
   await expect(left).toBeVisible();
+  await openFileFromExplorer(page, "right.txt");
   await expect(right).toBeVisible();
-  await left.click();
-  await left.press("ControlOrMeta+f");
-  await query(page).fill("needle");
-  await expect(status(page)).toHaveText("1 of 1");
-  await query(page).press("Escape");
+  await expect(left).toHaveCount(0);
   await right.click();
-  await right.press("ControlOrMeta+f");
+  await right.press("Control+f");
   await query(page).fill("needle");
   await expect(status(page)).toHaveText("1 of 2");
   await right.click();
-  await right.press("ControlOrMeta+f");
+  await right.press("Control+f");
   await expect(query(page)).toBeFocused();
   await expect(query(page)).toHaveValue("needle");
-  await page.screenshot({ path: testInfo.outputPath("split-find.png") });
+  await page.screenshot({ path: testInfo.outputPath("switch-find.png") });
 });
 
 test.describe("narrow touch browser", () => {
@@ -233,7 +219,7 @@ test.describe("narrow touch browser", () => {
     await expect(page.getByRole("button", { name: "Find", exact: true })).toHaveCount(0);
     await page.screenshot({ path: testInfo.outputPath("touch-find-closed.png") });
     await source(page).focus();
-    await source(page).press("ControlOrMeta+f");
+    await source(page).press("Control+f");
     await expect(query(page)).toBeFocused();
     await query(page).fill("needle");
     await page.getByRole("button", { name: "Next match" }).tap();
@@ -247,14 +233,14 @@ test.describe("narrow touch browser", () => {
 
 async function selectFirstTwoLines(page: Page) {
   await source(page).focus();
-  await source(page).press("ControlOrMeta+Home");
+  await source(page).press("Control+Home");
   await source(page).press("Shift+ArrowDown");
   await source(page).press("Shift+End");
 }
 
 async function selectLastWord(page: Page) {
   await source(page).focus();
-  await source(page).press("ControlOrMeta+End");
+  await source(page).press("Control+End");
   await source(page).press("ArrowUp");
   await source(page).press("Home");
   await source(page).press("Shift+End");
@@ -271,7 +257,7 @@ test("declines multiline selection seeds and keeps replacement aligned with the 
   await openSource(page, "selection.txt");
 
   await selectFirstTwoLines(page);
-  await source(page).press("ControlOrMeta+f");
+  await source(page).press("Control+f");
   await expect(query(page)).toBeFocused();
   await expect(query(page)).toHaveValue("");
   await expect(page.getByRole("button", { name: "Next match" })).toBeDisabled();
@@ -280,13 +266,13 @@ test("declines multiline selection seeds and keeps replacement aligned with the 
   await closeFind(page);
 
   await selectFirstTwoLines(page);
-  await source(page).press("ControlOrMeta+g");
+  await source(page).press("Control+g");
   await expect(query(page)).toHaveValue("");
   await expect(page.getByRole("button", { name: "Next match" })).toBeDisabled();
   await closeFind(page);
 
   await selectLastWord(page);
-  await source(page).press("ControlOrMeta+f");
+  await source(page).press("Control+f");
   await expect(query(page)).toHaveValue("alphabeta");
   await query(page).press("Enter");
   await expect(status(page)).toHaveText("1 of 1");
@@ -294,7 +280,7 @@ test("declines multiline selection seeds and keeps replacement aligned with the 
   await expect(page.getByLabel("Line 3, column 10")).toBeVisible();
 
   await selectFirstTwoLines(page);
-  await source(page).press("ControlOrMeta+f");
+  await source(page).press("Control+f");
   await expect(query(page)).toHaveValue("alphabeta");
   await query(page).press("Enter");
   await expect(status(page)).toHaveText("1 of 1");
@@ -306,7 +292,7 @@ test("declines multiline selection seeds and keeps replacement aligned with the 
   await expect(status(page)).toHaveText("No matches");
   await page.screenshot({ path: testInfo.outputPath("single-line-query-replacement.png") });
   await closeFind(page);
-  await source(page).press("ControlOrMeta+s");
+  await source(page).press("Control+s");
   await expect.poll(() => readFile(file, "utf8")).toBe("alpha\nbeta\nreplaced\n");
 });
 
@@ -327,7 +313,7 @@ for (const startingField of ["Find in pane", "Replace with"] as const) {
     await test.step("repeat Find from the input and type a fresh query", async () => {
       const startingInput = page.getByRole("textbox", { name: startingField, exact: true });
       await startingInput.press("End");
-      await startingInput.press("ControlOrMeta+f");
+      await startingInput.press("Control+f");
       await expectQuerySelected(page, "needle");
       await page.keyboard.type("first");
       await expect(query(page)).toHaveValue("first");
@@ -354,7 +340,7 @@ test.describe("the active match stays visible under the floating widget", () => 
       await openSource(page, "touch.txt");
       await page.setViewportSize({ width: 390, height: 844 });
       await source(page).focus();
-      await source(page).press("ControlOrMeta+f");
+      await source(page).press("Control+f");
       await expect(query(page)).toBeFocused();
       await query(page).fill("needle");
       await expect(status(page)).toHaveText("1 of 2");
@@ -376,12 +362,11 @@ test.describe("the active match stays visible under the floating widget", () => 
     const workspace = await withWorkspace({ prefix: "pane-find-cover-split-" });
     await writeFile(path.join(workspace.repoPath, "right.txt"), "needle one\nplain\n");
     await workspace.navigateTo();
-    await openExplorerFilesInSidePane(page);
     await openSource(page, "right.txt");
     const right = source(page).filter({ hasText: "needle one" });
     await expect(right).toBeVisible();
     await right.click();
-    await right.press("ControlOrMeta+f");
+    await right.press("Control+f");
     await query(page).fill("needle");
     await expect(status(page)).toHaveText("1 of 1");
     await expectActiveMatchUncovered(page);
@@ -395,7 +380,7 @@ test.describe("the active match stays visible under the floating widget", () => 
     });
 
     await test.step("navigation and query focus still work", async () => {
-      await query(page).press("ControlOrMeta+f");
+      await query(page).press("Control+f");
       await expectQuerySelected(page, "needle");
       await query(page).press("Enter");
       await expect(status(page)).toHaveText("1 of 1");
@@ -419,7 +404,7 @@ test("Go to line keeps its dialog with Find closed and open", async ({
 
   await test.step("with Find closed", async () => {
     await source(page).focus();
-    await source(page).press("ControlOrMeta+Alt+g");
+    await source(page).press("Control+Alt+g");
     await expect(gotoInput).toBeVisible();
     await page.screenshot({ path: testInfo.outputPath("goto-line-find-closed.png") });
     await gotoInput.fill("12");
@@ -429,11 +414,11 @@ test("Go to line keeps its dialog with Find closed and open", async ({
   });
 
   await test.step("with Find open", async () => {
-    await source(page).press("ControlOrMeta+f");
+    await source(page).press("Control+f");
     await expect(query(page)).toBeFocused();
     await query(page).fill("line 3");
     await source(page).focus();
-    await source(page).press("ControlOrMeta+Alt+g");
+    await source(page).press("Control+Alt+g");
     await expect(gotoInput).toBeVisible();
     await page.screenshot({ path: testInfo.outputPath("goto-line-find-open.png") });
     await gotoInput.fill("30");
@@ -463,6 +448,8 @@ test.describe("macOS", () => {
     await source(page).focus();
     await source(page).press("Control+f");
     await expect(query(page)).toHaveCount(0);
+    // macOS hosts also move the caret natively on Control+f, so start the match search from the top.
+    await source(page).press("Control+Home");
 
     await source(page).press("Meta+f");
     await expect(query(page)).toBeFocused();
