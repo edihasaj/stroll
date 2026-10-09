@@ -11,9 +11,8 @@ import { gotoAppShell } from "../support/helpers/app";
 import { openAgentRoute, seedMockAgentWorkspace } from "../support/helpers/mock-agent";
 import { seedWorkspace } from "../support/helpers/seed-client";
 import { getServerId } from "../support/helpers/server-id";
+import { expectMainChat } from "../support/helpers/workspace-tabs";
 import { waitForSidebarHydration } from "../support/helpers/workspace-ui";
-
-const APP_SETTINGS_KEY = "@paseo:app-settings";
 
 const RED_PIXEL = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9ZQmcAAAAASUVORK5CYII=",
@@ -113,10 +112,6 @@ test.describe("CodeMirror workspace file editing", () => {
       );
       await openAgentRoute(page, session);
       for (const line of [46, 403, 46]) {
-        await page
-          .getByTestId(`workspace-tab-agent_${session.agentId}`)
-          .filter({ visible: true })
-          .click();
         await page.getByText(`src/router.go:${line}`, { exact: true }).click();
         await expect(page.getByLabel(`Line ${line}, column 1`)).toBeVisible();
       }
@@ -149,7 +144,9 @@ test.describe("CodeMirror workspace file editing", () => {
       );
       await expect(workspaceRow).toBeVisible({ timeout: 30_000 });
       await workspaceRow.click();
-      await page.getByTestId(`workspace-tab-agent_${agent.id}`).filter({ visible: true }).click();
+      await expectMainChat(page, agent.id);
+      // The sidebar row's hover card sits over the first message while the pointer is still on it.
+      await page.mouse.move(800, 450);
 
       const fileLink = page.getByRole("link", { name: "Open target" }).first();
       await expect(fileLink).toBeVisible({ timeout: 15_000 });
@@ -202,7 +199,6 @@ test.describe("CodeMirror workspace file editing", () => {
       await expect(editor(page)).toContainText("plain source");
       await expect.poll(() => page.locator(".cm-line").count()).toBeLessThan(200);
 
-      await page.getByTestId(`workspace-tab-agent_${session.agentId}`).first().click();
       await expect(page.getByTestId("message-input-root")).toBeVisible();
       await page.getByTestId("workspace-tab-file_plain.txt").first().click();
       await expect(page.getByTestId("file-source-editor")).toBeVisible();
@@ -232,7 +228,6 @@ test.describe("CodeMirror workspace file editing", () => {
         "This file is too large to display",
       );
 
-      await page.getByTestId(`workspace-tab-agent_${session.agentId}`).first().click();
       await expect(page.getByTestId("message-input-root")).toBeVisible();
       await page.getByTestId("workspace-tab-file_too-large.txt").first().click();
       await expect(page.getByTestId("file-source-too-large")).toBeVisible();
@@ -268,13 +263,9 @@ test.describe("CodeMirror workspace file editing", () => {
 
       const sourceEditor = editor(page);
       await sourceEditor.click();
-      await sourceEditor.press("ControlOrMeta+Home");
+      await sourceEditor.press("Control+Home");
       await expect(page.getByLabel(/^Line 1, column \d+$/)).toBeVisible();
 
-      await page
-        .getByTestId(`workspace-tab-agent_${session.agentId}`)
-        .filter({ visible: true })
-        .click();
       await expect(fileLink).toBeVisible();
       await fileLink.click();
 
@@ -287,13 +278,7 @@ test.describe("CodeMirror workspace file editing", () => {
     }
   });
 
-  test("clicking the editor focuses its pane beside an agent", async ({ page }) => {
-    await page.addInitScript((settingsKey) => {
-      localStorage.setItem(
-        settingsKey,
-        JSON.stringify({ openInSidePane: { explorerFiles: true } }),
-      );
-    }, APP_SETTINGS_KEY);
+  test("clicking the editor focuses the side pane beside the chat", async ({ page }) => {
     const target = "target.ts:42";
     const session = await seedAgentWithFileLink({
       target,
@@ -314,19 +299,21 @@ test.describe("CodeMirror workspace file editing", () => {
           .locator('[data-testid^="workspace-pane-"]')
           .getByTestId("workspace-tabs-row")
           .filter({ visible: true }),
-      ).toHaveCount(2);
+      ).toHaveCount(1);
 
-      await page
-        .getByTestId(`workspace-tab-agent_${session.agentId}`)
-        .filter({ visible: true })
-        .click();
+      // Focus the chat, then the editor: closing the current tab must close the file, not the chat.
+      const dialogs: string[] = [];
+      page.on("dialog", (dialog) => {
+        dialogs.push(dialog.message());
+        void dialog.dismiss();
+      });
+      await page.getByTestId("message-input-root").click();
       await editor(page).click();
       await page.keyboard.press("Alt+Shift+W");
 
       await expect(page.getByTestId("workspace-tab-file_target.ts")).not.toBeVisible();
-      await expect(
-        page.getByTestId(`workspace-tab-agent_${session.agentId}`).filter({ visible: true }),
-      ).toBeVisible();
+      await expectMainChat(page, session.agentId);
+      expect(dialogs).toEqual([]);
     } finally {
       await session.cleanup();
     }
