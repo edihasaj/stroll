@@ -1,7 +1,7 @@
 // Locks two behaviours on web/desktop:
-// 1) with the Explorer showing a view, a newly appearing agent must auto-open as the main view's
-//    chat in the background: the Explorer is a background surface and must never swallow chats
-//    or lose the user's selected view, and
+// 1) with the Explorer showing a view, a newly appearing agent takes the untouched new-chat
+//    composer's place in the main view: the Explorer is a background surface and must never
+//    swallow chats or lose the user's selected view, and
 // 2) closing the main view's only chat brings back the new-chat composer, whether or not Explorer
 //    is showing, and the workspace stays usable after a reload.
 import { expect, type Locator, type Page } from "@playwright/test";
@@ -64,7 +64,7 @@ test.describe("explorer pane tab placement", () => {
       await selectExplorerChanges(page);
     });
 
-    await test.step("an agent appearing now stays out of the Explorer and the main draft", async () => {
+    await test.step("an agent appearing now takes the empty draft's place in main, not Explorer", async () => {
       const agent = await e2eWorkerClient.createAgent({
         provider: "mock",
         cwd: workspace.repoPath,
@@ -77,9 +77,10 @@ test.describe("explorer pane tab placement", () => {
         initialPrompt: "stream please",
       });
       agentId = agent.id;
-      // The main view holds the new-chat draft, which an arriving chat does not replace.
+      // The untouched composer gives way to the chat that appeared after it opened.
       await expect(sidebarChatRow(page, agentId)).toBeVisible({ timeout: 30_000 });
-      await expect(draftHeader(page)).toHaveCount(1);
+      await expectMainChat(page, agentId);
+      await expect(draftHeader(page)).toHaveCount(0);
 
       await expect(
         visible(page, "workspace-explorer-sidebar").getByTestId(`workspace-tab-agent_${agentId}`),
