@@ -10,7 +10,7 @@ import {
   terminalSurfaceLocator,
 } from "../support/helpers/launcher";
 import { expectMainDraft, getMainChatAgentId } from "../support/helpers/workspace-tabs";
-import { sidePane } from "../support/helpers/side-pane";
+import { mainPane, sidePane } from "../support/helpers/side-pane";
 import { expectComposerVisible, composerLocator } from "../support/helpers/composer";
 import { expectTerminalSurfaceVisible } from "../support/helpers/terminal-perf";
 import { seedWorkspace, type SeededWorkspace } from "../support/helpers/seed-client";
@@ -357,23 +357,34 @@ test.describe("Tab creation", () => {
 // ═══════════════════════════════════════════════════════════════════════════
 
 test.describe("Tab transitions (no flash)", () => {
-  test("New agent transition has no blank intermediate frame", async ({ page, withWorkspace }) => {
+  test("an empty workspace opens on the new-chat composer and never shows the launcher in main", async ({
+    page,
+    withWorkspace,
+  }) => {
     const isolatedWorkspace = await withWorkspace({ prefix: "launcher-no-flash-" });
     await isolatedWorkspace.navigateTo();
-    // An empty workspace opens on the launcher; choosing Agent replaces it with the composer.
+
+    await expectMainDraft(page);
+    await expectComposerVisible(page);
     await expect(
-      page.getByTestId("workspace-new-tab-panel").filter({ visible: true }),
-    ).toBeVisible();
+      mainPane(page).getByTestId("workspace-new-tab-panel").filter({ visible: true }),
+    ).toHaveCount(0);
+    // The launcher stays one press away in the header menu.
+    await expect(mainLauncherTrigger(page)).toBeVisible();
+  });
 
-    const frames = await sampleMainPaneDuring(page, async () => {
-      await page.getByTestId("workspace-new-tab-agent").filter({ visible: true }).first().click();
-    });
+  test("New chat from a draft keeps the composer on screen with no blank frame", async ({
+    page,
+    withWorkspace,
+  }) => {
+    const isolatedWorkspace = await withWorkspace({ prefix: "launcher-no-flash-new-chat-" });
+    await isolatedWorkspace.navigateTo();
+    await expectMainDraft(page);
 
-    // No blank frame, and the launcher gives way to the composer once, never back.
+    const frames = await sampleMainPaneDuring(page, () => clickNewChat(page));
+
     expect(frames).not.toContain("blank");
-    const firstComposer = frames.indexOf("composer");
-    expect(firstComposer).toBeGreaterThan(-1);
-    expect(frames.slice(firstComposer).every((state) => state === "composer")).toBe(true);
+    expect(frames).not.toContain("launcher");
     await expectMainDraft(page);
   });
 

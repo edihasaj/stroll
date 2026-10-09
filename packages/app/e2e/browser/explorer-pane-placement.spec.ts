@@ -2,8 +2,8 @@
 // 1) with the Explorer showing a view, a newly appearing agent must auto-open as the main view's
 //    chat in the background: the Explorer is a background surface and must never swallow chats
 //    or lose the user's selected view, and
-// 2) closing the main view's only chat leaves the New launcher, whether or not Explorer is
-//    showing, and the workspace stays usable after a reload.
+// 2) closing the main view's only chat brings back the new-chat composer, whether or not Explorer
+//    is showing, and the workspace stays usable after a reload.
 import { expect, type Locator, type Page } from "@playwright/test";
 import { test } from "../support/fixtures";
 import { gotoWorkspace } from "../support/helpers/launcher";
@@ -44,7 +44,7 @@ function collectConsoleErrors(page: Page): string[] {
 }
 
 test.describe("explorer pane tab placement", () => {
-  test("a new agent opens as the main chat and the app stays usable", async ({
+  test("a new agent stays out of Explorer and the app stays usable", async ({
     page,
     withWorkspace,
     e2eWorkerClient,
@@ -57,16 +57,14 @@ test.describe("explorer pane tab placement", () => {
     await test.step("open the empty workspace", async () => {
       await gotoWorkspace(page, workspace.workspaceId);
       await waitForWorkspaceTabsVisible(page);
-      await expect(visible(page, "workspace-new-tab-panel").first()).toBeVisible({
-        timeout: 30_000,
-      });
+      await expect(draftHeader(page)).toHaveCount(1, { timeout: 30_000 });
     });
 
     await test.step("select Changes in Explorer", async () => {
       await selectExplorerChanges(page);
     });
 
-    await test.step("an agent appearing now opens in the main view, not the Explorer", async () => {
+    await test.step("an agent appearing now stays out of the Explorer and the main draft", async () => {
       const agent = await e2eWorkerClient.createAgent({
         provider: "mock",
         cwd: workspace.repoPath,
@@ -79,7 +77,9 @@ test.describe("explorer pane tab placement", () => {
         initialPrompt: "stream please",
       });
       agentId = agent.id;
-      await expectMainChat(page, agentId);
+      // The main view holds the new-chat draft, which an arriving chat does not replace.
+      await expect(sidebarChatRow(page, agentId)).toBeVisible({ timeout: 30_000 });
+      await expect(draftHeader(page)).toHaveCount(1);
 
       await expect(
         visible(page, "workspace-explorer-sidebar").getByTestId(`workspace-tab-agent_${agentId}`),
@@ -98,6 +98,7 @@ test.describe("explorer pane tab placement", () => {
       const row = sidebarChatRow(page, agentId);
       await row.click({ timeout: 5_000 });
       await expect(row).toHaveAttribute("aria-selected", "true", { timeout: 5_000 });
+      await expectMainChat(page, agentId);
 
       // The explorer toggle must still respond.
       await visible(page, "workspace-explorer-toggle").first().click({ timeout: 5_000 });
@@ -118,23 +119,14 @@ async function closeOnlyDraft(page: Page): Promise<void> {
   await page.keyboard.press(CLOSE_TAB_SHORTCUT);
 }
 
-async function expectNewLauncher(page: Page): Promise<void> {
-  await expect(
-    page.getByTestId("workspace-new-tab-panel").getByRole("button", { name: "Agent", exact: true }),
-  ).toBeVisible();
-  await expect(draftHeader(page)).toHaveCount(0);
-  await expect(page.getByRole("textbox", { name: "Message agent..." })).toHaveCount(0);
-  await expect(page.getByText("Stroll ran into a problem.", { exact: true })).toHaveCount(0);
-}
-
-async function openAgentDraftFromLauncher(page: Page): Promise<void> {
-  await expectNewLauncher(page);
-  await page
-    .getByTestId("workspace-new-tab-panel")
-    .getByRole("button", { name: "Agent", exact: true })
-    .click();
+/** The empty workspace shows the new-chat composer, never the launcher or an error. */
+async function expectEmptyWorkspaceComposer(page: Page): Promise<void> {
+  await expect(draftHeader(page)).toHaveCount(1, { timeout: 30_000 });
   await expect(page.getByRole("textbox", { name: "Message agent..." })).toBeVisible();
-  await expect(draftHeader(page)).toHaveCount(1);
+  await expect(page.getByTestId("workspace-new-tab-panel").filter({ visible: true })).toHaveCount(
+    0,
+  );
+  await expect(page.getByText("Stroll ran into a problem.", { exact: true })).toHaveCount(0);
 }
 
 // Explorer cannot replace the ordinary workspace canvas, including on restore.
@@ -144,11 +136,11 @@ test("closing the last tab with hidden Explorer keeps a usable workspace", async
 }) => {
   const workspace = await withWorkspace({ prefix: "last-pane-hidden-explorer-" });
   await gotoWorkspace(page, workspace.workspaceId);
-  await openAgentDraftFromLauncher(page);
+  await expectEmptyWorkspaceComposer(page);
   await closeOnlyDraft(page);
-  await expectNewLauncher(page);
+  await expectEmptyWorkspaceComposer(page);
   await page.reload();
-  await expectNewLauncher(page);
+  await expectEmptyWorkspaceComposer(page);
 });
 
 test("visible Explorer does not replace the last ordinary workspace pane", async ({
@@ -158,11 +150,11 @@ test("visible Explorer does not replace the last ordinary workspace pane", async
   const workspace = await withWorkspace({ prefix: "last-pane-visible-explorer-" });
   await gotoWorkspace(page, workspace.workspaceId);
   await page.getByRole("button", { name: "Open Explorer sidebar", exact: true }).click();
-  await openAgentDraftFromLauncher(page);
+  await expectEmptyWorkspaceComposer(page);
   await closeOnlyDraft(page);
-  await expectNewLauncher(page);
+  await expectEmptyWorkspaceComposer(page);
   await page.reload();
-  await expectNewLauncher(page);
+  await expectEmptyWorkspaceComposer(page);
 });
 
 test("reloading a saved hidden generated Explorer recovers a usable workspace", async ({
@@ -171,14 +163,14 @@ test("reloading a saved hidden generated Explorer recovers a usable workspace", 
 }) => {
   const otherWorkspace = await withWorkspace({ prefix: "uncorrupted-explorer-" });
   await gotoWorkspace(page, otherWorkspace.workspaceId);
-  await openAgentDraftFromLauncher(page);
+  await expectEmptyWorkspaceComposer(page);
 
   const workspace = await withWorkspace({ prefix: "saved-hidden-explorer-" });
   await gotoWorkspace(page, workspace.workspaceId);
-  await expectNewLauncher(page);
+  await expectEmptyWorkspaceComposer(page);
   await seedCorruptedWorkspaceLayout(page, workspace.workspaceId);
   await page.reload();
-  await expectNewLauncher(page);
+  await expectEmptyWorkspaceComposer(page);
   await gotoWorkspace(page, otherWorkspace.workspaceId);
   await expect(draftHeader(page)).toHaveCount(1);
 });

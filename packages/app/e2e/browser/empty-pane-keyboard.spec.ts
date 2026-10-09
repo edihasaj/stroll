@@ -2,7 +2,7 @@ import { expect, type Locator, type Page } from "@playwright/test";
 import { test } from "../support/fixtures";
 import { gotoWorkspace } from "../support/helpers/launcher";
 import { seedWorkspace } from "../support/helpers/seed-client";
-import { waitForWorkspaceTabsVisible } from "../support/helpers/workspace-tabs";
+import { expectMainDraft, waitForWorkspaceTabsVisible } from "../support/helpers/workspace-tabs";
 
 function visibleNewTabPanel(page: Page): Locator {
   return page.getByTestId("workspace-new-tab-panel").filter({ visible: true });
@@ -36,7 +36,7 @@ test.describe("New tab keyboard launcher", () => {
     }
   });
 
-  test("an empty workspace focuses its launcher and supports arrow navigation", async ({
+  test("an empty workspace opens on the composer and the launcher supports arrow navigation", async ({
     page,
   }) => {
     const workspace = await seedWorkspace({ repoPrefix: "empty-pane-keyboard-" });
@@ -44,7 +44,11 @@ test.describe("New tab keyboard launcher", () => {
     try {
       await gotoWorkspace(page, workspace.workspaceId);
       await waitForWorkspaceTabsVisible(page);
+      await expectMainDraft(page);
+      await expect(visibleNewTabPanel(page)).toHaveCount(0);
 
+      // The launcher opens in the side pane and takes keyboard focus.
+      await page.keyboard.press("Control+t");
       const launcher = visibleNewTabPanel(page);
       await expect(launcher).toBeVisible({ timeout: 30_000 });
       await expectLauncherSelection(launcher, "Agent");

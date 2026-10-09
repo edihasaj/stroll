@@ -133,13 +133,15 @@ test.describe("Workspace navigation regression", () => {
     await expect(page.getByText("Add a project", { exact: true })).toHaveCount(0);
   });
 
-  test("shows the New launcher after returning from settings and closing the last agent draft tab", async ({
+  test("shows a fresh new-chat composer after returning from settings and closing the last draft", async ({
     page,
     withWorkspace,
   }) => {
     const workspace = await withWorkspace({ prefix: "workspace-settings-back-tab-" });
 
     await workspace.navigateTo();
+    // An empty workspace opens on the composer; New chat reuses that draft's slot.
+    await expect.poll(() => getVisibleDraftTabCount(page), { timeout: 30_000 }).toBe(1);
     await clickNewChat(page);
     await expect.poll(() => getVisibleDraftTabCount(page), { timeout: 30_000 }).toBe(1);
 
@@ -150,12 +152,9 @@ test.describe("Workspace navigation regression", () => {
 
     await closeVisibleDraft(page);
 
-    await expect.poll(() => getVisibleDraftTabCount(page), { timeout: 30_000 }).toBe(0);
-    await expect(
-      page
-        .getByTestId("workspace-new-tab-panel")
-        .getByRole("button", { name: "Agent", exact: true }),
-    ).toBeVisible();
+    // The main view never sits empty: closing its only chat brings the composer back.
+    await expect.poll(() => getVisibleDraftTabCount(page), { timeout: 30_000 }).toBe(1);
+    await expectComposerVisible(page);
   });
 
   test("keeps the workspace rendered while reconnecting to the host", async ({ page }) => {

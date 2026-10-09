@@ -103,8 +103,9 @@ moves to one side pane, and nothing is closed or archived. Version 2 data is als
 and adds no persisted key: the schema is strict, and a blob that fails it is discarded on load.
 
 Removing a pane clears its remembered id; a later side open creates a new pane. The last visible
-ordinary pane stays when its final tab closes and shows the New launcher. An empty workspace does
-not automatically create a draft; New chat opens one. Explorer cannot replace the workspace canvas,
+ordinary pane stays when its final tab closes and shows the New launcher. An empty
+workspace's main view shows the new-chat composer once the workspace's chats have loaded; the
+launcher stays in the header menu and opens in the side pane. Explorer cannot replace the workspace canvas,
 even when visible. Restoring a saved layout enforces the same rule while preserving Explorer and
 saved tab content. There is no hidden side-pane lifecycle.
 

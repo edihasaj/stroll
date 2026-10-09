@@ -784,7 +784,19 @@ export function createWorkspaceLayoutStore(
             input.intent === "new",
           );
           if (!placement) {
-            get().ensureSidePane(normalizedWorkspaceKey, { focus: false });
+            const sidePaneId = get().ensureSidePane(normalizedWorkspaceKey, { focus: false });
+            // A side pane is created holding a New tab. When the open is itself a New tab, that
+            // one is the answer; adding another would leave two after a single shortcut press.
+            if (normalizedTarget.kind === "new_tab" && sidePaneId) {
+              get().focusPane(normalizedWorkspaceKey, sidePaneId);
+              const sidePane = findPaneById(
+                getWorkspaceLayout(get().layoutByWorkspace, normalizedWorkspaceKey).root,
+                sidePaneId,
+              );
+              if (sidePane?.focusedTabId) {
+                return sidePane.focusedTabId;
+              }
+            }
             placement = getOpenTabPlacement(
               get(),
               normalizedWorkspaceKey,

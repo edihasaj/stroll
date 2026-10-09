@@ -800,25 +800,6 @@ describe("workspace-layout-store tree transforms", () => {
     expect(store.getState().sidePaneIdByWorkspace[workspaceKey]).toBe(manuallySplitPaneId);
   });
 
-  it("opening a New tab in the side pane reuses the launcher it was created with", () => {
-    const store = createWorkspaceLayoutStore(createDeterministicWorkspaceLayoutIds());
-    const workspaceKey = createWorkspaceKey();
-    const sidePaneId = store.getState().ensureSidePane(workspaceKey);
-    expect(sidePaneId).not.toBeNull();
-
-    const tabId = store.getState().openTab({
-      workspaceKey,
-      target: { kind: "new_tab" },
-      intent: "new",
-      placement: { mode: "pane", paneId: sidePaneId! },
-    });
-
-    const layout = store.getState().layoutByWorkspace[workspaceKey];
-    const sidePane = collectAllPanes(layout.root).find((pane) => pane.id === sidePaneId);
-    expect(sidePane?.tabIds).toEqual([tabId]);
-    expect(layout.focusedPaneId).toBe(sidePaneId);
-  });
-
   it("removePaneFromTree unwraps single-child groups and renormalizes siblings", () => {
     const root: SplitNode = {
       kind: "group",
@@ -4695,6 +4676,72 @@ describe("single-chat main", () => {
       autoOpenAgentIds: ["chat-b"],
     });
     expect(paneTargets(store, "main")).toEqual(["agent:chat-b"]);
+  });
+
+  it("opens the preferred chat when the main chat goes away, not the first by id", () => {
+    const workspaceKey = createWorkspaceKey();
+    const store = createSingleChatStore();
+    const snapshot = {
+      ...emptySnapshot,
+      activeAgentIds: ["chat-a", "chat-b", "chat-c"],
+      autoOpenAgentIds: ["chat-a", "chat-b", "chat-c"],
+    };
+    store
+      .getState()
+      .openTab({ workspaceKey, target: { kind: "agent", agentId: "chat-c" }, intent: "reveal" });
+
+    store.getState().closeTab(workspaceKey, "agent_chat-c");
+    store.getState().reconcileTabs(workspaceKey, {
+      ...snapshot,
+      activeAgentIds: ["chat-a", "chat-b"],
+      autoOpenAgentIds: ["chat-a", "chat-b"],
+      mainChatPreference: ["chat-b", "chat-a"],
+    });
+
+    expect(paneTargets(store, "main")).toEqual(["agent:chat-b"]);
+  });
+
+  it("shows the new-chat composer in an empty hydrated workspace and keeps it", () => {
+    const workspaceKey = createWorkspaceKey();
+    const store = createSingleChatStore();
+
+    store.getState().reconcileTabs(workspaceKey, emptySnapshot);
+    const [firstTarget] = paneTargets(store, "main");
+    store.getState().reconcileTabs(workspaceKey, emptySnapshot);
+
+    expect(firstTarget).toMatch(/^draft:/);
+    expect(paneTargets(store, "main")).toEqual([firstTarget]);
+  });
+
+  it("leaves the launcher alone until the workspace's chats have loaded", () => {
+    const workspaceKey = createWorkspaceKey();
+    const store = createSingleChatStore();
+
+    store.getState().reconcileTabs(workspaceKey, { ...emptySnapshot, agentsHydrated: false });
+
+    expect(paneTargets(store, "main")).toEqual(["new_tab"]);
+  });
+
+  it("creates the side pane with one New tab, and each later shortcut adds another", () => {
+    const workspaceKey = createWorkspaceKey();
+    const store = createSingleChatStore();
+    store
+      .getState()
+      .openTab({ workspaceKey, target: { kind: "agent", agentId: "chat-a" }, intent: "reveal" });
+
+    const first = store
+      .getState()
+      .openTab({ workspaceKey, target: { kind: "new_tab" }, intent: "new" });
+    const side = sidePaneId(store);
+    expect(paneTargets(store, side)).toEqual(["new_tab"]);
+    expect(store.getState().layoutByWorkspace[workspaceKey].focusedPaneId).toBe(side);
+
+    const second = store
+      .getState()
+      .openTab({ workspaceKey, target: { kind: "new_tab" }, intent: "new" });
+    expect(second).not.toBe(first);
+    expect(paneTargets(store, side)).toEqual(["new_tab", "new_tab"]);
+    expect(paneTargets(store, "main")).toEqual(["agent:chat-a"]);
   });
 
   it("puts reconciled standalone terminals in the side pane", () => {

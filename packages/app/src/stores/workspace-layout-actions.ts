@@ -14,6 +14,7 @@ import {
   normalizeWorkspaceTabTarget,
   workspaceTabTargetsEqual,
 } from "@/workspace-tabs/identity";
+import { generateDraftId } from "@/stores/draft-keys";
 import { createNewWorkspaceTab } from "@/workspace-tabs/new-tab";
 import {
   findReplaceableChatTab,
@@ -275,6 +276,11 @@ export interface WorkspaceTabSnapshot {
   terminalsHydrated: boolean;
   activeAgentIds: Iterable<string>;
   autoOpenAgentIds: Iterable<string>;
+  /**
+   * Root chats in the order an empty single-chat main view should try them. Chats it leaves out
+   * follow by id. The caller decides the order (history, recent activity); reconcile only applies it.
+   */
+  mainChatPreference?: readonly string[];
   knownTerminalIds?: Iterable<string>;
   standaloneTerminalIds: Iterable<string>;
   hasActivePendingTerminalCreate?: boolean;
@@ -1383,21 +1389,6 @@ function insertNewTabIntoPane(
     return null;
   }
 
-  // A pane that holds only a launcher already is the New tab the caller asks for. The side pane is
-  // created with one, so a second would leave two identical tabs after a single shortcut press.
-  const soleLauncherTab =
-    input.target.kind === "new_tab" && isSoleNewTabPane(targetPane) ? targetPane.tabs[0] : null;
-  if (soleLauncherTab) {
-    return {
-      tabId: soleLauncherTab.tabId,
-      layout: withNormalizedParentTabMap({
-        root: focusTabInPane(layout.root, targetPane.id, soleLauncherTab.tabId),
-        focusedPaneId: input.focus ? targetPane.id : layout.focusedPaneId,
-        parentTabIdByTabId: input.layout.parentTabIdByTabId,
-      }),
-    };
-  }
-
   const tabId = input.createTabId();
   const nextTab: WorkspaceTab = {
     tabId,
@@ -2387,6 +2378,8 @@ function addMissingEntityTabs(input: {
   standaloneTerminalIds: Set<string>;
   hasActivePendingTerminalCreate: boolean;
   hasActivePendingDraftCreate: boolean;
+  agentsHydrated: boolean;
+  mainChatPreference: readonly string[] | undefined;
   explorerSidebarPaneId: string | null;
   singleChatMain: boolean;
 }): WorkspaceLayout {
@@ -2408,7 +2401,12 @@ function addMissingEntityTabs(input: {
     currentEntityTabs.filter(isTerminalTab).map((tab) => tab.target.terminalId),
   );
 
-  const sortedAutoOpenAgentIds = [...autoOpenAgentIds].sort();
+  const preferredAgentIds = (input.mainChatPreference ?? []).filter((agentId) =>
+    autoOpenAgentIds.has(agentId),
+  );
+  const sortedAutoOpenAgentIds = [
+    ...new Set([...preferredAgentIds, ...[...autoOpenAgentIds].sort()]),
+  ];
   for (const agentId of sortedAutoOpenAgentIds) {
     if (currentAgentIds.has(agentId)) {
       continue;
@@ -2426,6 +2424,22 @@ function addMissingEntityTabs(input: {
       singleChatMain,
     });
     currentAgentIds.add(agentId);
+  }
+
+  // An empty main view with nothing to fall back to shows the new-chat composer, not the launcher.
+  // Waiting for hydration keeps a chat that is still loading from being shadowed by a draft.
+  if (
+    singleChatMain &&
+    input.agentsHydrated &&
+    !hasActivePendingDraftCreate &&
+    !mainPaneHasChat(nextLayout.root, explorerSidebarPaneId)
+  ) {
+    nextLayout = openEntityTabWithoutFocusing({
+      layout: nextLayout,
+      target: { kind: "draft", draftId: generateDraftId() },
+      explorerSidebarPaneId,
+      singleChatMain,
+    });
   }
 
   const sortedTerminalIds = [...standaloneTerminalIds].sort();
@@ -2534,6 +2548,8 @@ export function reconcileWorkspaceTabs(
     standaloneTerminalIds,
     hasActivePendingTerminalCreate: snapshot.hasActivePendingTerminalCreate ?? false,
     hasActivePendingDraftCreate: snapshot.hasActivePendingDraftCreate ?? false,
+    agentsHydrated: snapshot.agentsHydrated,
+    mainChatPreference: snapshot.mainChatPreference,
     explorerSidebarPaneId: state.explorerSidebarPaneId,
     singleChatMain: state.singleChatMain ?? false,
   });

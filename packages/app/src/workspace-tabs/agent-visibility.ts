@@ -55,12 +55,14 @@ export function buildWorkspaceTabSnapshot(input: {
   standaloneTerminalIds: Iterable<string>;
   hasActivePendingTerminalCreate: boolean;
   hasActivePendingDraftCreate: boolean;
+  mainChatPreference?: readonly string[];
 }): WorkspaceTabSnapshot {
   return {
     agentsHydrated: input.agentsHydrated,
     terminalsHydrated: input.terminalsHydrated,
     activeAgentIds: input.agentVisibility.activeAgentIds,
     autoOpenAgentIds: input.agentVisibility.autoOpenAgentIds,
+    mainChatPreference: input.mainChatPreference,
     knownTerminalIds: input.knownTerminalIds,
     standaloneTerminalIds: input.standaloneTerminalIds,
     hasActivePendingTerminalCreate: input.hasActivePendingTerminalCreate,

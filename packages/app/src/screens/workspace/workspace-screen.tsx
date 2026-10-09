@@ -177,6 +177,8 @@ import {
 } from "@/screens/workspace/workspace-pane-content";
 import { useMountedTabSet } from "@/screens/workspace/use-mounted-tab-set";
 import { WorkspaceFocusProvider } from "@/workspace/focus";
+import { useWorkspaceChatHistoryStore } from "@/stores/workspace-chat-history-store";
+import { orderMainChatCandidates } from "@/workspace-tabs/main-chat-fallback";
 import { DiffDocumentWorkspaceCacheProvider } from "@/git/diff-document/workspace-cache";
 import type { NewTabSelection } from "@/workspace-tabs/new-tab";
 import {
@@ -2106,6 +2108,19 @@ function WorkspaceScreenContent({
         hasActivePendingTerminalCreate:
           createTerminalMutation.isPending || pendingTerminalCreateInput !== null,
         hasActivePendingDraftCreate: hasActivePendingDraftCreateInWorkspace,
+        mainChatPreference: orderMainChatCandidates({
+          history: useWorkspaceChatHistoryStore.getState().history,
+          serverId: normalizedServerId,
+          workspaceId: normalizedWorkspaceId,
+          candidateAgentIds: workspaceAgentVisibility.autoOpenAgentIds,
+          lastActivityAt: (agentId) => {
+            const state = useSessionStore.getState();
+            const lastActivity =
+              state.agentLastActivity.get(agentId) ??
+              state.sessions[normalizedServerId]?.agents.get(agentId)?.lastActivityAt;
+            return lastActivity?.getTime() ?? 0;
+          },
+        }),
       }),
     );
   }, [

@@ -304,3 +304,56 @@ test("Previous chat and Next chat cross workspaces", async ({ page }) => {
     await first.cleanup();
   }
 });
+
+test("archiving the main chat opens the previous chat from the history, then the composer", async ({
+  page,
+}) => {
+  const workspace = await seedMockAgentWorkspace({
+    repoPrefix: "single-chat-archive-fallback-",
+    title: "First chat",
+  });
+  const createChat = (title: string) =>
+    workspace.client.createAgent({
+      provider: "mock",
+      cwd: workspace.cwd,
+      workspaceId: workspace.workspaceId,
+      title,
+      modeId: "load-test",
+      model: "e2e-fast-stream",
+    });
+
+  try {
+    const second = await createChat("Second chat");
+    const third = await createChat("Third chat");
+    await page.setViewportSize({ width: 1400, height: 900 });
+    await openAgentRoute(page, { workspaceId: workspace.workspaceId, agentId: workspace.agentId });
+    await waitForWorkspaceTabsVisible(page);
+    await expectMainChat(page, workspace.agentId);
+    await openChatFromSidebar(page, second.id);
+    await expectMainChat(page, second.id);
+    await openChatFromSidebar(page, third.id);
+    await expectMainChat(page, third.id);
+
+    await test.step("archiving the newest chat returns to the one opened before it", async () => {
+      await archiveMainChatFromHeader(page);
+
+      await expectMainChat(page, second.id);
+    });
+
+    await test.step("archiving that one returns to the chat opened before it", async () => {
+      await archiveMainChatFromHeader(page);
+
+      await expectMainChat(page, workspace.agentId);
+    });
+
+    await test.step("archiving the last chat shows the new-chat composer", async () => {
+      await archiveMainChatFromHeader(page);
+
+      await expect(
+        mainPane(page).getByTestId("main-pane-draft-header").filter({ visible: true }),
+      ).toBeVisible({ timeout: 30_000 });
+    });
+  } finally {
+    await workspace.cleanup();
+  }
+});
