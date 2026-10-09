@@ -1,6 +1,6 @@
 # Agent lifecycle
 
-How an agent is created, runs, becomes a subagent, gets archived, and disappears from the UI. The model spans the daemon (lifecycle, archive) and the client (tabs, the subagents track).
+How an agent is created, runs, becomes a subagent, gets archived, and disappears from the UI. The model spans the daemon (lifecycle, archive) and the client (the main view, tabs, the subagents track).
 
 ## States
 
@@ -66,18 +66,20 @@ Agents can launch other agents via the agent-scoped `create_agent` MCP tool. Age
 Parent archive detaches a subagent instead of archiving it when either condition holds:
 
 - The child belongs to another workspace.
-- The child is currently open in an agent tab.
+- The child is currently open on some client: showing in its main view, or in a tab on a compact layout.
 
 All other children archive with the parent. After the workspace layout hydrates, the client marks
-every managed subagent present in its tabs with `paseo.open-agent-tab.<client-id>=true` through the
+every managed subagent present in its layout with `paseo.open-agent-tab.<client-id>=true` through the
 generic agent metadata update. This includes background and restored tabs; navigation does not own
-the marker. Closing a tab sets that client's label to `false`. Any `true` client label keeps the child
-open. Detach clears the parent and every open-tab label. The surviving child therefore becomes a
-normal root agent immediately, and closing its still-open tab archives it.
+the marker. A subagent leaving the layout sets that client's label to `false`: closing its tab, or
+another chat replacing it in the main view (`packages/app/src/subagents/use-open-agent-tab-labels.ts`
+watches the layout for both). Any `true` client label keeps the child open. Detach clears the parent
+and every open-tab label. The surviving child therefore becomes a normal root agent immediately, and
+archiving it is an explicit action like any other root chat's.
 
 Runtime ownership is resolved from explicit workspace ID and caller context, never from `cwd`. Workspace creation is a separate operation with `local | worktree` isolation; agent creation only selects an existing workspace.
 
-Users can also detach an existing subagent from the subagents track. Detach is deliberately a manual lifecycle gesture, not an agent-facing MCP tool. It removes the parent and open-tab lifecycle labels: it does not stop, archive, move, or restart the agent. The agent keeps its current `cwd` and `workspaceId`, leaves the former parent's track, and behaves like a root agent for tab close, workspace activity, and future parent archive.
+Users can also detach an existing subagent from the subagents track. Detach is deliberately a manual lifecycle gesture, not an agent-facing MCP tool. It removes the parent and open-tab lifecycle labels: it does not stop, archive, move, or restart the agent. The agent keeps its current `cwd` and `workspaceId`, leaves the former parent's track, and behaves like a root agent for archiving, workspace activity, and future parent archive.
 
 `notifyOnFinish` defaults to `true` for agent-scoped creation and background prompt follow-ups because most delegated work needs to report back to the creating agent. Set it to `false` only for truly fire-and-forget agents or prompts.
 Permission requests are notification checkpoints, not the end of that subscription. The caller is notified again after a permission response when the child finishes, errors, or requests another permission.
@@ -152,25 +154,31 @@ received.
 
 Delete is permanent: `delete_agent_request` closes the runtime and removes the agent's record, queue,
 and state from the daemon. Archive is the reversible gesture; delete is the only way to remove a chat
-from history. The app offers **Delete chat** in an agent tab's menu and in the archived-agent callout,
-both behind a confirm dialog (`packages/app/src/hooks/use-delete-chat.ts`). A successful delete closes
-the tab and drops the chat from the lists. A failed one leaves both in place and shows a toast.
+from history. The app offers **Delete chat** in the chat header menu, the sidebar chat row menu, an agent tab's menu on compact layouts, and the archived-agent callout,
+each behind a confirm dialog (`packages/app/src/hooks/use-delete-chat.ts`). A successful delete closes
+the chat's tab or main view and drops the chat from the lists. A failed one leaves both in place and shows a toast.
 Deleting one record leaves a sibling that shares its provider session untouched.
 
-## Tabs vs archive
+## The main view vs archive
 
-These are two distinct concepts that used to be conflated:
+These are two distinct concepts:
 
-| Concept                    | Scope      | Triggers                   |
-| -------------------------- | ---------- | -------------------------- |
-| **Tab** (workspace layout) | Per-client | User opens/closes a view   |
-| **Archive** (lifecycle)    | Global     | Explicit lifecycle gesture |
+| Concept                     | Scope      | Triggers                          |
+| --------------------------- | ---------- | --------------------------------- |
+| **Open** (workspace layout) | Per-client | Which chat the user is looking at |
+| **Archive** (lifecycle)     | Global     | Explicit lifecycle gesture        |
 
-Closing a tab on a **root agent** still archives — the tab is the agent's home, so closing it means "I'm done with this agent." It always asks first (`Archive this chat?`), because `Cmd+W` is easy to hit by reflex and archiving takes the chat out of the sidebar. A running agent gets the stronger warning that archiving stops it. The sidebar chat row's Archive chat asks the same question before archiving.
+On desktop, a workspace's main view shows one chat and has no tab row. Opening another chat from the sidebar, the Command Center, a notification, or a link replaces the one showing; the replaced chat is neither closed nor archived, and stays listed under its workspace in the sidebar. Cmd+Alt+Left and Cmd+Alt+Right walk one history of the chats the main view showed, across workspaces (`packages/app/src/stores/workspace-chat-history-store.ts`). Archived and deleted chats leave the history. The layout rules live in `packages/app/src/workspace-tabs/single-chat.ts`; [explorer-sidebar.md](explorer-sidebar.md) covers where everything else opens.
 
-Closing a tab on a **subagent** (any agent with `parentAgentId`) is **layout-only**. The app clears the current client's open-tab label before removing the tab. Another client's open tab remains protected. The agent stays unarchived and stays in its parent's track, so a later parent archive cascades to it when no client still has it open. The user can re-open the tab from the track at any time. Single and bulk tab close apply the same policy.
+Archiving a **root agent** is always an explicit action: the chat header menu, the sidebar chat row menu, or the close-tab shortcut (`Cmd+W` in the desktop app, `Alt+Shift+W` in a browser) while the chat is showing. Each asks first (`Archive this chat?`), because the shortcut is easy to hit by reflex and archiving takes the chat out of the sidebar. A running agent gets the stronger warning that archiving stops it.
 
-The asymmetry is intentional: a subagent's persistent relationship lives in the parent's track. Same-workspace subagents are not auto-opened as tabs; the user opens one from that track when needed. A cross-workspace subagent is also auto-opened as a tab in its own workspace so opening that workspace does not appear empty. It remains in the parent's track until it is actually detached.
+A **subagent** (any agent with `parentAgentId`) is never archived by leaving the view. A managed subagent opens in the main view in place of its parent, and back returns to the parent. When it leaves the layout, whether by closing its tab or by another chat replacing it, the app clears the current client's open-tab label. Another client's open view stays protected. The agent stays unarchived and stays in its parent's track, so a later parent archive cascades to it when no client still has it open. The user can re-open it from the track at any time. Provider subagents have no lifecycle of their own; they open in the side pane and closing one is layout-only.
+
+Compact and native layouts keep tabs: the main pane holds several chat tabs, and closing a root agent's tab archives it behind the same confirmation. Closing a subagent's tab there is layout-only, single or bulk.
+
+A persisted layout from before the single-chat main view (version 2) migrates once on desktop: the focused chat stays in the main view, every other view moves to the side pane, and no chat is closed or archived. The raw blob is kept under `workspace-layout-state.v2-backup`.
+
+The asymmetry between roots and subagents is intentional: a subagent's persistent relationship lives in the parent's track. Same-workspace subagents are not auto-opened; the user opens one from that track when needed. A cross-workspace subagent is also auto-opened in its own workspace so opening that workspace does not appear empty. It remains in the parent's track until it is actually detached.
 
 ## Workspace activity
 
@@ -205,7 +213,7 @@ parentAgentId === thisAgent.id  AND  !archivedAt
 
 - **Provider subagents** are child executions owned by Claude, Codex, or OpenCode. They are not inserted into `AgentManager` as managed agents. Providers emit a separate descriptor and timeline stream through `agent.provider_subagents.*`; the client keeps that state outside the normal agent store and merges only the presentation rows into the track. A descriptor's optional `parentSubagentId` identifies its direct provider-subagent parent; an absent value identifies a direct child of the managed agent.
 
-Clicking either kind — from the track row or from its compact row in the transcript (below) — opens it beside the parent by default (`settings.openInSidePane.subagents`, on desktop only; compact/mobile is unaffected). Cmd-click on macOS, Ctrl-click elsewhere, or middle-click opens it as a normal tab in the parent's pane instead (`packages/app/src/subagents/open-gesture.ts`, `packages/app/src/subagents/use-open-subagent.ts`). A Paseo subagent tab is a normal interactive agent pane. A provider subagent tab is a read-only timeline pane with no composer, archive, detach, rewind, or fork actions. It shows its own direct children in a subagents track. Both panes use `AgentStreamView`, so message, reasoning, tool-call, and layout rendering stay identical.
+Clicking either kind — from the track row or from its compact row in the transcript (below) — opens it from the parent's view. On desktop a Paseo subagent is a chat, so it replaces the parent in the main view and back returns to the parent; a provider subagent is not a chat, so it opens in the side pane. Cmd-click on macOS, Ctrl-click elsewhere, or middle-click opens it as a normal tab in the parent's pane on layouts that still have tabs (`packages/app/src/subagents/open-gesture.ts`, `packages/app/src/subagents/use-open-subagent.ts`). A Paseo subagent pane is a normal interactive agent pane. A provider subagent pane is a read-only timeline pane with no composer, archive, detach, rewind, or fork actions. It shows its own direct children in a subagents track. Both panes use `AgentStreamView`, so message, reasoning, tool-call, and layout rendering stay identical.
 
 Provider timelines use the same structural timeline item format but deliberately have a separate lifecycle and transport. A provider thread/session identifier is not a Paseo agent identifier, and closing its tab is always layout-only.
 
@@ -238,7 +246,7 @@ Claude Code announces subagent lifecycle on the SDK stream (`task_started` / `ta
 - **On replay, `<session>/subagents/` holds every descendant beside the root.** Resolve the tree one proven generation at a time: the root transcript admits direct children, then each admitted sidechain transcript admits its children by `toolUseId`. `spawnDepth` orders candidates but does not establish ownership. Unresolved sidecars remain excluded as ambient or unrelated work.
 - **Replay `totalTokens` is a context-size reading, not cumulative spend.** Claude Code finalizes a subagent by summing the _last_ assistant message's usage block and shipping that as `usage.total_tokens`. Summing per-entry usage instead multiplies the cached prefix by the turn count and reports a number several times larger than the live path.
 
-Archived Paseo subagents disappear from the track, by design. To remove one from the track without closing its tab, use the **archive button** on the row — it opens a confirm dialog and archives the subagent on confirm. Provider-owned rows have no individual Paseo lifecycle controls.
+Archived Paseo subagents disappear from the track, by design. To remove one from the track without opening it, use the **archive button** on the row — it opens a confirm dialog and archives the subagent on confirm. Provider-owned rows have no individual Paseo lifecycle controls.
 
 The **Archive finished** row at the foot of the panel covers every finished row. It archives idle or errored managed Paseo subagents one at a time, and hides completed, failed, or canceled provider-owned rows in the current app session. Native sessions and timelines are untouched. Running and initializing children remain in the track. If a hidden provider child starts running again, the app brings it back to the track.
 
@@ -246,15 +254,15 @@ To keep the agent alive but remove it from the parent's track, use **detach**. T
 
 ## Why this shape
 
-The decision was to **decouple "close tab" from "archive" only for subagents**, rather than universally:
+The decision was to **decouple "leave the view" from "archive"**:
 
-- **Closing a tab on a root agent still archives** — preserves the existing UX users are trained on
-- **Closing a tab on a subagent is layout-only** — fixes the lossy "click to read, close to dismiss view, lose the row" flow
+- **Archiving a root agent is explicit and asks first** — on desktop there are no chat tabs to close, so the old "closing the tab archives" rule became the header menu, the sidebar row menu, and the close-tab shortcut. On compact layouts, closing a root agent's tab still archives
+- **Leaving a subagent's view is layout-only** — fixes the lossy "click to read, close to dismiss view, lose the row" flow
 - **Archive button on track rows** — gives subagents an explicit lifecycle gesture in their home surface
 - **Detach button on track rows** — lets a subagent continue independently without killing its work
 - **Cascade archive on parent** — keeps subagents from leaking when the parent is archived
 
-We considered universal decoupling (no tab close ever archives, archive is always explicit) but rejected it: it changes a behavior root-agent users rely on.
+Compact layouts keep the tab rule because a chat tab is still that agent's home there.
 
 ## Limitations
 
@@ -264,7 +272,7 @@ A parent that spawns many subagents will see the panel's list grow; the pill onl
 
 ### Cross-client tab dismissal
 
-Closing a subagent's tab on one client doesn't affect other clients' layouts. This is the expected behavior of decoupled tabs and is consistent with how layouts have always worked. Archive remains the global gesture for cross-client cleanup.
+Leaving a subagent's view on one client doesn't affect other clients' layouts. This is the expected behavior of decoupled layouts and is consistent with how layouts have always worked. Archive remains the global gesture for cross-client cleanup.
 
 ## Storage
 
