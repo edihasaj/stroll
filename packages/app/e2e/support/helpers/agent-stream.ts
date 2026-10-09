@@ -49,13 +49,28 @@ export async function expectInlineWorkingIndicator(page: Page): Promise<void> {
   await expect(page.getByTestId("turn-working-indicator")).toBeVisible({ timeout: 30_000 });
 }
 
-export async function expectRunningAgentChrome(page: Page, title: string): Promise<void> {
-  const tab = page.getByRole("button", { name: title, exact: true });
+/** The sidebar's row for the chat with this title. A chat is no tab: the sidebar and the main header show its state. */
+function sidebarChatRowByTitle(page: Page, title: string): Locator {
+  return page
+    .locator('[data-testid^="sidebar-chat-row-"]')
+    .filter({ has: page.getByText(title, { exact: true }) })
+    .first();
+}
 
-  await expect(tab).toBeVisible({ timeout: 30_000 });
-  await expect(tab.getByRole("progressbar", { name: "Agent running" })).toBeVisible({
+/** The main view shows the chat with this title and its sidebar row. */
+async function expectChatShowing(page: Page, title: string): Promise<Locator> {
+  await expect(mainChatHeader(page).getByTestId("chat-pane-title")).toContainText(title, {
     timeout: 30_000,
   });
+  const row = sidebarChatRowByTitle(page, title);
+  await expect(row).toBeVisible({ timeout: 30_000 });
+  return row;
+}
+
+export async function expectRunningAgentChrome(page: Page, title: string): Promise<void> {
+  const row = await expectChatShowing(page, title);
+
+  await expect(row.getByTestId("sidebar-chat-status-running")).toBeVisible({ timeout: 30_000 });
   await expect(page.getByRole("button", { name: /stop agent|canceling agent/i })).toBeVisible({
     timeout: 30_000,
   });
@@ -86,10 +101,9 @@ export async function expectVisibleAgentSurfacesIdle(page: Page): Promise<void> 
 }
 
 export async function expectAgentSurfacesIdle(page: Page, title: string): Promise<void> {
-  const tab = page.getByRole("button", { name: title, exact: true });
+  const row = await expectChatShowing(page, title);
 
-  await expect(tab).toBeVisible({ timeout: 30_000 });
-  await expect(tab.getByRole("progressbar", { name: "Agent running" })).toHaveCount(0);
+  await expect(row.getByTestId("sidebar-chat-status-running")).toHaveCount(0);
   await expect(page.getByRole("button", { name: /stop agent|canceling agent/i })).toHaveCount(0);
   await expect(page.getByTestId("turn-working-indicator")).toHaveCount(0);
   await expect(page.getByTestId("turn-working-elapsed")).toHaveCount(0);

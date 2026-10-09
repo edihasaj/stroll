@@ -21,6 +21,11 @@ import { WORKSPACE_DECK_MAX_MOUNTED_WORKSPACES } from "@/screens/workspace/works
 import type { installDaemonWebSocketGate } from "./daemon-websocket-gate";
 import { resolveLiveMatch } from "./agent-stream";
 
+/** The main view's header while it holds a draft; it carries the draft's id. */
+function mainDraftHeader(page: Page) {
+  return page.getByTestId("main-pane-draft-header").filter({ visible: true }).first();
+}
+
 /** Capture the submitted agent options; optionally stop provisioning for wire-only assertions. */
 export async function captureWorkspaceAgentRequest(page: Page, options: { block: boolean }) {
   const frames = await loadSessionMessageReaders();
@@ -177,11 +182,7 @@ export async function createCreationScenario(page: Page) {
     async expectWorkspaceReadyBeforeAgentCompletion() {
       await expect(page).toHaveURL(/\/workspace\//);
       await expect(page.getByTestId("user-message").first()).toBeVisible();
-      await expect(
-        page
-          .locator('[data-testid^="workspace-tab-draft_"][aria-selected="true"]')
-          .filter({ visible: true }),
-      ).toBeVisible();
+      await expect(mainDraftHeader(page)).toBeVisible();
     },
     async expectAgentStillStarting() {
       await this.expectWorkspaceReadyBeforeAgentCompletion();
@@ -228,12 +229,8 @@ export async function createCreationScenario(page: Page) {
         .toBe(title);
     },
     async evictAndReturnToDraft() {
-      const draft = page
-        .locator('[data-testid^="workspace-tab-draft_"][aria-selected="true"]')
-        .filter({ visible: true })
-        .first();
-      const draftTestId = await draft.getAttribute("data-testid");
-      expect(draftTestId).not.toBeNull();
+      const draftId = await mainDraftHeader(page).getAttribute("data-draft-id");
+      expect(draftId).not.toBeNull();
       for (let index = 0; index < WORKSPACE_DECK_MAX_MOUNTED_WORKSPACES; index++) {
         const result = await project.client.createWorkspace({
           source: { kind: "directory", path: project.repoPath },
@@ -247,10 +244,9 @@ export async function createCreationScenario(page: Page) {
       }
       await expect(workspaceDeckEntryLocator(page, getServerId(), workspaceId)).toHaveCount(0);
       await switchWorkspaceViaSidebar({ page, serverId: getServerId(), workspaceId });
-      await page
-        .getByTestId(draftTestId!)
-        .filter({ visible: true })
-        .click({ position: { x: 12, y: 13 } });
+      // The same draft is back in the main view after the workspace remounts.
+      await expect(mainDraftHeader(page)).toHaveAttribute("data-draft-id", draftId!);
+      await mainDraftHeader(page).click({ position: { x: 12, y: 13 } });
     },
   };
 }

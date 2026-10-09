@@ -63,10 +63,12 @@ export async function getActiveTabTestId(page: Page): Promise<string | null> {
 
 // ─── Tab actions ───────────────────────────────────────────────────────────
 
-/** Press Cmd+T (macOS) or Ctrl+T (Linux/Windows) to create a New tab in the focused pane. */
+/**
+ * Press the New tab shortcut. The e2e fixtures pin navigator.platform to Win32, so the chord is
+ * Ctrl on every host; Meta never fires. The launcher opens in the side pane.
+ */
 export async function pressNewTabShortcut(page: Page): Promise<void> {
-  const modifier = process.platform === "darwin" ? "Meta" : "Control";
-  await page.keyboard.press(`${modifier}+t`);
+  await page.keyboard.press("Control+t");
 }
 
 export async function openNewTabMenuWithShortcut(page: Page): Promise<void> {
@@ -75,8 +77,7 @@ export async function openNewTabMenuWithShortcut(page: Page): Promise<void> {
 }
 
 export async function pressDirectNewTabShortcut(page: Page, key: string): Promise<void> {
-  const modifier = process.platform === "darwin" ? "Meta" : "Control";
-  await page.keyboard.press(`${modifier}+Shift+${key}`);
+  await page.keyboard.press(`Control+Shift+${key}`);
 }
 
 // ─── Tab bar assertions ───────────────────────────────────────────────────
