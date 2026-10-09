@@ -806,8 +806,8 @@ async function openSmokeWorkspace({ appPath, env, page, daemonHome }) {
   });
   await page.getByRole("button", { name: "Sandbox smoke workspace", exact: true }).click();
   await page.waitForURL((url) => url.pathname.endsWith(`/workspace/${workspace.workspaceId}`));
-  await page.getByRole("button", { name: "Agent", exact: true }).click();
-  await page.getByRole("textbox", { name: "Message agent..." }).click();
+  // An empty workspace opens on the new-chat composer.
+  await page.getByRole("textbox", { name: "Message agent..." }).first().click();
   console.log(`Packaged desktop smoke: renderer opened workspace ${workspace.workspaceId}`);
 }
 
