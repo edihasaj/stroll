@@ -4,12 +4,14 @@ import {
   awaitToolCall,
   expectAgentIdle,
   expectAgentReadyToInterrupt,
-  expectAgentSurfacesIdle,
   expectInlineWorkingIndicator,
-  expectRunningAgentChrome,
   expectVisibleAgentSurfacesIdle,
   resolveLiveMatch,
 } from "../support/helpers/agent-stream";
+import {
+  expectChatSurfacesIdle,
+  expectRunningChatChrome,
+} from "../support/helpers/chat-row-chrome";
 import { gateNextAgentMessage } from "../support/helpers/agent-message-gate";
 import {
   attachImageFromMenu,
@@ -304,7 +306,8 @@ async function retryRestoredSubmission(page: Page, prompt: string): Promise<void
 }
 
 async function configureSteerInSettings(page: Page): Promise<void> {
-  const modifier = process.platform === "darwin" ? "Meta" : "Control";
+  // The e2e fixtures pin navigator.platform to Win32, so the Cmd chord is Ctrl on every host.
+  const modifier = "Control";
   await page.keyboard.press(`${modifier}+Comma`);
   await expect(page).toHaveURL(/\/settings\/general$/);
   await selectSteerInSettings(page);
@@ -316,7 +319,8 @@ async function selectSteerInSettings(page: Page): Promise<void> {
 
 /** Steer is the default, so the interrupt path only gets exercised by opting back into it. */
 async function configureInterruptInSettings(page: Page): Promise<void> {
-  const modifier = process.platform === "darwin" ? "Meta" : "Control";
+  // The e2e fixtures pin navigator.platform to Win32, so the Cmd chord is Ctrl on every host.
+  const modifier = "Control";
   await page.keyboard.press(`${modifier}+Comma`);
   await expect(page).toHaveURL(/\/settings\/general$/);
   await selectSendBehaviorInSettings(page, "Interrupt", "interrupt");
@@ -887,7 +891,9 @@ async function expectCreatedAgentHandoff(
   userMessage: Locator,
 ): Promise<void> {
   await expect(page.getByTestId("turn-working-indicator")).toBeVisible();
-  await expect(page.getByTestId(/^workspace-tab-agent_/).first()).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByTestId("chat-pane-header").filter({ visible: true }).first()).toBeVisible({
+    timeout: 30_000,
+  });
   await expect(userMessage).toHaveAttribute("aria-busy", "false", { timeout: 30_000 });
   await expect(page.getByTestId("turn-working-indicator")).toBeVisible();
   await expect(page.getByTestId("user-message").filter({ hasText: prompt })).toHaveCount(1);
@@ -1106,7 +1112,7 @@ test.describe("Agent message submission", () => {
       await openAgentRoute(page, agent);
       await expectComposerVisible(page);
       await submitMessage(page, "Keep running until the queued turn is ready.");
-      await expectRunningAgentChrome(page, title);
+      await expectRunningChatChrome(page, title);
       await queueMessage(page, secondPrompt);
       await expect(page.getByRole("button", { name: "Send queued message now" })).toBeVisible();
 
@@ -1119,7 +1125,7 @@ test.describe("Agent message submission", () => {
       await expect(page.getByTestId("user-message").filter({ hasText: secondPrompt })).toHaveCount(
         1,
       );
-      await expectRunningAgentChrome(page, title);
+      await expectRunningChatChrome(page, title);
       await expectAgentReadyToInterrupt(page);
 
       gate.holdNextClientRequest("cancel_agent_request");
@@ -1151,11 +1157,11 @@ test.describe("Agent message submission", () => {
       await openAgentRoute(page, agent);
       await expectComposerVisible(page);
       await submitMessage(page, "Interrupt this submitted turn.");
-      await expectRunningAgentChrome(page, title);
+      await expectRunningChatChrome(page, title);
 
       await cancelAgent(page);
 
-      await expectAgentSurfacesIdle(page, title);
+      await expectChatSurfacesIdle(page, title);
     } finally {
       await agent.cleanup();
     }
@@ -1173,14 +1179,14 @@ test.describe("Agent message submission", () => {
       await openAgentRoute(page, agent);
       await expectComposerVisible(page);
       await submitMessage(page, "Interrupt without delivering the terminal event.");
-      await expectRunningAgentChrome(page, title);
+      await expectRunningChatChrome(page, title);
       gate.setAgentStreamEventSuppressed("turn_canceled", true);
 
       await cancelAgent(page);
       await gate.waitForAgentStreamEvent("turn_canceled");
       await agent.client.waitForFinish(agent.agentId, 30_000);
 
-      await expectAgentSurfacesIdle(page, title);
+      await expectChatSurfacesIdle(page, title);
     } finally {
       gate.setAgentStreamEventSuppressed("turn_canceled", false);
       await agent.cleanup();
