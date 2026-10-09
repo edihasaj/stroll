@@ -56,6 +56,8 @@ export function buildWorkspaceTabSnapshot(input: {
   hasActivePendingTerminalCreate: boolean;
   hasActivePendingDraftCreate: boolean;
   mainChatPreference?: readonly string[];
+  emptyDraftIds?: ReadonlySet<string>;
+  agentCreatedAtById?: ReadonlyMap<string, number>;
 }): WorkspaceTabSnapshot {
   return {
     agentsHydrated: input.agentsHydrated,
@@ -67,6 +69,8 @@ export function buildWorkspaceTabSnapshot(input: {
     standaloneTerminalIds: input.standaloneTerminalIds,
     hasActivePendingTerminalCreate: input.hasActivePendingTerminalCreate,
     hasActivePendingDraftCreate: input.hasActivePendingDraftCreate,
+    emptyDraftIds: input.emptyDraftIds,
+    agentCreatedAtById: input.agentCreatedAtById,
   };
 }
 

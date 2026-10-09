@@ -20,6 +20,7 @@ import {
   findReplaceableChatTab,
   isChatTarget,
   mainPaneHasChat,
+  pickAgentToReplaceEmptyMainDraft,
   resolveSingleChatPlacement,
 } from "@/workspace-tabs/single-chat";
 
@@ -285,6 +286,10 @@ export interface WorkspaceTabSnapshot {
   standaloneTerminalIds: Iterable<string>;
   hasActivePendingTerminalCreate?: boolean;
   hasActivePendingDraftCreate?: boolean;
+  /** Draft ids with no typed text and no attachments, read when the snapshot is built. */
+  emptyDraftIds?: ReadonlySet<string>;
+  /** When each auto-open agent was created, in epoch milliseconds. */
+  agentCreatedAtById?: ReadonlyMap<string, number>;
 }
 
 export { DEFAULT_PANE_ID, EXPLORER_SIDEBAR_PANE_ID };
@@ -902,6 +907,8 @@ function replaceTabInTree(
     nextTabId: string;
     target: WorkspaceTabTarget;
     state?: JsonValue;
+    /** Stamp for a tab that takes over the slot as a new tab. Omitted, the replaced tab's stamp stays. */
+    createdAt?: number;
   },
 ): SplitNodeInternal {
   const panePath = findPanePathContainingTab(root, input.tabId);
@@ -917,7 +924,7 @@ function replaceTabInTree(
           return {
             tabId: input.nextTabId,
             target: input.target,
-            createdAt: tab.createdAt,
+            createdAt: input.createdAt ?? tab.createdAt,
             ...(input.state !== undefined ? { state: input.state } : {}),
           };
         }),
@@ -1407,6 +1414,7 @@ function insertNewTabIntoPane(
           nextTabId: tabId,
           target: input.target,
           state: input.state,
+          createdAt: input.now,
         }),
         focusedPaneId: input.focus ? targetPane.id : layout.focusedPaneId,
         parentTabIdByTabId: input.layout.parentTabIdByTabId,
@@ -2380,6 +2388,8 @@ function addMissingEntityTabs(input: {
   hasActivePendingDraftCreate: boolean;
   agentsHydrated: boolean;
   mainChatPreference: readonly string[] | undefined;
+  emptyDraftIds: ReadonlySet<string> | undefined;
+  agentCreatedAtById: ReadonlyMap<string, number> | undefined;
   explorerSidebarPaneId: string | null;
   singleChatMain: boolean;
 }): WorkspaceLayout {
@@ -2400,6 +2410,29 @@ function addMissingEntityTabs(input: {
   const currentTerminalIds = new Set(
     currentEntityTabs.filter(isTerminalTab).map((tab) => tab.target.terminalId),
   );
+
+  // An empty draft in the main view gives way to an agent that appeared after it was opened.
+  const replacingAgentId =
+    singleChatMain && !hasActivePendingDraftCreate
+      ? pickAgentToReplaceEmptyMainDraft({
+          root: nextLayout.root,
+          explorerPaneId: explorerSidebarPaneId,
+          candidateAgentIds: [...autoOpenAgentIds].filter(
+            (agentId) => !currentAgentIds.has(agentId),
+          ),
+          emptyDraftIds: input.emptyDraftIds,
+          agentCreatedAtById: input.agentCreatedAtById,
+        })
+      : null;
+  if (replacingAgentId) {
+    nextLayout = openEntityTabWithoutFocusing({
+      layout: nextLayout,
+      target: { kind: "agent", agentId: replacingAgentId },
+      explorerSidebarPaneId,
+      singleChatMain,
+    });
+    currentAgentIds.add(replacingAgentId);
+  }
 
   const preferredAgentIds = (input.mainChatPreference ?? []).filter((agentId) =>
     autoOpenAgentIds.has(agentId),
@@ -2550,6 +2583,8 @@ export function reconcileWorkspaceTabs(
     hasActivePendingDraftCreate: snapshot.hasActivePendingDraftCreate ?? false,
     agentsHydrated: snapshot.agentsHydrated,
     mainChatPreference: snapshot.mainChatPreference,
+    emptyDraftIds: snapshot.emptyDraftIds,
+    agentCreatedAtById: snapshot.agentCreatedAtById,
     explorerSidebarPaneId: state.explorerSidebarPaneId,
     singleChatMain: state.singleChatMain ?? false,
   });

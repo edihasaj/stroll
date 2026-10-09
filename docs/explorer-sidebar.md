@@ -33,6 +33,11 @@ on desktop only (`isSingleChatMainActive`):
 - Opening a workspace from the sidebar without naming a chat keeps the chat its main view shows
   (`navigation-active-workspace-store/navigation.ts`). Only an empty main view opens the chat that
   needs attention.
+- An empty draft in the main view gives way to a chat that appears in that workspace after the draft
+  opened (created from the CLI, another device, a schedule, or an agent). If several qualify, the
+  newest wins and the draft closes. A draft with text or attachments stays, as does a draft being
+  submitted; the chat then shows in the sidebar only. A chat that already existed when the draft
+  opened never replaces it, or New chat would bring back the chat it just replaced.
 
 Because the rules sit in the layout store, every entry point gets them without branching: the
 sidebar, Command Center, notifications, deep links, Explorer clicks, and agent-opened browser tabs.

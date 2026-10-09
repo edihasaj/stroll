@@ -4713,6 +4713,141 @@ describe("single-chat main", () => {
     expect(paneTargets(store, "main")).toEqual([firstTarget]);
   });
 
+  describe("an agent that appears while main shows an empty draft", () => {
+    const DRAFT_ID = "draft-1";
+
+    function openDraft(store: SingleChatStore): number {
+      const workspaceKey = createWorkspaceKey();
+      store
+        .getState()
+        .openTab({ workspaceKey, target: { kind: "draft", draftId: DRAFT_ID }, intent: "new" });
+      const layout = store.getState().layoutByWorkspace[workspaceKey];
+      const tab = collectAllTabs(layout.root).find(
+        (candidate) => candidate.target.kind === "draft",
+      );
+      if (!tab) throw new Error("Expected a draft tab");
+      return tab.createdAt;
+    }
+
+    function snapshotWith(
+      agents: Record<string, number>,
+      overrides: Partial<typeof emptySnapshot> & {
+        emptyDraftIds?: ReadonlySet<string>;
+        hasActivePendingDraftCreate?: boolean;
+      } = {},
+    ) {
+      return {
+        ...emptySnapshot,
+        activeAgentIds: Object.keys(agents),
+        autoOpenAgentIds: Object.keys(agents),
+        agentCreatedAtById: new Map(Object.entries(agents)),
+        emptyDraftIds: new Set([DRAFT_ID]),
+        ...overrides,
+      };
+    }
+
+    it("replaces the draft with an agent created after the draft opened", () => {
+      const workspaceKey = createWorkspaceKey();
+      const store = createSingleChatStore();
+      const draftCreatedAt = openDraft(store);
+
+      store.getState().reconcileTabs(workspaceKey, snapshotWith({ "chat-a": draftCreatedAt + 1 }));
+
+      expect(paneTargets(store, "main")).toEqual(["agent:chat-a"]);
+      const layout = store.getState().layoutByWorkspace[workspaceKey];
+      expect(findPaneById(layout.root, "main")?.focusedTabId).toBe("agent_chat-a");
+      expect(store.getState().hiddenAgentIdsByWorkspace[workspaceKey]).toBeUndefined();
+    });
+
+    it("keeps a draft that has content", () => {
+      const workspaceKey = createWorkspaceKey();
+      const store = createSingleChatStore();
+      const draftCreatedAt = openDraft(store);
+
+      store
+        .getState()
+        .reconcileTabs(
+          workspaceKey,
+          snapshotWith({ "chat-a": draftCreatedAt + 1 }, { emptyDraftIds: new Set() }),
+        );
+
+      expect(paneTargets(store, "main")).toEqual([`draft:${DRAFT_ID}`]);
+    });
+
+    it("keeps the draft when the agent was created before it opened", () => {
+      const workspaceKey = createWorkspaceKey();
+      const store = createSingleChatStore();
+      const draftCreatedAt = openDraft(store);
+
+      store
+        .getState()
+        .reconcileTabs(
+          workspaceKey,
+          snapshotWith({ "chat-a": draftCreatedAt - 1, "chat-b": draftCreatedAt }),
+        );
+
+      expect(paneTargets(store, "main")).toEqual([`draft:${DRAFT_ID}`]);
+    });
+
+    it("keeps the draft while it is being submitted", () => {
+      const workspaceKey = createWorkspaceKey();
+      const store = createSingleChatStore();
+      const draftCreatedAt = openDraft(store);
+
+      store
+        .getState()
+        .reconcileTabs(
+          workspaceKey,
+          snapshotWith({ "chat-a": draftCreatedAt + 1 }, { hasActivePendingDraftCreate: true }),
+        );
+
+      expect(paneTargets(store, "main")).toEqual([`draft:${DRAFT_ID}`]);
+    });
+
+    it("takes the newest of several qualifying agents", () => {
+      const workspaceKey = createWorkspaceKey();
+      const store = createSingleChatStore();
+      const draftCreatedAt = openDraft(store);
+
+      store.getState().reconcileTabs(
+        workspaceKey,
+        snapshotWith({
+          "chat-a": draftCreatedAt + 5,
+          "chat-b": draftCreatedAt + 20,
+          "chat-c": draftCreatedAt + 10,
+          "chat-old": draftCreatedAt - 100,
+        }),
+      );
+
+      expect(paneTargets(store, "main")).toEqual(["agent:chat-b"]);
+    });
+
+    it("stamps a draft that replaces a chat with the time it opened", () => {
+      vi.useFakeTimers();
+      try {
+        const workspaceKey = createWorkspaceKey();
+        const store = createSingleChatStore();
+        vi.setSystemTime(1_000);
+        store.getState().openTab({
+          workspaceKey,
+          target: { kind: "agent", agentId: "chat-a" },
+          intent: "reveal",
+        });
+        vi.setSystemTime(5_000);
+        const draftCreatedAt = openDraft(store);
+
+        expect(draftCreatedAt).toBe(5_000);
+        // A chat created between the old tab and the new draft stays out of the main view.
+        store
+          .getState()
+          .reconcileTabs(workspaceKey, snapshotWith({ "chat-a": 1_000, "chat-b": 3_000 }));
+        expect(paneTargets(store, "main")).toEqual([`draft:${DRAFT_ID}`]);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+  });
+
   it("leaves the launcher alone until the workspace's chats have loaded", () => {
     const workspaceKey = createWorkspaceKey();
     const store = createSingleChatStore();

@@ -169,6 +169,8 @@ import {
   deriveWorkspaceAgentVisibility,
   workspaceAgentVisibilityEqual,
 } from "@/workspace-tabs/agent-visibility";
+import { buildEmptyDraftSnapshotInputs } from "@/workspace-tabs/empty-draft-snapshot";
+import { useDraftStore } from "@/stores/draft-store";
 import { deriveWorkspacePaneState } from "@/screens/workspace/workspace-pane-state";
 import {
   buildWorkspacePaneContentModel,
@@ -2100,6 +2102,13 @@ function WorkspaceScreenContent({
     reconcileWorkspaceTabs(
       persistenceKey,
       buildWorkspaceTabSnapshot({
+        ...buildEmptyDraftSnapshotInputs({
+          serverId: normalizedServerId,
+          tabs: uiTabs,
+          drafts: useDraftStore.getState().drafts,
+          agents: useSessionStore.getState().sessions[normalizedServerId]?.agents,
+          autoOpenAgentIds: workspaceAgentVisibility.autoOpenAgentIds,
+        }),
         agentVisibility: workspaceAgentVisibility,
         agentsHydrated: hasHydratedAgents,
         terminalsHydrated: terminalsQuery.isSuccess,

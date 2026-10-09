@@ -112,6 +112,36 @@ export function mainPaneHasChat(root: SplitNode, explorerPaneId: string | null):
   return mainPane ? paneTabs(mainPane).some(isChatTab) : false;
 }
 
+/**
+ * The agent that takes an untouched draft's place in the main view: the newest candidate created
+ * after the draft tab opened. Null when the main chat is not an empty draft or no agent is newer.
+ * An agent from before the draft stays out, otherwise New chat would restore the chat it replaced.
+ */
+export function pickAgentToReplaceEmptyMainDraft(input: {
+  root: SplitNode;
+  explorerPaneId: string | null;
+  candidateAgentIds: readonly string[];
+  emptyDraftIds: ReadonlySet<string> | undefined;
+  agentCreatedAtById: ReadonlyMap<string, number> | undefined;
+}): string | null {
+  const mainPane = resolveMainPane(input.root, input.explorerPaneId);
+  const chatTab = mainPane ? findReplaceableChatTab(mainPane) : null;
+  if (chatTab?.target.kind !== "draft" || !input.emptyDraftIds?.has(chatTab.target.draftId)) {
+    return null;
+  }
+  let newest: { agentId: string; createdAt: number } | null = null;
+  for (const agentId of input.candidateAgentIds) {
+    const createdAt = input.agentCreatedAtById?.get(agentId);
+    if (createdAt === undefined || createdAt <= chatTab.createdAt) {
+      continue;
+    }
+    if (!newest || createdAt > newest.createdAt) {
+      newest = { agentId, createdAt };
+    }
+  }
+  return newest?.agentId ?? null;
+}
+
 /** The chat tab a new chat replaces in the pane it opens in, if any. */
 export function findReplaceableChatTab(pane: SplitPane): WorkspaceTab | null {
   return paneTabs(pane).find(isChatTab) ?? null;

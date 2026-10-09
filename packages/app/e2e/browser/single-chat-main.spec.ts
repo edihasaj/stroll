@@ -1,9 +1,17 @@
 import { expect, test, type Page } from "../support/fixtures";
+import {
+  fillComposerDraft,
+  expectComposerDraft,
+  expectComposerVisible,
+} from "../support/helpers/composer";
 import { openAgentRoute, seedMockAgentWorkspace } from "../support/helpers/mock-agent";
+import { seedWorkspace } from "../support/helpers/seed-client";
 import { getServerId } from "../support/helpers/server-id";
 import {
   archiveMainChatFromHeader,
+  createAgentTabFromMenu,
   expectMainChat,
+  expectMainDraft,
   expectNotMainChat,
   openChatFromSidebar,
   sidebarChatRow,
@@ -352,6 +360,55 @@ test("archiving the main chat opens the previous chat from the history, then the
       await expect(
         mainPane(page).getByTestId("main-pane-draft-header").filter({ visible: true }),
       ).toBeVisible({ timeout: 30_000 });
+    });
+  } finally {
+    await workspace.cleanup();
+  }
+});
+
+test("an agent created elsewhere takes an empty draft's place, but never a draft with text", async ({
+  page,
+}) => {
+  const workspace = await seedWorkspace({ repoPrefix: "single-chat-draft-replaced-" });
+  const createChat = (title: string) =>
+    workspace.client.createAgent({
+      provider: "mock",
+      cwd: workspace.repoPath,
+      workspaceId: workspace.workspaceId,
+      title,
+      modeId: "load-test",
+      model: "e2e-fast-stream",
+    });
+
+  try {
+    await page.setViewportSize({ width: 1400, height: 900 });
+    await page.goto(buildHostWorkspaceRoute(getServerId(), workspace.workspaceId));
+    await waitForWorkspaceTabsVisible(page);
+    await expectMainDraft(page);
+    await expectComposerVisible(page);
+
+    let first: Awaited<ReturnType<typeof createChat>>;
+    await test.step("a chat created out of band replaces the empty composer", async () => {
+      first = await createChat("Created elsewhere");
+
+      await expectMainChat(page, first.id);
+      await expect(mainPane(page).getByTestId("chat-pane-title").first()).toHaveText(
+        "Created elsewhere",
+      );
+    });
+
+    await test.step("a draft with text keeps the main view; the new chat only joins the sidebar", async () => {
+      await createAgentTabFromMenu(page);
+      await expectMainDraft(page);
+      await fillComposerDraft(page, "keep this text");
+      await expectComposerDraft(page, "keep this text");
+
+      const second = await createChat("Created while typing");
+
+      await expect(sidebarChatRow(page, second.id)).toBeVisible({ timeout: 30_000 });
+      await expectMainDraft(page);
+      await expectComposerDraft(page, "keep this text");
+      await expectNotMainChat(page, second.id);
     });
   } finally {
     await workspace.cleanup();
