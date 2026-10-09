@@ -45,8 +45,8 @@ interface TurnFrame {
   attachment: ElementFrame;
   footerRow: ElementFrame;
   spinner: ElementFrame;
+  /** The main view's chat header: it is on screen once the main view shows the created agent. */
   agentTab: ElementFrame;
-  tabProgress: ElementFrame;
   interruptControl: ElementFrame;
   primaryActionCount: number;
   composer: ElementFrame & { value: string | null };
@@ -62,7 +62,6 @@ interface ActivityCheckpoint {
   row: boolean;
   stop: boolean;
   footer: boolean;
-  tabProgress: boolean;
   elapsed: boolean;
 }
 
@@ -224,15 +223,14 @@ async function recordTurnFrames(page: Page, prompt: string): Promise<void> {
     };
     const findImageAttachment = (row: Element | undefined) =>
       row?.querySelector('[role="button"][aria-label="Open image attachment"]');
-    const findAgentTabState = () => {
-      const agentTab = Array.from(
-        document.querySelectorAll('[data-testid^="workspace-tab-agent_"]'),
-      ).find((candidate) => isVisible(candidate));
-      return {
-        agentTab,
-        tabProgress: agentTab?.querySelector('[role="progressbar"][aria-label="Agent running"]'),
-      };
-    };
+    // The main view has no tab row. Its chat header appears with the created agent's pane. The
+    // sidebar's running indicator follows the daemon's status, not the optimistic submission, so
+    // it is not part of the activity cluster checked here.
+    const findAgentTabState = () => ({
+      agentTab: Array.from(document.querySelectorAll('[data-testid="chat-pane-header"]')).find(
+        (candidate) => isVisible(candidate),
+      ),
+    });
     const countPrimaryActions = (composerRoot: Element | null | undefined) => {
       const candidates = Array.from(
         composerRoot?.querySelectorAll('[role="button"][aria-label]') ?? [],
@@ -285,7 +283,7 @@ async function recordTurnFrames(page: Page, prompt: string): Promise<void> {
         /stop agent|canceling agent/i.test(candidate.getAttribute("aria-label") ?? ""),
       );
       const primaryActionCount = countPrimaryActions(composerRoot);
-      const { agentTab, tabProgress } = findAgentTabState();
+      const { agentTab } = findAgentTabState();
       const scrollFrame = snapshot(viewport);
       const contentChildren = Array.from(viewport?.firstElementChild?.children ?? []).map(
         (child, index): ContentChildFrame =>
@@ -305,7 +303,6 @@ async function recordTurnFrames(page: Page, prompt: string): Promise<void> {
         footerRow: snapshot(footerRow, viewport, spinner.painted),
         spinner,
         agentTab: snapshot(agentTab),
-        tabProgress: snapshot(tabProgress),
         interruptControl: snapshot(interrupt),
         primaryActionCount,
         composer: {
@@ -346,10 +343,7 @@ async function waitForRecordedFrames(
           return frames.filter((frame) => {
             if (input.predicate === "user-visible") return frame.userRow.visible;
             return (
-              frame.interruptControl.painted &&
-              frame.footerRow.painted &&
-              frame.spinner.painted &&
-              frame.tabProgress.painted
+              frame.interruptControl.painted && frame.footerRow.painted && frame.spinner.painted
             );
           }).length;
         },
@@ -370,19 +364,12 @@ async function installActivityContinuityOracle(page: Page, prompt: string): Prom
   await page.evaluate((promptText) => {
     const isVisible = (element: Element | null) => Boolean(element?.checkVisibility());
     const snapshot = (): ActivityCheckpoint => {
-      const visibleAgentTab = Array.from(
-        document.querySelectorAll('[data-testid^="workspace-tab-agent_"]'),
-      ).find((candidate) => isVisible(candidate));
       return {
         row: Array.from(document.querySelectorAll('[data-testid="user-message"]')).some(
           (candidate) => candidate.textContent?.includes(promptText),
         ),
         stop: isVisible(document.querySelector('[role="button"][aria-label="Stop agent"]')),
         footer: isVisible(document.querySelector('[data-testid="turn-working-indicator"]')),
-        tabProgress: isVisible(
-          visibleAgentTab?.querySelector('[role="progressbar"][aria-label="Agent running"]') ??
-            null,
-        ),
         elapsed: isVisible(document.querySelector('[data-testid="turn-working-elapsed"]')),
       };
     };
@@ -431,7 +418,7 @@ async function readActivityContinuityOracle(page: Page): Promise<ActivityCheckpo
 
 function expectActivityContinuity(checkpoints: ActivityCheckpoint[]): void {
   const incompleteActivityCheckpoints = checkpoints.filter(
-    (checkpoint) => !checkpoint.stop || !checkpoint.footer || !checkpoint.tabProgress,
+    (checkpoint) => !checkpoint.stop || !checkpoint.footer,
   );
   expect(checkpoints[0]?.row, "activity oracle never armed on the optimistic row").toBe(true);
   expect(
@@ -589,10 +576,6 @@ function collectElementViolations(
       reason: "working spinner was not painted",
     },
     {
-      passes: hasPaintedLayout(frame.tabProgress),
-      reason: "selected tab running indicator was not painted",
-    },
-    {
       passes: hasPaintedLayout(frame.interruptControl),
       reason: "interrupt control was not painted",
     },
@@ -668,8 +651,7 @@ function expectAtomicIdleToRunningTransition(frames: TurnFrame[]): void {
       index >= first &&
       frame.interruptControl.painted &&
       frame.footerRow.painted &&
-      frame.spinner.painted &&
-      frame.tabProgress.painted,
+      frame.spinner.painted,
   );
   const transition = frames.slice(first);
   const baseline = transition[0];
@@ -743,12 +725,8 @@ function expectAtomicFirstPromptTransition(frames: TurnFrame[]): void {
           reason: "composer was not painted and empty with the first prompt",
         },
         {
-          passes: !frame.agentTab.mounted || hasPaintedLayout(frame.tabProgress),
-          reason: "created agent tab appeared without running state",
-        },
-        {
           passes: !frame.agentTab.mounted || hasPaintedLayout(frame.interruptControl),
-          reason: "created agent appeared without its interrupt control",
+          reason: "created chat header appeared without the interrupt control",
         },
       ]),
     );
