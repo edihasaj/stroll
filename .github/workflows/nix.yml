@@ -2,7 +2,17 @@ name: Nix
 
 on:
   push:
-    branches: [main]
+    branches: [main, production]
+  pull_request:
+    branches: [production]
+    types: [opened, synchronize, reopened, edited]
+  workflow_dispatch:
+    inputs:
+      run_native:
+        description: Run paid macOS Nix desktop validation
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -101,6 +111,9 @@ jobs:
         run: nix build .#desktop -o result-desktop
 
   build-desktop-darwin:
+    # Keep the Linux Nix build on its ordinary routes; hosted macOS is an
+    # intentional production or manual validation lane.
+    if: ${{ !cancelled() && ((github.event_name == 'push' && github.ref == 'refs/heads/production') || (github.event_name == 'pull_request' && github.base_ref == 'production') || (github.event_name == 'workflow_dispatch' && inputs.run_native == true)) }}
     runs-on: macos-14
     steps:
       - uses: actions/checkout@v4

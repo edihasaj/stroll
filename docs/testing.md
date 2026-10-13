@@ -200,6 +200,19 @@ Test suites in this repo are heavy. Running them in bulk freezes the machine, es
 
 ## Pull-request test routing
 
+### Hosted macOS checks
+
+Paid hosted macOS jobs are not routine-branch evidence. The Linux and Windows
+checks keep their existing routes; the `CI` and `Nix` macOS lanes run only for a
+push to `production`, a pull request targeting `production`, or a maintainer
+manually dispatching the workflow with its typed **Run paid macOS native
+checks** checkbox enabled. The checkbox defaults off. These mixed CI and Nix
+workflow-dispatch lanes are the explicit, non-publishing native fallback; they
+do not change the desktop release workflow. A skipped macOS lane is not native
+proof. `scripts/native-ci-policy.test.mjs` parses the workflow files and checks
+their triggers, inputs, runners, and event contexts after the normal dependency
+install in the existing quality lane.
+
 PR checks are routed by the behavior each suite proves, using `.github/ci-paths.yml`. A package does not inherit every test suite of its runtime consumers: app changes do not run CLI or Electron-wrapper tests, and protocol changes do not run every package that imports the protocol. Cross-package static compatibility belongs to `typecheck`; full integration coverage runs after merge on main and in manual CI runs.
 
 Required matrix legs are declared as statically named jobs. Their shared steps use YAML anchors, while job-level `if` conditions let GitHub report an unaffected leg as genuinely skipped without allocating a runner or losing the exact required-check name.

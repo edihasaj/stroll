@@ -17,7 +17,10 @@ const gatedCiJobs = new Map([
   ["typecheck", { name: "typecheck", contract: "quality" }],
   ["server-tests-ubuntu", { name: "server-tests (ubuntu-latest)", contracts: ["server", "hub"] }],
   ["server-tests-windows", { name: "server-tests (windows-latest)", contracts: ["server", "hub"] }],
-  ["server-tests-macos", { name: "server-tests (macos-14, file observation)", contract: "server" }],
+  [
+    "server-tests-macos",
+    { name: "server-tests (macos-14, file observation)", nativeProductionOnly: true },
+  ],
   ["desktop-tests-ubuntu", { name: "desktop-tests (ubuntu-latest)", contract: "desktop" }],
   ["desktop-tests-windows", { name: "desktop-tests (windows-latest)", contract: "desktop" }],
   ["app-tests", { name: "app-tests", contract: "app" }],
@@ -92,6 +95,11 @@ test("gated checks are statically named jobs with real job-level gating", () => 
     const job = jobs.get(jobId)?.join("\n");
     assert.ok(job, `missing static job ${jobId}`);
     assert.match(job, new RegExp(`^    name: ${expected.name.replace(/[()]/g, "\\$&")}$`, "m"));
+    if (expected.nativeProductionOnly) {
+      assert.match(job, /^    needs: changes$/m);
+      assert.match(job, /github\.event_name == 'workflow_dispatch'/);
+      continue;
+    }
     assert.match(job, /needs\.changes\.outputs\.full != 'false'/);
     for (const contract of expected.contracts ?? [expected.contract]) {
       assert.match(job, new RegExp(`needs\\.changes\\.outputs\\.${contract} != 'false'`));
@@ -282,12 +290,17 @@ test("browser and desktop tests have exclusive, directory-owned suites", () => {
   ]);
 });
 
-test("packaging runs on main without allocating pull-request runners", () => {
-  for (const workflowPath of [dockerWorkflowPath, nixWorkflowPath]) {
-    const source = readFileSync(workflowPath, "utf8");
-    const trigger = source.split("jobs:", 1)[0];
-    assert.match(trigger, /push:\s*\n\s+branches: \[main\]/);
-    assert.doesNotMatch(trigger, /pull_request/);
+test("packaging keeps routine runners narrow while Nix admits production validation", () => {
+  const dockerTrigger = readFileSync(dockerWorkflowPath, "utf8").split("jobs:", 1)[0];
+  assert.match(dockerTrigger, /push:\s*\n\s+branches: \[main\]/);
+  assert.doesNotMatch(dockerTrigger, /pull_request/);
+
+  const nixSource = readFileSync(nixWorkflowPath, "utf8");
+  const nixTrigger = nixSource.split("jobs:", 1)[0];
+  assert.match(nixTrigger, /push:\s*\n\s+branches: \[main, production\]/);
+  assert.match(nixTrigger, /pull_request:\s*\n\s+branches: \[production\]/);
+
+  for (const source of [readFileSync(dockerWorkflowPath, "utf8"), nixSource]) {
     assert.doesNotMatch(source, /dorny\/paths-filter/);
   }
 });

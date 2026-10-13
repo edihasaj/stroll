@@ -2,11 +2,18 @@ name: CI
 
 on:
   push:
-    branches: [main, edi/integration]
+    branches: [main, edi/integration, production]
   pull_request:
-    branches: [main, edi/integration]
+    branches: [main, edi/integration, production]
+    types: [opened, synchronize, reopened, edited]
   merge_group:
   workflow_dispatch:
+    inputs:
+      run_native:
+        description: Run paid macOS native checks
+        required: false
+        type: boolean
+        default: false
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
@@ -88,6 +95,9 @@ jobs:
 
       - name: Install dependencies
         run: node scripts/npm-retry.mjs ci
+
+      - name: Validate native CI policy
+        run: node --test scripts/native-ci-policy.test.mjs
 
       - name: Lint lockfile
         run: npx --yes lockfile-lint --path package-lock.json --type npm --allowed-hosts npm --validate-https --validate-integrity
@@ -190,14 +200,12 @@ jobs:
     runs-on: windows-latest
     steps: *server_test_steps
 
-  # native-recursive.ts serves darwin and win32, but windows-latest above is the only
-  # runner that exercises it. macOS — the platform the reported watcher bug was on —
-  # otherwise has no server-test coverage. Scoped to the observer/watcher suites to
-  # bound runtime.
+  # Paid hosted macOS checks run only for an intentional production promotion or
+  # an explicit manual opt-in. Windows keeps routine native coverage.
   server-tests-macos:
     name: server-tests (macos-14, file observation)
     needs: changes
-    if: ${{ !cancelled() && (needs.changes.outputs.full != 'false' || needs.changes.outputs.server != 'false') }}
+    if: ${{ !cancelled() && ((github.event_name == 'push' && github.ref == 'refs/heads/production') || (github.event_name == 'pull_request' && github.base_ref == 'production') || (github.event_name == 'workflow_dispatch' && inputs.run_native == true)) }}
     runs-on: macos-14
     steps:
       - uses: actions/checkout@v4

@@ -40,12 +40,22 @@ tag. Resolve that ref once and apply every source, diff, and CI check to that
 commit instead of `origin/main`.
 
 Before making release-preparation commits, confirm the existing CI run for the
-resolved commit is green. Pending CI is watched to completion. Release
-preparation then stays local through the changelog, any explicitly requested ACP
-catalog update, lockfile preparation, and the version commit. After approval,
-commit the prepared inputs locally and run the release command. Its branch and
-tag push is the one remote release batch and starts CI for the complete release
-commit.
+resolved commit is green. Green routine CI on `main` is not macOS-native proof.
+Before desktop publishing, require a successful intentional macOS native CI or
+Nix run for that exact resolved SHA; a skipped macOS job does not qualify. Use
+the non-publishing workflow-dispatch checkbox only with **Run paid macOS native
+checks** enabled and a ref that resolves to that SHA. Pending CI is watched to
+completion. Release preparation then stays local through the changelog, any
+explicitly requested ACP catalog update, lockfile preparation, and the version
+commit. After approval, commit the prepared inputs locally and run the release
+command. Its branch and tag push is the one remote release batch and starts CI
+for the complete release commit.
+
+**Known publisher risk:** the existing desktop publisher can reuse a skipped
+platform manifest and its validator does not bind every manifest `sourceSha` to
+the release SHA. The intentional native run above is required evidence for the
+release source, but it does not prove the publisher's manifest selection. Track
+that separately; do not treat this routing policy as a publisher fix.
 
 ## Release branch discipline
 
