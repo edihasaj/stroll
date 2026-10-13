@@ -3,7 +3,6 @@ import { useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { Pressable, Text, View, type PressableStateCallbackType } from "react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
-import { SidebarHostFilterMenu } from "@/components/sidebar/sidebar-host-filter-menu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useKeyboardShortcutsStore } from "@/stores/keyboard-shortcuts-store";
 import { usePanelStore } from "@/stores/panel-store";
@@ -17,13 +16,7 @@ const ThemedPanelLeft = withUnistyles(PanelLeft);
 const foregroundColorMapping = (theme: Theme) => ({ color: theme.colors.foreground });
 const foregroundMutedColorMapping = (theme: Theme) => ({ color: theme.colors.foregroundMuted });
 
-/**
- * The panel's top row: "Stroll" behind the host-filter chevron (`SidebarHostFilterMenu`) on the
- * left, then a collapse-to-rail toggle and a Search button (opens the existing Command Center,
- * ⌘K) on the right. The collapse toggle is the rail/expanded state's only remaining affordance
- * now that the old `SidebarBrandRow` (and its `sidebar-brand-collapse` button) is gone — without
- * it, `desktop.sidebarRailMode` would have no UI trigger left at all.
- */
+/** Quiet header controls; host identity lives in the rail's bottom avatar. */
 export function SidebarPanelHeader({ showSearch }: { showSearch: boolean }) {
   const { t } = useTranslation();
   const setCommandCenterOpen = useKeyboardShortcutsStore((state) => state.setCommandCenterOpen);
@@ -36,7 +29,7 @@ export function SidebarPanelHeader({ showSearch }: { showSearch: boolean }) {
 
   return (
     <View style={styles.row} testID="sidebar-panel-header">
-      <SidebarHostFilterMenu />
+      <View />
       <View style={styles.trailingGroup}>
         <Tooltip delayDuration={300}>
           <TooltipTrigger asChild>

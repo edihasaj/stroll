@@ -16,7 +16,7 @@ async function expectChatSelected(page: Page, agentId: string) {
   await expect(chatRow(page, agentId)).toHaveAttribute("aria-selected", "true");
 }
 
-test("workspace chats are listed under the workspace row, switch, walk the history, and archive", async ({
+test("desktop chats move between Projects and Recents, switch, walk history, and archive", async ({
   page,
 }) => {
   const workspace = await seedMockAgentWorkspace({
@@ -44,6 +44,83 @@ test("workspace chats are listed under the workspace row, switch, walk the histo
       await expect(chatRow(page, second.id)).toBeVisible({ timeout: 30_000 });
       await expect(chatRow(page, workspace.agentId)).toContainText("Alpha chat");
       await expect(chatRow(page, second.id)).toContainText("Beta chat");
+      await expectChatSelected(page, workspace.agentId);
+    });
+
+    await test.step("Home toggles the sidebar without changing the chat or URL", async () => {
+      const route = page.url();
+      await page.getByTestId("sidebar-rail-chats").click();
+      await expect(page.getByTestId("sidebar-panel")).toHaveCount(0);
+      expect(page.url()).toBe(route);
+      await expectAgentTabActive(page, workspace.agentId);
+      await page.getByTestId("sidebar-rail-chats").click();
+      await expect(page.getByTestId("sidebar-panel")).toBeVisible();
+      expect(page.url()).toBe(route);
+    });
+
+    await test.step("a folder is manually added, persists after reload, and can leave the sidebar", async () => {
+      await expect(
+        page
+          .getByTestId("sidebar-recents-list")
+          .getByTestId(`sidebar-chat-row-${getServerId()}:${workspace.agentId}`),
+      ).toBeVisible();
+      await page.getByTestId("sidebar-panel-projects-header").hover();
+      await page.getByTestId("sidebar-organize").first().click();
+      await expect(page.getByTestId("sidebar-sort-updated")).toBeVisible();
+      await page.locator('[data-testid^="sidebar-manage-project-"]').first().click();
+      await page.keyboard.press("Escape");
+      await expect(
+        page
+          .getByTestId("sidebar-project-list")
+          .getByTestId(`sidebar-chat-row-${getServerId()}:${workspace.agentId}`),
+      ).toBeVisible();
+      await page.reload();
+      await expect(
+        page
+          .getByTestId("sidebar-project-list")
+          .getByTestId(`sidebar-chat-row-${getServerId()}:${workspace.agentId}`),
+      ).toBeVisible();
+
+      const projectFolderId = await page
+        .locator('[data-testid^="sidebar-project-folder-"]')
+        .getAttribute("data-testid");
+      expect(projectFolderId).not.toBeNull();
+      const projectViewKey = projectFolderId!.replace("sidebar-project-folder-", "");
+      await page.evaluate(
+        (projectFilters) => {
+          localStorage.setItem(
+            "sidebar-view",
+            JSON.stringify({
+              state: {
+                groupMode: "project",
+                hostFilters: [],
+                projectFilters,
+                labelFilter: { labels: [] },
+              },
+              version: 6,
+            }),
+          );
+        },
+        [projectViewKey],
+      );
+      await page.reload();
+      await page.getByTestId("sidebar-display-preferences-menu").click();
+      await expect(page.getByTestId("sidebar-display-project-filter")).toBeVisible();
+      await expect(page.getByTestId("sidebar-display-grouping")).toHaveCount(0);
+      await expect(page.getByTestId("sidebar-display-title-source")).toHaveCount(0);
+      await expect(page.getByTestId("sidebar-display-show")).toHaveCount(0);
+      await page.getByTestId("sidebar-display-project-filter").click();
+      await expect(page.getByTestId("sidebar-project-filter-all")).toBeVisible();
+      await page.getByTestId("sidebar-project-filter-all").click();
+      await page.keyboard.press("Escape");
+
+      await page.locator('[aria-label^="Project actions for "]').click();
+      await page.getByRole("menuitem", { name: "Remove from sidebar", exact: true }).click();
+      await expect(
+        page
+          .getByTestId("sidebar-recents-list")
+          .getByTestId(`sidebar-chat-row-${getServerId()}:${workspace.agentId}`),
+      ).toBeVisible();
       await expectChatSelected(page, workspace.agentId);
     });
 

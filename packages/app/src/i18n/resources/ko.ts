@@ -1300,6 +1300,7 @@ export const ko: TranslationResources = {
     panel: {
       machineFilter: "Filter by machine",
       projectsSection: "Projects",
+      recentsSection: "최근 채팅",
     },
     filterEmpty: {
       title: "일치하는 워크스페이스가 없습니다",

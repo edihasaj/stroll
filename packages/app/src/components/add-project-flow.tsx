@@ -1,5 +1,6 @@
 import { getHostRuntimeStore } from "@/runtime/host-runtime";
 import { router } from "expo-router";
+import { useSidebarDesktopStore } from "@/stores/sidebar-desktop-store";
 import type { WorkspaceProjectDescriptorPayload } from "@getpaseo/protocol/messages";
 import {
   ArrowLeft,
@@ -458,6 +459,7 @@ export function AddProjectFlow({ request, onClose }: AddProjectFlowProps) {
 
   const openNewWorkspaceForProject = useCallback(
     (serverId: string, project: WorkspaceProjectDescriptorPayload) => {
+      useSidebarDesktopStore.getState().addProject(serverId, project.projectId);
       onClose();
       router.push(
         buildNewWorkspaceRoute({

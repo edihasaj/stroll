@@ -1,4 +1,5 @@
 import type { StreamItem, TurnFoldItem } from "@/types/stream";
+import { describeToolCall, isGroupableToolCall } from "@/tool-calls/detail-level/grouping";
 
 export interface TurnFoldInput {
   tail: StreamItem[];
@@ -64,8 +65,7 @@ function findFinalAnswerStart(items: readonly StreamItem[], start: number, end: 
 /**
  * Plans the fold for one finished response (the rows between two user messages). Only rows of
  * the final answer's canonical turn fold, so turn timing and fork boundaries keep working; a
- * response without a final answer, or without any tool call, thought, or in-between message
- * before it, stays as it is.
+ * tool-only response gets the same disclosure when it stops. Responses without work stay as-is.
  */
 function planResponseFold(input: {
   items: readonly StreamItem[];
@@ -75,9 +75,10 @@ function planResponseFold(input: {
   reuse: (next: TurnFoldItem) => TurnFoldItem;
 }): FoldPlan | null {
   const { items, start, end } = input;
-  const answerStart = findFinalAnswerStart(items, start, end);
+  const finalAnswerStart = findFinalAnswerStart(items, start, end);
+  const answerStart = finalAnswerStart === -1 ? end : finalAnswerStart;
   if (answerStart <= start) return null;
-  const turnId = items[answerStart]!.turnId;
+  const turnId = items[Math.min(answerStart, end - 1)]!.turnId;
   const indices: number[] = [];
   let hasWork = false;
   for (let index = start; index < answerStart; index += 1) {
@@ -141,6 +142,7 @@ function planFolds(input: {
   reuse: (next: TurnFoldItem) => TurnFoldItem;
 }): FoldPlan[] {
   const { items } = input;
+  const activeTurnId = input.isTurnActive ? latestCanonicalTurnId(items) : undefined;
   const plans: FoldPlan[] = [];
   let index = 0;
   while (index < items.length) {
@@ -154,6 +156,12 @@ function planFolds(input: {
     // The running turn's work stays in view; it folds once the turn finishes.
     const settled = index === items.length && input.isTurnActive ? ranges.slice(0, -1) : ranges;
     for (const [rangeStart, rangeEnd] of settled) {
+      // A steering message can split the response while the same canonical turn is still live.
+      if (
+        activeTurnId &&
+        items.slice(rangeStart, rangeEnd).some((item) => item.turnId === activeTurnId)
+      )
+        continue;
       const plan = planResponseFold({
         items,
         start: rangeStart,
@@ -165,6 +173,14 @@ function planFolds(input: {
     }
   }
   return plans;
+}
+
+function latestCanonicalTurnId(items: readonly StreamItem[]): string | undefined {
+  for (let index = items.length - 1; index >= 0; index -= 1) {
+    if (items[index]!.turnId !== undefined) return items[index]!.turnId;
+    if (items[index]!.kind === "user_message") return undefined;
+  }
+  return undefined;
 }
 
 function isTurnFoldEqual(left: TurnFoldItem, right: TurnFoldItem): boolean {
@@ -182,10 +198,33 @@ function sameItems(previous: readonly StreamItem[], next: readonly StreamItem[])
   return previous.length === next.length && previous.every((item, index) => item === next[index]);
 }
 
+/** Routine work is named by the live footer. Keep actionable plans, agents, and failures inline. */
+function liveWorkIndices(items: readonly StreamItem[], isTurnActive: boolean): Set<number> {
+  const hidden = new Set<number>();
+  if (!isTurnActive) return hidden;
+  let start = items.length - 1;
+  while (start >= 0 && items[start]!.kind !== "user_message") start -= 1;
+  const activeTurnId = latestCanonicalTurnId(items);
+  if (activeTurnId) start = items.findIndex((item) => item.turnId === activeTurnId) - 1;
+  const ranges = splitByCanonicalTurn(items, start + 1, items.length);
+  const [activeStart, activeEnd] = ranges.at(-1)!;
+  for (let index = activeStart; index < activeEnd; index += 1) {
+    const item = items[index]!;
+    if (item.kind === "thought") {
+      hidden.add(index);
+    } else if (isGroupableToolCall(item)) {
+      const { status } = describeToolCall(item);
+      if (status !== "failed" && status !== "canceled") hidden.add(index);
+    }
+  }
+  return hidden;
+}
+
 /**
  * Folds every finished turn's work behind one "Worked for" row, the way Codex shows a completed
  * turn: the user's message and the final answer stay; the tool calls, thoughts, and in-between
- * messages fold away until the row is expanded. The running turn is never folded.
+ * messages fold away until the row is expanded. During a running turn, routine tools and
+ * thoughts are represented by the live footer rather than added as transcript rows.
  *
  * Output arrays and fold rows keep their identity while nothing changed, so a streaming tick
  * does not invalidate the history layout cache.
@@ -210,13 +249,13 @@ export function createTurnFolder(): (input: TurnFoldInput) => TurnFoldOutput {
       reuse,
     });
     foldItems = nextFoldItems;
-    if (plans.length === 0) {
+    const hidden = liveWorkIndices(items, input.isTurnActive);
+    if (plans.length === 0 && hidden.size === 0) {
       previous = { tail: input.tail, head: input.head };
       return previous;
     }
 
     const planByFirstIndex = new Map(plans.map((plan) => [plan.firstIndex, plan]));
-    const hidden = new Set<number>();
     for (const plan of plans) {
       if (plan.item.expanded) continue;
       for (const index of plan.indices) hidden.add(index);

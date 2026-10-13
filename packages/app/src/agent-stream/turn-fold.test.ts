@@ -107,13 +107,13 @@ describe("createTurnFolder", () => {
     expect(result.tail[1]).toMatchObject({ expanded: true });
   });
 
-  it("never folds the running turn", () => {
+  it("keeps running prose visible and represents routine work in the live footer", () => {
     const fold = createTurnFolder();
     const tail = [userMessage("u1", 0), toolCall("t1", 1), assistantMessage("m1", 2)];
 
     const result = fold({ tail, head: [], isTurnActive: true, expandedFoldIds: NONE });
 
-    expect(result.tail).toBe(tail);
+    expect(ids(result.tail)).toEqual(["u1", "m1"]);
   });
 
   it("folds earlier turns while the latest one runs", () => {
@@ -128,7 +128,90 @@ describe("createTurnFolder", () => {
 
     const result = fold({ tail, head: [], isTurnActive: true, expandedFoldIds: NONE });
 
-    expect(ids(result.tail)).toEqual(["u1", "turn-fold:t1", "a1", "u2", "t2"]);
+    expect(ids(result.tail)).toEqual(["u1", "turn-fold:t1", "a1", "u2"]);
+  });
+
+  it("retains live work for the completed disclosure without hiding the final answer", () => {
+    const fold = createTurnFolder();
+    const tail = [userMessage("u", 0), toolCall("tool", 1)];
+    const thought: StreamItem = {
+      kind: "thought",
+      status: "loading",
+      id: "thought",
+      text: "Checking",
+      timestamp: timestamp(2),
+    };
+    const head = [thought, assistantMessage("answer", 3)];
+    expect(ids(fold({ tail, head, isTurnActive: true, expandedFoldIds: NONE }).head)).toEqual([
+      "answer",
+    ]);
+    const done = fold({ tail, head, isTurnActive: false, expandedFoldIds: NONE });
+    expect(ids(done.tail)).toEqual(["u", "turn-fold:tool"]);
+    expect(ids(done.head)).toEqual(["answer"]);
+    const expanded = fold({
+      tail,
+      head,
+      isTurnActive: false,
+      expandedFoldIds: new Set(["turn-fold:tool"]),
+    });
+    expect(ids(expanded.tail)).toEqual(["u", "turn-fold:tool", "tool"]);
+    expect(ids(expanded.head)).toEqual(["thought", "answer"]);
+  });
+
+  it("keeps live failures and warnings visible", () => {
+    const failed = toolCall("failed", 1);
+    if (failed.kind !== "tool_call") throw new Error("Expected tool call");
+    failed.payload.data.status = "failed";
+    const tail = [
+      userMessage("u", 0),
+      failed,
+      notification("warning", 2, "warning"),
+      toolCall("ok", 3),
+    ];
+    expect(
+      ids(createTurnFolder()({ tail, head: [], isTurnActive: true, expandedFoldIds: NONE }).tail),
+    ).toEqual(["u", "failed", "warning"]);
+  });
+
+  it("collapses a stopped tool-only turn without needing an answer", () => {
+    const result = createTurnFolder()({
+      tail: [userMessage("u", 0), toolCall("tool", 1)],
+      head: [],
+      isTurnActive: false,
+      expandedFoldIds: NONE,
+    });
+    expect(ids(result.tail)).toEqual(["u", "turn-fold:tool"]);
+  });
+
+  it("keeps one live status across a steering message in the same canonical turn", () => {
+    const result = createTurnFolder()({
+      tail: [
+        userMessage("u", 0),
+        toolCall("first", 1, "active"),
+        assistantMessage("progress", 2, { turnId: "active" }),
+        { ...userMessage("steer", 3), turnId: "active" },
+        toolCall("second", 4, "active"),
+      ],
+      head: [],
+      isTurnActive: true,
+      expandedFoldIds: NONE,
+    });
+    expect(ids(result.tail)).toEqual(["u", "progress", "steer"]);
+  });
+
+  it("does not reuse the previous canonical turn while a new turn starts", () => {
+    const result = createTurnFolder()({
+      tail: [
+        userMessage("u", 0),
+        toolCall("tool", 1, "finished"),
+        assistantMessage("answer", 2, { turnId: "finished" }),
+        userMessage("new", 3),
+      ],
+      head: [],
+      isTurnActive: true,
+      expandedFoldIds: NONE,
+    });
+    expect(ids(result.tail)).toEqual(["u", "turn-fold:tool", "answer", "new"]);
   });
 
   it("leaves warnings visible and turns without work untouched", () => {
@@ -147,7 +230,7 @@ describe("createTurnFolder", () => {
     expect(ids(result.tail)).toEqual(["u1", "warn", "turn-fold:t1", "a1", "u2", "a2"]);
   });
 
-  it("only folds rows of the final answer's canonical turn", () => {
+  it("keeps tool-only canonical turns separate from the final answer's turn", () => {
     const fold = createTurnFolder();
     const tail = [
       userMessage("u1", 0),
@@ -158,7 +241,7 @@ describe("createTurnFolder", () => {
 
     const result = fold({ tail, head: [], isTurnActive: false, expandedFoldIds: NONE });
 
-    expect(ids(result.tail)).toEqual(["u1", "injected", "turn-fold:t1", "final"]);
+    expect(ids(result.tail)).toEqual(["u1", "turn-fold:injected", "turn-fold:t1", "final"]);
   });
 
   it("keeps each canonical turn's own answer when a system turn follows in the same response", () => {

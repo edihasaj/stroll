@@ -1285,6 +1285,7 @@ export const zhCN: TranslationResources = {
     panel: {
       machineFilter: "Filter by machine",
       projectsSection: "Projects",
+      recentsSection: "最近的聊天",
     },
     filterEmpty: {
       title: "没有匹配的工作区",

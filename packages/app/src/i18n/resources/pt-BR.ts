@@ -1320,6 +1320,7 @@ export const ptBR: TranslationResources = {
     panel: {
       machineFilter: "Filter by machine",
       projectsSection: "Projects",
+      recentsSection: "Recentes",
     },
     filterEmpty: {
       title: "Nenhum espaço de trabalho corresponde",

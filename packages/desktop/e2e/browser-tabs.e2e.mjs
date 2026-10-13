@@ -28,6 +28,7 @@ const workspaceIds = [
   "desktop-browser-evict-three",
 ];
 const timeoutMs = 90_000;
+const newTerminalShortcut = process.platform === "darwin" ? "Meta+Shift+t" : "Control+Shift+t";
 
 function assert(condition, message) {
   if (!condition) throw new Error(message);
@@ -333,6 +334,57 @@ async function createCallerAgent(daemonPort) {
   }
 }
 
+async function createWorkspaceRootChats(daemonPort, callerAgentId) {
+  const chatIds = { [workspaceIds[0]]: callerAgentId };
+  const transport = new StreamableHTTPClientTransport(
+    new URL(`http://127.0.0.1:${daemonPort}/mcp/agents`),
+  );
+  const client = await experimental_createMCPClient({ transport });
+  try {
+    for (const workspaceId of workspaceIds.slice(1)) {
+      const response = await client.callTool({
+        name: "create_agent",
+        args: {
+          relationship: { kind: "detached" },
+          workspace: { kind: "existing", workspaceId },
+          title: `Browser desktop browser E2E workspace ${workspaceId}`,
+          provider: "mock/ten-second-stream",
+          settings: { modeId: "load-test" },
+          initialPrompt: "Remain available while the browser bridge regression runs.",
+          background: true,
+        },
+      });
+      const result = response.structuredContent;
+      assert(
+        result && typeof result === "object" && typeof result.agentId === "string",
+        `create_agent returned no workspace root chat id: ${JSON.stringify(response)}`,
+      );
+      assert(
+        result.workspaceId === workspaceId,
+        `Workspace root chat attached to unexpected workspace ${result.workspaceId}`,
+      );
+      chatIds[workspaceId] = result.agentId;
+    }
+    return chatIds;
+  } finally {
+    await client.close();
+  }
+}
+
+async function selectSidebarChat(page, serverId, agentId) {
+  const chatRow = page.getByTestId(`sidebar-chat-row-${serverId}:${agentId}`);
+  await chatRow.waitFor({ state: "visible", timeout: timeoutMs });
+  await chatRow.click();
+  await page.waitForFunction(
+    ({ currentServerId, currentAgentId }) =>
+      document
+        .querySelector(`[data-testid="sidebar-chat-row-${currentServerId}:${currentAgentId}"]`)
+        ?.getAttribute("aria-selected") === "true",
+    { currentServerId: serverId, currentAgentId: agentId },
+    { timeout: timeoutMs },
+  );
+}
+
 async function readGuest(page, browserId) {
   return await page.evaluate((id) => {
     const webview = document.querySelector(`[data-paseo-browser-id="${id}"]`);
@@ -594,27 +646,13 @@ async function runRegression({
   client,
   serverId,
   targetUrl,
-  callerAgentId,
+  workspaceChatIds,
   artifactDir,
   inspectorPort,
 }) {
   const failures = [];
   const originalWorkspaceId = workspaceIds[0];
-  const originalWorkspaceRow = page.getByTestId(
-    `sidebar-workspace-row-${serverId}:${originalWorkspaceId}`,
-  );
-  await originalWorkspaceRow.waitFor({ state: "visible", timeout: timeoutMs });
-  // These checks cover a browser tab sharing the chat's pane (inactive capture, retention), so
-  // keep agent-opened browsers out of the side pane.
-  await page.evaluate(() => {
-    const key = "@paseo:app-settings";
-    const settings = JSON.parse(localStorage.getItem(key) ?? "{}");
-    settings.openInSidePane = { ...settings.openInSidePane, browser: false };
-    localStorage.setItem(key, JSON.stringify(settings));
-  });
-  await page.reload();
-  await originalWorkspaceRow.waitFor({ state: "visible", timeout: timeoutMs });
-  await originalWorkspaceRow.click();
+  await selectSidebarChat(page, serverId, workspaceChatIds[originalWorkspaceId]);
 
   await page.evaluate(() => {
     if (document.getElementById("overlay-root")) return;
@@ -744,7 +782,16 @@ async function runRegression({
   await selectDeviceSize(page, "Responsive");
   const responsiveViewport = await readViewport(client, browserId);
 
-  await originalDeck.getByTestId(`workspace-tab-agent_${callerAgentId}`).click();
+  // Browser tabs always live in the side pane on desktop. Create a real terminal in that pane so
+  // selecting it makes the browser inactive without replacing the main chat.
+  await page.keyboard.press(newTerminalShortcut);
+  const sidePaneTerminalTab = originalDeck
+    .locator('[data-testid^="workspace-tab-terminal_"]')
+    .filter({ visible: true })
+    .first();
+  await sidePaneTerminalTab.waitFor({ state: "visible", timeout: timeoutMs });
+
+  await sidePaneTerminalTab.click();
   await page.waitForFunction(
     ({ id, webContentsId }) => {
       const webview = document.querySelector(`[data-paseo-browser-id="${id}"]`);
@@ -850,10 +897,7 @@ async function runRegression({
   }
 
   for (const workspaceId of workspaceIds.slice(1)) {
-    await page.getByTestId(`sidebar-workspace-row-${serverId}:${workspaceId}`).click();
-    await page
-      .getByTestId(`workspace-deck-entry-${serverId}:${workspaceId}`)
-      .waitFor({ state: "visible" });
+    await selectSidebarChat(page, serverId, workspaceChatIds[workspaceId]);
   }
 
   await page.waitForFunction(
@@ -895,7 +939,7 @@ async function runRegression({
     timeoutMs: 5_000,
   });
 
-  await originalWorkspaceRow.click();
+  await selectSidebarChat(page, serverId, workspaceChatIds[originalWorkspaceId]);
   await originalDeck.getByTestId(`workspace-tab-browser_${browserId}`).click();
   await page.waitForFunction(
     ({ id, webContentsId }) => {
@@ -1001,7 +1045,7 @@ async function runRegression({
   await originalDeck.getByRole("button", { name: "Cancel element selector" }).click();
 
   // Switching away and back must leave the browser surface usable for annotation.
-  await originalDeck.getByTestId(`workspace-tab-agent_${callerAgentId}`).click();
+  await sidePaneTerminalTab.click();
   await originalDeck.getByTestId(`workspace-tab-browser_${browserId}`).click();
   await originalDeck
     .getByTestId(`browser-webview-clip-${browserId}`)
@@ -1191,6 +1235,7 @@ async function main() {
     await runAppearanceFontSizeRegression(page);
 
     const callerAgentId = await createCallerAgent(daemonPort);
+    const workspaceChatIds = await createWorkspaceRootChats(daemonPort, callerAgentId);
     const transport = new StreamableHTTPClientTransport(
       new URL(
         `http://127.0.0.1:${daemonPort}/mcp/agents?callerAgentId=${encodeURIComponent(callerAgentId)}`,
@@ -1203,7 +1248,7 @@ async function main() {
       serverId: status.serverId,
       targetUrl: target.url,
       inspectorPort,
-      callerAgentId,
+      workspaceChatIds,
       artifactDir,
     });
     const pluginLinks = await checkPluginLinks();

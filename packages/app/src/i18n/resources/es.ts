@@ -1330,6 +1330,7 @@ export const es: TranslationResources = {
     panel: {
       machineFilter: "Filter by machine",
       projectsSection: "Projects",
+      recentsSection: "Recientes",
     },
     filterEmpty: {
       title: "Ningún espacio de trabajo coincide",

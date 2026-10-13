@@ -1302,6 +1302,7 @@ export const en = {
     panel: {
       machineFilter: "Filter by machine",
       projectsSection: "Projects",
+      recentsSection: "Recents",
     },
     filterEmpty: {
       title: "No workspaces match",

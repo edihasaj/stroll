@@ -168,7 +168,7 @@ describe("createMarkdownStyles", () => {
       borderTopLeftRadius: 0,
       borderBottomLeftRadius: 0,
     });
-    expect(styles.paragraph.marginBottom).toBe(darkTheme.spacing[3]);
+    expect(styles.paragraph.marginBottom).toBe(darkTheme.spacing[2]);
     expect(styles.text).not.toHaveProperty("color");
   });
 });

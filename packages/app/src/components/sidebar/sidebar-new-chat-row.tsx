@@ -1,5 +1,5 @@
 import { router } from "expo-router";
-import { MessageSquarePlus, Plus } from "lucide-react-native";
+import { SquarePen, Plus } from "lucide-react-native";
 import { useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { Pressable, Text, View, type PressableStateCallbackType } from "react-native";
@@ -17,7 +17,7 @@ import { useWorkspace } from "@/stores/session-store-hooks";
 import type { Theme } from "@/styles/theme";
 import { buildNewWorkspaceRoute } from "@/utils/host-routes";
 
-const ThemedMessageSquarePlus = withUnistyles(MessageSquarePlus);
+const ThemedSquarePen = withUnistyles(SquarePen);
 const ThemedPlus = withUnistyles(Plus);
 const foregroundColorMapping = (theme: Theme) => ({ color: theme.colors.foreground });
 const foregroundMutedColorMapping = (theme: Theme) => ({ color: theme.colors.foregroundMuted });
@@ -99,7 +99,7 @@ export function SidebarNewChatRow({
         >
           {({ hovered }: PressableStateCallbackType & { hovered?: boolean }) => (
             <>
-              <ThemedMessageSquarePlus
+              <ThemedSquarePen
                 size={16}
                 uniProps={hovered ? foregroundColorMapping : foregroundMutedColorMapping}
               />

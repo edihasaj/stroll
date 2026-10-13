@@ -16,9 +16,14 @@ sheet or inline dock. Nothing below applies to them unless it says so.
 
 The main view shows one chat and has no tab row. Its header (`screens/workspace/main-pane-header.tsx`)
 carries the chat's title (press to rename), provider, a menu (copy ids, Reload, Archive, Delete chat),
-New chat, and the launcher menu. A draft shows a plain header over the composer. The sidebar lists
-each workspace's chats and is the switcher; Cmd+Alt+Left and Cmd+Alt+Right walk the history
+New chat, the launcher menu, and the desktop workspace controls. It is the desktop workspace’s only header; the outer workspace breadcrumb is compact-only. A draft shows a plain header over the composer. The desktop sidebar lists root chats directly under explicit project folders or Recents and is the switcher; Cmd+Alt+Left and Cmd+Alt+Right walk the history
 ([agent-lifecycle.md](agent-lifecycle.md) has the archive rules).
+
+Desktop Projects has one compact Filters control beside its organization controls. It exposes host,
+project, and label filters without reintroducing the former grouping, title, or row-detail choices;
+active saved filters remain visible there even when the available host or project catalog has narrowed
+to one item, so they can always be cleared. Plugin header, footer, and legacy rail contributions keep
+their existing mounts; the rail itself stays limited to Home, Projects, Settings, and the host avatar.
 
 `packages/app/src/workspace-tabs/single-chat.ts` holds the rules, and the layout store applies them
 on desktop only (`isSingleChatMainActive`):

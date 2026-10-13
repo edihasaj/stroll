@@ -72,6 +72,7 @@ async function inspectSettingsGeometry(page) {
       const element = document.querySelector(selector);
       if (!(element instanceof HTMLElement)) return null;
       const bounds = element.getBoundingClientRect();
+      if (bounds.width === 0 && bounds.height === 0) return null;
       return {
         left: bounds.left,
         top: bounds.top,
@@ -81,11 +82,18 @@ async function inspectSettingsGeometry(page) {
     }
 
     const title = document.querySelector('[data-testid="settings-detail-header-title"]');
+    const contentFrame = document.querySelector('[data-testid="desktop-content-frame"]');
+    const frameBounds = contentFrame?.getBoundingClientRect();
+    const contentRight =
+      contentFrame instanceof HTMLElement && frameBounds
+        ? frameBounds.left + contentFrame.clientLeft + contentFrame.clientWidth
+        : window.innerWidth;
     const headerLeft = title instanceof HTMLElement ? title.parentElement : null;
     const headerLeftBounds = headerLeft?.getBoundingClientRect() ?? null;
 
     return {
       innerWidth: window.innerWidth,
+      contentRight,
       innerHeight: window.innerHeight,
       devicePixelRatio: window.devicePixelRatio,
       sidebarRect: rect('[data-testid="settings-sidebar"]'),
@@ -458,7 +466,7 @@ async function inspectHalfScreenSettingsLayout(page, platform) {
         sidebarRight !== null &&
         Math.abs(sidebarRight - details.detailPaneRect.left) <= 1 &&
         detailRight !== null &&
-        Math.abs(detailRight - details.innerWidth) <= 1 &&
+        Math.abs(detailRight - details.contentRight) <= 1 &&
         clearsWindowChrome,
     };
   } catch (error) {

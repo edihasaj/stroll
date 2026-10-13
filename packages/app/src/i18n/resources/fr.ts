@@ -1329,6 +1329,7 @@ export const fr: TranslationResources = {
     panel: {
       machineFilter: "Filter by machine",
       projectsSection: "Projects",
+      recentsSection: "Récents",
     },
     filterEmpty: {
       title: "Aucun espace de travail ne correspond",

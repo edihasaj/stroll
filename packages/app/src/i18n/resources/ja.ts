@@ -1306,6 +1306,7 @@ export const ja: TranslationResources = {
     panel: {
       machineFilter: "Filter by machine",
       projectsSection: "Projects",
+      recentsSection: "最近のチャット",
     },
     filterEmpty: {
       title: "一致するワークスペースがありません",

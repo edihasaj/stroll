@@ -1,5 +1,5 @@
 import { router } from "expo-router";
-import { CircleGauge, FolderPlus, GitBranch, Import, Settings, X } from "lucide-react-native";
+import { CircleGauge, FolderPlus, Import, Settings, X } from "lucide-react-native";
 import { useTranslation } from "react-i18next";
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import {
@@ -71,8 +71,6 @@ import { useActiveHostSummary } from "./sidebar/use-active-host-summary";
 import { SidebarWorkspaceList } from "./sidebar-workspace-list";
 
 type SidebarTheme = ReturnType<typeof useUnistyles>["theme"];
-
-const DEV_BUILD_LABEL = process.env.EXPO_PUBLIC_PASEO_DEV_BUILD_LABEL?.trim() || null;
 
 interface SidebarSharedProps {
   theme: SidebarTheme;
@@ -360,7 +358,7 @@ function UsageFooterIconButton({ label, theme }: { label: string; theme: Sidebar
  * initial, its name, and the same host picker the brand row opens — a different trigger for
  * the same menu, not a second implementation of host switching.
  */
-function SidebarFooterIdentity({
+export function SidebarFooterIdentity({
   onAddHost,
   onOpenHostSettings,
   rail = false,
@@ -653,7 +651,6 @@ function MobileSidebar({
 }
 
 function DesktopSidebar({
-  theme,
   workspaceGroups,
   projectIconTargets,
   pinnedGroups,
@@ -788,22 +785,9 @@ function DesktopSidebar({
     >
       <View style={desktopSidebarBorderStyle}>
         <View style={styles.sidebarDragArea}>
-          {ownsTopLeft || DEV_BUILD_LABEL ? (
+          {ownsTopLeft ? (
             <View style={styles.desktopChromeRow}>
               <TitlebarDragRegion />
-              {DEV_BUILD_LABEL ? (
-                <View
-                  pointerEvents="none"
-                  style={styles.devBuildBadge}
-                  testID="dev-build-label"
-                  accessibilityLabel={`Development build: ${DEV_BUILD_LABEL}`}
-                >
-                  <GitBranch size={12} color={theme.colors.accentForeground} />
-                  <Text numberOfLines={1} ellipsizeMode="tail" style={styles.devBuildBadgeText}>
-                    {DEV_BUILD_LABEL}
-                  </Text>
-                </View>
-              ) : null}
             </View>
           ) : (
             <TitlebarDragRegion />
@@ -817,7 +801,13 @@ function DesktopSidebar({
             in-flow element whose size can change) as the web layout-animation hazard that
             previously broke this same sidebar's rail-mode workspace list. */}
         <View style={styles.railPanelRow}>
-          <SidebarRail handleSettings={handleSettings} handleImportSession={handleImportSession} />
+          <SidebarRail handleSettings={handleSettings} handleImportSession={handleImportSession}>
+            <SidebarFooterIdentity
+              onAddHost={handleAddHost}
+              onOpenHostSettings={handleOpenHostSettings}
+              rail
+            />
+          </SidebarRail>
           {!isRail ? (
             <SidebarPanel
               workspaceGroups={workspaceGroups}

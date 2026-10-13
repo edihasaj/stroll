@@ -1293,6 +1293,7 @@ export const ar: TranslationResources = {
     panel: {
       machineFilter: "Filter by machine",
       projectsSection: "Projects",
+      recentsSection: "الأخيرة",
     },
     filterEmpty: {
       title: "لا توجد مساحات عمل مطابقة",

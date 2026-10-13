@@ -849,8 +849,8 @@ function UserMessagePathLinkMenuMount({
   );
 }
 
-/** Copy and fork stay visible under an answer; hovering brings them to full strength. */
-const IDLE_ACTIONS_OPACITY = 0.55;
+/** Desktop actions reveal on hover or keyboard focus; touch layouts always show them. */
+const IDLE_ACTIONS_OPACITY = 0;
 
 interface AssistantTurnFooterProps {
   getContent: () => string;
@@ -915,6 +915,8 @@ export const AssistantTurnFooter = memo(function AssistantTurnFooter({
   // docs/hover.md, rather than on the label's own `Pressable` as before. The label's swap
   // behaviour (duration <-> timestamp) is unchanged; only the source of the hover signal moved.
   const [isHovered, setIsHovered] = useState(false);
+  const [isActionFocused, setIsActionFocused] = useState(false);
+  const isCompact = useIsCompactFormFactor();
   const [pressedReveal, setPressedReveal] = useState(false);
   const revealTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reducedMotion = useAppReducedMotion();
@@ -947,9 +949,7 @@ export const AssistantTurnFooter = memo(function AssistantTurnFooter({
   const canSwap = Boolean(durationLabel && timestampLabel);
   const showDuration = canSwap && (isWeb ? isHovered : pressedReveal);
 
-  // Codex keeps copy and fork in view under an answer, so they are always shown here, quieter
-  // until the row is hovered (docs/hover.md's `isHovered || isNative` sets full strength).
-  const showActions = isHovered || isNative;
+  const showActions = isHovered || isActionFocused || isNative || isCompact;
   const actionsOpacity = useSharedValue(showActions ? 1 : IDLE_ACTIONS_OPACITY);
   useEffect(() => {
     const target = showActions ? 1 : IDLE_ACTIONS_OPACITY;
@@ -965,6 +965,8 @@ export const AssistantTurnFooter = memo(function AssistantTurnFooter({
 
   const handlePointerEnter = useCallback(() => setIsHovered(true), []);
   const handlePointerLeave = useCallback(() => setIsHovered(false), []);
+  const handleActionFocus = useCallback(() => setIsActionFocused(true), []);
+  const handleActionBlur = useCallback(() => setIsActionFocused(false), []);
   const handlePress = useCallback(() => {
     if (isWeb || !canSwap) return;
     if (revealTimerRef.current) {
@@ -987,6 +989,8 @@ export const AssistantTurnFooter = memo(function AssistantTurnFooter({
   return (
     <View
       style={assistantTurnFooterStylesheet.container}
+      onFocus={handleActionFocus}
+      onBlur={handleActionBlur}
       onPointerEnter={handlePointerEnter}
       onPointerLeave={handlePointerLeave}
     >
@@ -1404,9 +1408,9 @@ export const TurnCopyButton = memo(function TurnCopyButton({
           ? turnCopyButtonStylesheet.iconHoveredColor.color
           : turnCopyButtonStylesheet.iconColor.color;
         return copied ? (
-          <Check size={ICON_SIZE.sm} color={iconColor} />
+          <Check size={14} color={iconColor} />
         ) : (
-          <Copy size={ICON_SIZE.sm} color={iconColor} />
+          <Copy size={14} color={iconColor} />
         );
       }}
     </Pressable>
@@ -2332,7 +2336,7 @@ export const AssistantMessage = memo(function AssistantMessage({
         <AssistantMessageBlockContainer
           key={key}
           block={block}
-          marginBottom={index < keyedBlocks.length - 1 ? 12 : 0}
+          marginBottom={index < keyedBlocks.length - 1 ? 8 : 0}
         >
           <MemoizedMarkdownBlock
             text={block}

@@ -8,7 +8,7 @@ import type { ShortcutKey } from "@/utils/format-shortcut";
 import type { Theme } from "@/styles/theme";
 import type { AlternateSendAction } from "./state";
 
-const ALTERNATE_SEND_KEYS: ShortcutKey[][] = [["Tab"]];
+const ALTERNATE_SEND_KEYS: ShortcutKey[][] = [["mod", "Enter"]];
 
 interface AlternateSendButtonProps {
   visible: boolean;
@@ -20,7 +20,7 @@ interface AlternateSendButtonProps {
 }
 
 /**
- * The touch path to Tab: queues while Enter steers, or steers while Enter queues. Same 28px ghost
+ * The touch path to Mod+Enter: queues while Enter steers, or steers while Enter queues. Same 28px ghost
  * geometry as the mic button, shown only while a turn runs and there is something to send.
  */
 export function AlternateSendButton({

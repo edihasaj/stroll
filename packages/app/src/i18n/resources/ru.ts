@@ -1311,6 +1311,7 @@ export const ru: TranslationResources = {
     panel: {
       machineFilter: "Filter by machine",
       projectsSection: "Projects",
+      recentsSection: "Недавние",
     },
     filterEmpty: {
       title: "Нет подходящих рабочих пространств",

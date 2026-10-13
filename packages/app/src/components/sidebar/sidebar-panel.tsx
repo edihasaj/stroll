@@ -1,18 +1,14 @@
-import { useMemo, useRef, type ReactElement } from "react";
+import { useMemo, useRef } from "react";
 import { View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
-import { SidebarAgentListSkeleton } from "@/components/sidebar-agent-list-skeleton";
-import { SidebarWorkspaceList } from "@/components/sidebar-workspace-list";
-import { SidebarCalloutSlot } from "@/components/sidebar-callout-slot";
 import { PluginSidebarItem } from "@/plugins/sidebar-items";
-import { usePanelStore } from "@/stores/panel-store";
-import { useSidebarViewStore } from "@/stores/sidebar-view-store";
+import { SidebarFooterRows } from "@/components/sidebar/sidebar-footer-rows";
 import { useSidebarNavItems } from "@/sidebar-nav/use-sidebar-nav-items";
+import { UsageSidebarRoot } from "@/usage";
 import { deriveSidebarPanelItems } from "./sidebar-rail-model";
 import { SidebarNewChatRow } from "./sidebar-new-chat-row";
-import { SidebarPanelFooter } from "./sidebar-panel-footer";
+import { SidebarDesktopCollections } from "./sidebar-desktop-collections";
 import { SidebarPanelHeader } from "./sidebar-panel-header";
-import { SidebarPanelProjectsHeader } from "./sidebar-panel-projects-header";
 import type {
   SidebarProjectEntry,
   SidebarWorkspaceEntry,
@@ -22,31 +18,11 @@ import type { SidebarWorkspaceGroup } from "@/components/sidebar/sidebar-labels"
 import type { SidebarProjectIconTarget } from "@/utils/sidebar-project-row-model";
 import type { SidebarGroupMode } from "@/stores/sidebar-view-store";
 
-/**
- * The desktop sidebar's 240px panel (Codex parity): header, New chat row, the collapsible
- * Projects section, and the footer identity — everything that used to live in the single
- * expanded-width column, minus the brand row and top nav rows the rail now owns.
- */
+/** Desktop navigation: New chat, explicit project folders, and ungrouped Recents. */
 export function SidebarPanel({
-  workspaceGroups,
-  projectIconTargets,
-  pinnedGroups,
   projects,
-  hasProjectsBeforeFilter,
-  hasActiveProjectFilter,
-  workspaceEntriesByKey,
   isInitialLoad,
-  isManualRefresh,
-  isRevalidating,
-  groupMode,
-  collapsedProjectKeys,
-  shortcutIndexByWorkspaceKey,
-  toggleProjectCollapsed,
-  handleRefresh,
-  handleOpenProject,
-  handleImportSession,
-  handleAddHost,
-  handleOpenHostSettings,
+  pinnedGroups,
 }: {
   workspaceGroups: SidebarWorkspaceGroup[];
   projectIconTargets: SidebarProjectIconTarget[];
@@ -70,43 +46,11 @@ export function SidebarPanel({
 }) {
   const { items } = useSidebarNavItems("header");
   const panelItems = useMemo(() => deriveSidebarPanelItems(items), [items]);
-  const projectsCollapsed = usePanelStore((state) => state.desktop.projectsSectionCollapsed);
-  const hasActiveHostFilter = useSidebarViewStore((state) => state.hostFilters.length > 0);
   const pluginHeaderItemsRef = useRef<View | null>(null);
-
-  let projectsBody: ReactElement | null = null;
-  if (!projectsCollapsed) {
-    projectsBody =
-      isInitialLoad && !hasActiveHostFilter ? (
-        <SidebarAgentListSkeleton />
-      ) : (
-        <SidebarWorkspaceList
-          collapsedProjectKeys={collapsedProjectKeys}
-          onToggleProjectCollapsed={toggleProjectCollapsed}
-          shortcutIndexByWorkspaceKey={shortcutIndexByWorkspaceKey}
-          groupMode={groupMode}
-          workspaceGroups={workspaceGroups}
-          projectIconTargets={projectIconTargets}
-          pinnedGroups={pinnedGroups}
-          projects={projects}
-          hasProjectsBeforeFilter={hasProjectsBeforeFilter}
-          hasActiveProjectFilter={hasActiveProjectFilter}
-          workspaceEntriesByKey={workspaceEntriesByKey}
-          isRefreshing={isManualRefresh && isRevalidating}
-          onRefresh={handleRefresh}
-          onAddProject={handleOpenProject}
-          onImportSession={handleImportSession}
-        />
-      );
-  }
-
   return (
     <View style={styles.panel} testID="sidebar-panel">
       <SidebarPanelHeader showSearch={panelItems.showSearch} />
-      <SidebarNewChatRow
-        showNewChat={panelItems.showNewChat}
-        showNewWorkspace={panelItems.showNewWorkspace}
-      />
+      <SidebarNewChatRow showNewChat={panelItems.showNewChat} showNewWorkspace={false} />
       {panelItems.pluginItems.length > 0 ? (
         <View ref={pluginHeaderItemsRef} collapsable={false} style={styles.pluginHeaderItems}>
           {panelItems.pluginItems.map((group) => (
@@ -119,22 +63,22 @@ export function SidebarPanel({
           ))}
         </View>
       ) : null}
-      <View style={styles.scrollArea}>
-        <SidebarPanelProjectsHeader />
-        {projectsBody}
-        <SidebarCalloutSlot />
-      </View>
-      <SidebarPanelFooter onAddHost={handleAddHost} onOpenHostSettings={handleOpenHostSettings} />
+      <SidebarDesktopCollections
+        projects={projects}
+        loading={isInitialLoad}
+        pinned={pinnedGroups.pinnedChats}
+      />
+      <UsageSidebarRoot>
+        <SidebarFooterRows />
+      </UsageSidebarRoot>
     </View>
   );
 }
 
-const styles = StyleSheet.create((theme) => ({
+const styles = StyleSheet.create(() => ({
   panel: {
     flex: 1,
     minHeight: 0,
-    borderLeftWidth: 1,
-    borderLeftColor: theme.colors.border,
   },
   scrollArea: {
     flex: 1,

@@ -458,6 +458,10 @@ interface AppContainerProps {
 
 const WINDOW_SIDEBAR_TOGGLE_HORIZONTAL_PADDING = 12;
 
+function appSurfaceStyle(isCompact: boolean) {
+  return isCompact ? layoutStyles.surfaceFill : layoutStyles.desktopSurface;
+}
+
 function AppContainer({ children, chromeEnabled: chromeEnabledOverride }: AppContainerProps) {
   const keyboardActionDispatcher = useKeyboardActionDispatcher();
   const daemons = useHosts();
@@ -554,7 +558,7 @@ function AppContainer({ children, chromeEnabled: chromeEnabledOverride }: AppCon
     themedSidebarChrome = <AppearanceStyleBoundary>{sidebarChrome}</AppearanceStyleBoundary>;
   }
   const workspaceChrome = (
-    <View style={rowStyle}>
+    <View style={isCompactLayout ? rowStyle : layoutStyles.desktopChrome}>
       {!isCompactLayout ? (
         <WindowChromeRegion corners={appChromeLayout.sidebarCorners}>
           {themedSidebarChrome}
@@ -571,7 +575,9 @@ function AppContainer({ children, chromeEnabled: chromeEnabledOverride }: AppCon
         </CompactExplorerSidebarHost>
       ) : (
         <WindowChromeRegion corners={appChromeLayout.contentCorners}>
-          <View style={flexStyle}>{children}</View>
+          <View style={layoutStyles.desktopFrame} testID="desktop-content-frame">
+            {children}
+          </View>
         </WindowChromeRegion>
       )}
     </View>
@@ -580,7 +586,7 @@ function AppContainer({ children, chromeEnabled: chromeEnabledOverride }: AppCon
   // Native panel gesture hosts outlive appearance keys, like native navigators.
   // Their tracked styles update in place; web numeric styles still need remounting.
   const surface = (
-    <View style={layoutStyles.surfaceFill}>
+    <View style={appSurfaceStyle(isCompactLayout)}>
       {workspaceChrome}
       <AppearanceStyleBoundary>
         {!isCompactLayout && appChromeLayout.sidebarToggleOwner === "window" ? (
@@ -1005,6 +1011,26 @@ export default function RootLayout() {
 }
 
 const layoutStyles = StyleSheet.create((theme) => ({
+  desktopSurface: {
+    flex: 1,
+    backgroundColor: theme.colors.surfaceSidebar,
+  },
+  desktopChrome: {
+    flex: 1,
+    flexDirection: "row",
+    paddingTop: theme.spacing[1.5],
+    paddingRight: theme.spacing[1.5],
+    paddingBottom: theme.spacing[1.5],
+  },
+  desktopFrame: {
+    flex: 1,
+    minWidth: 0,
+    overflow: "hidden",
+    borderRadius: theme.borderRadius.lg,
+    borderWidth: 1,
+    borderColor: theme.colors.borderDivider,
+    backgroundColor: theme.colors.surface0,
+  },
   surfaceFill: {
     flex: 1,
     backgroundColor: theme.colors.surface0,

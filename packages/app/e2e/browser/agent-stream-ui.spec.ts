@@ -277,9 +277,14 @@ test.describe("Agent stream UI", () => {
     try {
       await awaitAssistantMessage(page);
       await expectInlineWorkingIndicator(page);
+      await expect(page.getByTestId("tool-call-group")).toHaveCount(0);
       await expectAgentIdle(page, 30_000);
       await scrollAgentChatToBottom(page);
       await expectTurnCopyButton(page);
+      await expect(page.getByTestId("turn-working-indicator")).toHaveCount(0);
+      await expect(page.getByTestId("turn-fold-row")).toBeVisible();
+      await page.getByTestId("turn-fold-row").getByRole("button").click();
+      await expect(page.getByTestId("tool-call-group").first()).toBeVisible();
     } finally {
       await agent.cleanup();
     }

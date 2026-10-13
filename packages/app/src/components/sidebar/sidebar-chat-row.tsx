@@ -33,6 +33,7 @@ const ThemedCircleAlert = withUnistyles(CircleAlert);
 const ThemedMoreVertical = withUnistyles(MoreVertical);
 
 export interface SidebarChatRowProps {
+  flat?: boolean;
   serverId: string;
   chat: SidebarChat;
   selected: boolean;
@@ -152,6 +153,7 @@ function ChatRowMenu({
  * without moving the title.
  */
 function SidebarChatRowView({
+  flat = false,
   serverId,
   chat,
   selected,
@@ -174,11 +176,12 @@ function SidebarChatRowView({
   const rowStyle = useCallback(
     ({ pressed }: PressableStateCallbackType) => [
       styles.row,
+      flat && styles.flatRow,
       isHovered && styles.rowHovered,
       selected && styles.rowSelected,
       pressed && styles.rowPressed,
     ],
-    [isHovered, selected],
+    [flat, isHovered, selected],
   );
 
   return (
@@ -188,7 +191,7 @@ function SidebarChatRowView({
       onPointerLeave={handlePointerLeave}
     >
       <Pressable
-        accessibilityRole={isWeb ? undefined : "button"}
+        accessibilityRole={isWeb && !flat ? undefined : "button"}
         accessibilityLabel={title}
         accessibilityState={accessibilityState}
         aria-selected={selected}
@@ -226,6 +229,7 @@ function areRowPropsEqual(previous: SidebarChatRowProps, next: SidebarChatRowPro
   return (
     previous.serverId === next.serverId &&
     isSameSidebarChat(previous.chat, next.chat) &&
+    previous.flat === next.flat &&
     previous.selected === next.selected &&
     previous.untitledLabel === next.untitledLabel &&
     previous.onOpen === next.onOpen &&
@@ -238,6 +242,7 @@ function areRowPropsEqual(previous: SidebarChatRowProps, next: SidebarChatRowPro
 export const SidebarChatRow = memo(SidebarChatRowView, areRowPropsEqual);
 
 const styles = StyleSheet.create((theme) => ({
+  flatRow: { marginLeft: 0 },
   container: {
     position: "relative",
   },

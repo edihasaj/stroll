@@ -24,8 +24,7 @@ so development-only providers such as Mock Load Test are available. Packaged
 desktop launches always force the daemon to production mode.
 
 The web and desktop dev launchers pass the current Git branch to Metro as
-`EXPO_PUBLIC_PASEO_DEV_BUILD_LABEL`. The expanded desktop sidebar shows it in
-the titlebar row. Production builds leave the variable unset and show no label.
+`EXPO_PUBLIC_PASEO_DEV_BUILD_LABEL`. The desktop shell does not render a branch badge. Production builds leave the variable unset.
 
 `npm run dev` is only a shorthand for `npm run dev:server`. Keep `127.0.0.1:6867` for the packaged app and production-style `~/.stroll` state. Port `6767` and `~/.paseo` belong to an upstream Paseo install that may run beside Stroll; leave them alone.
 

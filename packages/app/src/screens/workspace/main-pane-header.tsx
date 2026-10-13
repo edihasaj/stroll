@@ -7,6 +7,8 @@ import { ToolbarButton, ToolbarControls } from "@/components/ui/pane-content-too
 import { WORKSPACE_SECONDARY_HEADER_HEIGHT } from "@/constants/layout";
 import { useShortcutKeys } from "@/hooks/use-shortcut-keys";
 import { ChatPaneHeader } from "@/screens/workspace/chat-pane-header";
+import { useWorkspaceHeaderActions } from "@/screens/workspace/header-actions-context";
+import { SidebarMenuToggle } from "@/components/headers/menu-header";
 import {
   WorkspaceExitFocusModeButton,
   WorkspaceNewTabButton,
@@ -51,6 +53,7 @@ export const MainPaneHeader = memo(function MainPaneHeader({
   onReloadAgent,
 }: MainPaneHeaderProps): ReactElement {
   const { t } = useTranslation();
+  const headerActions = useWorkspaceHeaderActions();
   const newChatKeys = useShortcutKeys("workspace-tab-target-agent");
   const handleCreateChat = useCallback(() => {
     const workspaceKey = buildWorkspaceTabPersistenceKey({ serverId, workspaceId });
@@ -69,6 +72,7 @@ export const MainPaneHeader = memo(function MainPaneHeader({
   );
   return (
     <View style={styles.container} testID="main-pane-header">
+      <SidebarMenuToggle />
       <WorkspaceExitFocusModeButton visible={focusModeEnabled} onPress={onExitFocusMode} />
       {target?.kind === "agent" ? (
         <ChatPaneHeader
@@ -88,6 +92,7 @@ export const MainPaneHeader = memo(function MainPaneHeader({
         </View>
       )}
       <ToolbarControls style={styles.toolbar}>
+        {headerActions}
         <ToolbarButton
           label={t("workspace.header.actions.newAgent")}
           shortcut={newChatKeys}

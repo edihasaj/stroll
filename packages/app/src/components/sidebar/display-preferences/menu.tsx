@@ -165,7 +165,12 @@ const TRAILING_LABEL_KEYS: Record<SidebarTrailingChoice, string> = {
  * shape is deliberate — every option of every decision on one surface is what this menu used to
  * be, and it grew a row for each host on top of that.
  */
-export function SidebarDisplayPreferencesMenu(): ReactElement {
+export function SidebarDisplayPreferencesMenu({
+  filtersOnly = false,
+}: {
+  /** Desktop collections own their grouping and row presentation, but must retain saved filters. */
+  filtersOnly?: boolean;
+} = {}): ReactElement {
   const { t } = useTranslation();
   const preferences = useSidebarDisplayPreferences();
   const hosts = useHosts();
@@ -185,64 +190,69 @@ export function SidebarDisplayPreferencesMenu(): ReactElement {
     [],
   );
 
-  const showHostFilter = hosts.length > 1;
+  // A saved filter must always leave an escape hatch, even after its host/project catalog has
+  // narrowed to one entry or disappeared while offline.
+  const showHostFilter = hosts.length > 1 || preferences.hostFilters.length > 0;
   // One project is the whole sidebar, so filtering to it is a no-op with a menu row attached.
-  const showProjectFilter = allProjects.length > 1;
+  const showProjectFilter = allProjects.length > 1 || preferences.projectFilters.length > 0;
   // Nothing to filter by means no row at all. The active-filter half is not redundant: the merged
   // catalog only counts hosts that are online, so a host dropping off would otherwise take away
   // the only way back to a filter that is still hiding workspaces.
   const showLabelFilter = labels.length > 0 || hasActiveSidebarLabelFilter(preferences.labelFilter);
 
   const pages = useMemo<MenuPageDefinition[]>(() => {
-    const definitions: MenuPageDefinition[] = [
-      {
-        id: "grouping",
-        title: t("sidebar.display.grouping.label"),
-        content: (
-          <OptionList
-            values={GROUPING_MODES}
-            icons={GROUPING_ICONS}
-            labelKeys={GROUPING_LABEL_KEYS}
-            selectedValue={preferences.grouping}
-            onSelect={preferences.setGrouping}
-            testIDPrefix="sidebar-grouping"
-          />
-        ),
-      },
-      {
-        id: "titleSource",
-        title: t("sidebar.display.titleSource.label"),
-        content: (
-          <OptionList
-            values={TITLE_SOURCES}
-            icons={TITLE_SOURCE_ICONS}
-            labelKeys={TITLE_SOURCE_LABEL_KEYS}
-            selectedValue={preferences.titleSource}
-            onSelect={preferences.setTitleSource}
-            testIDPrefix="sidebar-workspace-title-source"
-          />
-        ),
-      },
-      {
-        id: "show",
-        title: t("sidebar.display.show.label"),
-        content: <ShowPage preferences={preferences} />,
-      },
-      {
-        id: "checks",
-        title: t("sidebar.display.show.checks"),
-        content: (
-          <OptionList
-            values={SIDEBAR_CHECKS_DISPLAYS}
-            icons={CHECKS_DISPLAY_ICONS}
-            labelKeys={CHECKS_DISPLAY_LABEL_KEYS}
-            selectedValue={preferences.checksDisplay}
-            onSelect={preferences.setChecksDisplay}
-            testIDPrefix="sidebar-checks-display"
-          />
-        ),
-      },
-    ];
+    const definitions: MenuPageDefinition[] = [];
+    if (!filtersOnly) {
+      definitions.push(
+        {
+          id: "grouping",
+          title: t("sidebar.display.grouping.label"),
+          content: (
+            <OptionList
+              values={GROUPING_MODES}
+              icons={GROUPING_ICONS}
+              labelKeys={GROUPING_LABEL_KEYS}
+              selectedValue={preferences.grouping}
+              onSelect={preferences.setGrouping}
+              testIDPrefix="sidebar-grouping"
+            />
+          ),
+        },
+        {
+          id: "titleSource",
+          title: t("sidebar.display.titleSource.label"),
+          content: (
+            <OptionList
+              values={TITLE_SOURCES}
+              icons={TITLE_SOURCE_ICONS}
+              labelKeys={TITLE_SOURCE_LABEL_KEYS}
+              selectedValue={preferences.titleSource}
+              onSelect={preferences.setTitleSource}
+              testIDPrefix="sidebar-workspace-title-source"
+            />
+          ),
+        },
+        {
+          id: "show",
+          title: t("sidebar.display.show.label"),
+          content: <ShowPage preferences={preferences} />,
+        },
+        {
+          id: "checks",
+          title: t("sidebar.display.show.checks"),
+          content: (
+            <OptionList
+              values={SIDEBAR_CHECKS_DISPLAYS}
+              icons={CHECKS_DISPLAY_ICONS}
+              labelKeys={CHECKS_DISPLAY_LABEL_KEYS}
+              selectedValue={preferences.checksDisplay}
+              onSelect={preferences.setChecksDisplay}
+              testIDPrefix="sidebar-checks-display"
+            />
+          ),
+        },
+      );
+    }
 
     if (showHostFilter) {
       definitions.push({
@@ -285,6 +295,7 @@ export function SidebarDisplayPreferencesMenu(): ReactElement {
     showLabelFilter,
     labels,
     openManager,
+    filtersOnly,
   ]);
 
   return (
@@ -297,9 +308,11 @@ export function SidebarDisplayPreferencesMenu(): ReactElement {
           testID="sidebar-display-preferences-menu"
         >
           <ThemedSettings2 size={12} uniProps={mutedIconMapping} />
-          <Text style={styles.triggerLabel} numberOfLines={1}>
-            {t(GROUPING_LABEL_KEYS[preferences.grouping])}
-          </Text>
+          {!filtersOnly ? (
+            <Text style={styles.triggerLabel} numberOfLines={1}>
+              {t(GROUPING_LABEL_KEYS[preferences.grouping])}
+            </Text>
+          ) : null}
           <ThemedChevronDown size={12} uniProps={mutedIconMapping} />
         </MenuTrigger>
         <MenuSurface
@@ -309,26 +322,30 @@ export function SidebarDisplayPreferencesMenu(): ReactElement {
           sheetTitle={t("sidebar.display.heading")}
           testID="sidebar-display-preferences-content"
         >
-          <MenuSubTrigger
-            id="grouping"
-            value={t(GROUPING_LABEL_KEYS[preferences.grouping])}
-            testID="sidebar-display-grouping"
-          >
-            {t("sidebar.display.grouping.label")}
-          </MenuSubTrigger>
-          <MenuSubTrigger
-            id="titleSource"
-            value={t(TITLE_SOURCE_LABEL_KEYS[preferences.titleSource])}
-            testID="sidebar-display-title-source"
-          >
-            {t("sidebar.display.titleSource.label")}
-          </MenuSubTrigger>
-          <MenuSubTrigger id="show" testID="sidebar-display-show">
-            {t("sidebar.display.show.label")}
-          </MenuSubTrigger>
+          {!filtersOnly ? (
+            <>
+              <MenuSubTrigger
+                id="grouping"
+                value={t(GROUPING_LABEL_KEYS[preferences.grouping])}
+                testID="sidebar-display-grouping"
+              >
+                {t("sidebar.display.grouping.label")}
+              </MenuSubTrigger>
+              <MenuSubTrigger
+                id="titleSource"
+                value={t(TITLE_SOURCE_LABEL_KEYS[preferences.titleSource])}
+                testID="sidebar-display-title-source"
+              >
+                {t("sidebar.display.titleSource.label")}
+              </MenuSubTrigger>
+              <MenuSubTrigger id="show" testID="sidebar-display-show">
+                {t("sidebar.display.show.label")}
+              </MenuSubTrigger>
+            </>
+          ) : null}
           {showHostFilter ? (
             <>
-              <MenuSeparator />
+              {!filtersOnly ? <MenuSeparator /> : null}
               {/* A filtered sidebar looks like workspaces went missing, so the branch says so
                 from the root rather than making you open it to find out. */}
               <MenuSubTrigger
@@ -345,7 +362,7 @@ export function SidebarDisplayPreferencesMenu(): ReactElement {
               {/* Host and Project narrow the same list, so they read as one block. The separator
                 belongs above whichever of the two is showing first — with a single host there is
                 no Host row and Project is what has to carry it. */}
-              {showHostFilter ? null : <MenuSeparator />}
+              {showHostFilter || filtersOnly ? null : <MenuSeparator />}
               <MenuSubTrigger
                 id="projectFilter"
                 indicator={resolvedProjectFilters.length > 0}
