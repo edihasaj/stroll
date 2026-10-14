@@ -1,5 +1,10 @@
 # Release
 
+**Stroll automation is off by Edi's standing instruction.** All GitHub Actions
+workflows are disabled. Do not enable or dispatch them to follow this release
+checklist. See [CI-RETIRED.md](../CI-RETIRED.md); the procedures below remain
+dormant until Edi explicitly changes that instruction.
+
 All workspaces share one version and release together.
 
 ## Two steps
