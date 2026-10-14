@@ -183,6 +183,10 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
+      - name: Bind macOS manifest to its built source
+        shell: bash
+        run: node scripts/stamp-rollout.mjs --source-sha "$(git rev-parse HEAD)" "${DESKTOP_PACKAGE_PATH}/release/${RELEASE_CHANNEL}-mac.yml"
+
       - name: Upload desktop artifacts to release
         if: env.SHOULD_PUBLISH == 'true' && env.IS_SMOKE_TAG != 'true'
         env:
@@ -284,6 +288,10 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
+      - name: Bind Linux manifest to its built source
+        shell: bash
+        run: node scripts/stamp-rollout.mjs --source-sha "$(git rev-parse HEAD)" "${DESKTOP_PACKAGE_PATH}/release/${RELEASE_CHANNEL}-linux.yml"
+
       - name: Upload desktop artifacts to release
         if: env.SHOULD_PUBLISH == 'true' && env.IS_SMOKE_TAG != 'true'
         env:
@@ -381,6 +389,10 @@ jobs:
           path: ${{ runner.temp }}/desktop-smoke
           if-no-files-found: ignore
           retention-days: 7
+
+      - name: Bind Windows manifest to its built source
+        shell: bash
+        run: node scripts/stamp-rollout.mjs --source-sha "$(git rev-parse HEAD)" "${DESKTOP_PACKAGE_PATH}/release/${RELEASE_CHANNEL}.yml"
 
       - name: Upload desktop artifacts to release
         if: env.SHOULD_PUBLISH == 'true' && env.IS_SMOKE_TAG != 'true'
@@ -532,6 +544,8 @@ jobs:
           node ../scripts/validate-desktop-manifests.mjs \
             --release-date "$timestamp" \
             --rollout-hours "$ROLLOUT_HOURS" \
+            --expected-source-sha "$(git rev-parse HEAD)" \
+            --expected-version "$DESKTOP_VERSION" \
             "${files[@]}"
           gh release upload "$release_lookup" "${files[@]}" --clobber --repo "${{ github.repository }}"
 

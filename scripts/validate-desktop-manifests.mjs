@@ -4,13 +4,19 @@ import { fileURLToPath } from "node:url";
 import { load } from "js-yaml";
 import { MACOS_MINIMUM_DARWIN_VERSION } from "./merge-mac-manifest.mjs";
 
-export function validateDesktopManifests({ releaseDate, rolloutHours }, paths) {
+export function validateDesktopManifests({ releaseDate, rolloutHours, sourceSha, version }, paths) {
+  if (!/^[0-9a-f]{40}$/.test(sourceSha ?? "") || typeof version !== "string" || !version) {
+    throw new Error("Expected release source SHA and version are required");
+  }
   if (!Number.isFinite(rolloutHours) || rolloutHours < 0) {
     throw new Error(`expected non-negative rolloutHours, got ${rolloutHours}`);
   }
 
   for (const manifestPath of paths) {
     const manifest = load(fs.readFileSync(manifestPath, "utf8")) ?? {};
+    if (manifest.sourceSha !== sourceSha || manifest.version !== version) {
+      throw new Error(`${manifestPath}: source SHA or version does not match the release`);
+    }
     if (manifest.rolloutHours !== rolloutHours) {
       throw new Error(
         `${manifestPath}: rolloutHours=${manifest.rolloutHours}, expected ${rolloutHours}`,
@@ -39,12 +45,18 @@ function parseArgs(argv) {
   const paths = [];
   let releaseDate;
   let rolloutHours;
+  let sourceSha;
+  let version;
 
   for (let index = 0; index < argv.length; index += 1) {
     if (argv[index] === "--release-date") {
       releaseDate = argv[++index];
     } else if (argv[index] === "--rollout-hours") {
       rolloutHours = Number(argv[++index]);
+    } else if (argv[index] === "--expected-source-sha") {
+      sourceSha = argv[++index];
+    } else if (argv[index] === "--expected-version") {
+      version = argv[++index];
     } else {
       paths.push(argv[index]);
     }
@@ -52,14 +64,14 @@ function parseArgs(argv) {
 
   if (!releaseDate || rolloutHours === undefined || paths.length === 0) {
     throw new Error(
-      "Usage: node scripts/validate-desktop-manifests.mjs --release-date <date> --rollout-hours <hours> <manifest...>",
+      "Usage: node scripts/validate-desktop-manifests.mjs --release-date <date> --rollout-hours <hours> --expected-source-sha <sha> --expected-version <version> <manifest...>",
     );
   }
 
-  return { releaseDate, rolloutHours, paths };
+  return { releaseDate, rolloutHours, sourceSha, version, paths };
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
-  const { releaseDate, rolloutHours, paths } = parseArgs(process.argv.slice(2));
-  validateDesktopManifests({ releaseDate, rolloutHours }, paths);
+  const { releaseDate, rolloutHours, sourceSha, version, paths } = parseArgs(process.argv.slice(2));
+  validateDesktopManifests({ releaseDate, rolloutHours, sourceSha, version }, paths);
 }

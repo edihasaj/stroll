@@ -9,6 +9,13 @@ export const MACOS_MINIMUM_DARWIN_VERSION = "22.0.0";
 export function mergeMacManifest(arm64Path, x64Path, outputPath) {
   const arm64 = load(fs.readFileSync(arm64Path, "utf8"));
   const x64 = load(fs.readFileSync(x64Path, "utf8"));
+  if (
+    !/^[0-9a-f]{40}$/.test(arm64.sourceSha ?? "") ||
+    arm64.sourceSha !== x64.sourceSha ||
+    arm64.version !== x64.version
+  ) {
+    throw new Error("macOS architectures must have the same source SHA and version");
+  }
   const files = [...(arm64.files ?? []), ...(x64.files ?? [])].filter(
     (file, index, all) => all.findIndex((entry) => entry.url === file.url) === index,
   );

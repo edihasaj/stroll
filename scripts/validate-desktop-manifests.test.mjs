@@ -8,13 +8,15 @@ import { test } from "vitest";
 import { validateDesktopManifests } from "./validate-desktop-manifests.mjs";
 
 const releaseDate = "2026-09-04T00:00:00.000Z";
+const sourceSha = "a".repeat(40);
+const proof = { sourceSha, version: "0.7.3" };
 const scriptPath = fileURLToPath(new URL("./validate-desktop-manifests.mjs", import.meta.url));
 
 function withManifest(contents, run) {
   const dir = mkdtempSync(path.join(tmpdir(), "paseo-validate-desktop-manifest-"));
   const manifestPath = path.join(dir, "latest-mac.yml");
   try {
-    writeFileSync(manifestPath, contents);
+    writeFileSync(manifestPath, `${contents}sourceSha: ${sourceSha}\n`);
     run(manifestPath);
   } finally {
     rmSync(dir, { force: true, recursive: true });
@@ -25,7 +27,7 @@ test("accepts a guarded macOS update manifest", () => {
   withManifest(
     `version: 0.7.3\nreleaseDate: '${releaseDate}'\nrolloutHours: 36\nminimumSystemVersion: 22.0.0\n`,
     (manifestPath) => {
-      validateDesktopManifests({ releaseDate, rolloutHours: 36 }, [manifestPath]);
+      validateDesktopManifests({ ...proof, releaseDate, rolloutHours: 36 }, [manifestPath]);
     },
   );
 });
@@ -36,7 +38,18 @@ test("validates release manifests through the workflow CLI", () => {
     (manifestPath) => {
       const result = spawnSync(
         process.execPath,
-        [scriptPath, "--release-date", releaseDate, "--rollout-hours", "36", manifestPath],
+        [
+          scriptPath,
+          "--release-date",
+          releaseDate,
+          "--rollout-hours",
+          "36",
+          "--expected-source-sha",
+          sourceSha,
+          "--expected-version",
+          proof.version,
+          manifestPath,
+        ],
         { encoding: "utf8" },
       );
 
@@ -50,7 +63,7 @@ test("rejects a macOS update manifest without the system floor", () => {
     `version: 0.7.3\nreleaseDate: '${releaseDate}'\nrolloutHours: 36\n`,
     (manifestPath) => {
       assert.throws(
-        () => validateDesktopManifests({ releaseDate, rolloutHours: 36 }, [manifestPath]),
+        () => validateDesktopManifests({ ...proof, releaseDate, rolloutHours: 36 }, [manifestPath]),
         /minimumSystemVersion=undefined, expected 22\.0\.0/,
       );
     },
@@ -62,7 +75,7 @@ test("rejects invalid rollout metadata", () => {
     `version: 0.7.3\nreleaseDate: '${releaseDate}'\nrolloutHours: 24\nminimumSystemVersion: 22.0.0\n`,
     (manifestPath) => {
       assert.throws(
-        () => validateDesktopManifests({ releaseDate, rolloutHours: 36 }, [manifestPath]),
+        () => validateDesktopManifests({ ...proof, releaseDate, rolloutHours: 36 }, [manifestPath]),
         /rolloutHours=24, expected 36/,
       );
     },

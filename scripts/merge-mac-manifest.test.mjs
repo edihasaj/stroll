@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { test } from "vitest";
 import { mergeMacManifest } from "./merge-mac-manifest.mjs";
+import { stampRollout } from "./stamp-rollout.mjs";
 
 test("preserves unknown fields while merging files by url", () => {
   const dir = mkdtempSync(path.join(tmpdir(), "paseo-merge-mac-manifest-"));
@@ -19,6 +20,7 @@ test("preserves unknown fields while merging files by url", () => {
       x64Path,
       "version: 1.2.3\nfiles:\n  - url: app-x64.zip\n    sha512: x64\nstagingPercentage: 50\npath: app-x64.zip\nsha512: x64\nreleaseDate: '2026-04-29T00:00:00.000Z'\n",
     );
+    stampRollout({ sourceSha: "a".repeat(40) }, [arm64Path, x64Path]);
     mergeMacManifest(arm64Path, x64Path, outputPath);
     const output = readFileSync(outputPath, "utf8");
     assert.match(output, /stagingPercentage: 25/);

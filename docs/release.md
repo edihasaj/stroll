@@ -51,11 +51,13 @@ commit. After approval, commit the prepared inputs locally and run the release
 command. Its branch and tag push is the one remote release batch and starts CI
 for the complete release commit.
 
-**Known publisher risk:** the existing desktop publisher can reuse a skipped
-platform manifest and its validator does not bind every manifest `sourceSha` to
-the release SHA. The intentional native run above is required evidence for the
-release source, but it does not prove the publisher's manifest selection. Track
-that separately; do not treat this routing policy as a publisher fix.
+Each desktop build stamps its update manifest with the full checked-out source
+SHA before uploading it. The publisher requires every selected manifest,
+including reused skipped-platform assets, to match its release source SHA and
+version. The two Mac architectures must also match before merging. An old
+manifest without a source stamp must be rebuilt on its platform; changing its
+rollout timestamp does not manufacture source proof. Intentional native CI
+remains required separately from manifest identity validation.
 
 ## Release branch discipline
 
