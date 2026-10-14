@@ -1,6 +1,5 @@
 import { buildHostWorkspaceRoute } from "../../app/src/utils/host-routes";
 import { expect, test, type Page } from "../../app/e2e/support/fixtures";
-import { gotoAppShell } from "../../app/e2e/support/helpers/app";
 import { expectWorkspaceTabVisible } from "../../app/e2e/support/helpers/archive-tab";
 import { getE2EDaemonPort } from "../../app/e2e/support/helpers/daemon-port";
 import { installDaemonWebSocketGate } from "../../app/e2e/support/helpers/daemon-websocket-gate";
@@ -10,11 +9,6 @@ import { openAgentRoute, seedMockAgentWorkspace } from "../../app/e2e/support/he
 import { scrollAgentChatToBottom } from "../../app/e2e/support/helpers/agent-bottom-anchor";
 import { getServerId } from "../../app/e2e/support/helpers/server-id";
 import { waitForWorkspaceTabsVisible } from "../../app/e2e/support/helpers/workspace-tabs";
-import {
-  expectWorkspaceHeader,
-  switchWorkspaceViaSidebar,
-  waitForSidebarHydration,
-} from "../../app/e2e/support/helpers/workspace-ui";
 import { installDesktopRuntime, waitForDesktopDaemonStartRequest } from "./support/runtime";
 
 type StartupPresentation = "splash" | "app";
@@ -69,10 +63,7 @@ async function expectWorkspaceLocation(
   await expectAppRoute(page, buildHostWorkspaceRoute(input.serverId, input.workspace.workspaceId), {
     timeout: 30_000,
   });
-  await expectWorkspaceHeader(page, {
-    title: input.workspace.workspaceName,
-    subtitle: input.workspace.projectDisplayName,
-  });
+  await expect(page.getByTestId("main-pane-header")).toBeVisible();
 }
 
 test("refresh keeps one continuous splash before restoring the desktop workspace", async ({
@@ -98,9 +89,7 @@ test("refresh keeps one continuous splash before restoring the desktop workspace
       desktopSettingsDelayMs: 250,
       daemonListen: `127.0.0.1:${getE2EDaemonPort()}`,
     });
-    await gotoAppShell(page);
-    await waitForSidebarHydration(page);
-    await switchWorkspaceViaSidebar({ page, serverId, workspaceId: workspace.workspaceId });
+    await page.goto(buildHostWorkspaceRoute(serverId, workspace.workspaceId));
     await waitForWorkspaceTabsVisible(page);
     await expectWorkspaceTabVisible(page, agent.id);
     await expectWorkspaceLocation(page, { serverId, workspace });
@@ -110,10 +99,11 @@ test("refresh keeps one continuous splash before restoring the desktop workspace
     await page.reload();
     await waitForDesktopDaemonStartRequest(page);
     daemonGate.restore();
-    await waitForSidebarHydration(page);
+    await waitForWorkspaceTabsVisible(page);
 
     await expectWorkspaceLocation(page, { serverId, workspace });
     await waitForWorkspaceTabsVisible(page);
+    await expectWorkspaceTabVisible(page, agent.id);
     expect(await getStartupPresentation(page)).toEqual(["splash", "app"]);
   } finally {
     daemonGate.restore();
@@ -122,7 +112,7 @@ test("refresh keeps one continuous splash before restoring the desktop workspace
 });
 
 function inspectChatDragExclusions(scroll: Element) {
-  const header = document.querySelector('[data-testid="composer-dock-header"]');
+  const header = document.querySelector('[data-testid="main-pane-header"]');
   if (!header) throw new Error("Expected the workspace header");
   const headerRect = header.getBoundingClientRect();
   const headerY = headerRect.top + headerRect.height / 2;
@@ -210,10 +200,10 @@ test("scrolled chat does not exclude the workspace titlebar from dragging", asyn
     await openMenu.click();
     await expect(closeMenu).toBeVisible();
 
-    const menuTrigger = page.getByTestId("workspace-header-menu-trigger");
+    const menuTrigger = page.getByTestId("chat-pane-menu-trigger");
     await expect(menuTrigger).toHaveCSS("-webkit-app-region", "no-drag");
     await menuTrigger.click();
-    const menu = page.getByTestId("workspace-header-menu");
+    const menu = page.getByTestId("chat-pane-menu");
     await expect(menu).toBeVisible();
     await expect(menu.getByRole("menuitem").first()).toHaveCSS("-webkit-app-region", "no-drag");
     await page.keyboard.press("Escape");

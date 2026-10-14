@@ -23,6 +23,7 @@ import { usePanelStore } from "@/stores/panel-store";
 import type { Theme } from "@/styles/theme";
 import { buildProjectsSettingsRoute } from "@/utils/host-routes";
 import { deriveSidebarRailItems } from "./sidebar-rail-model";
+import { SidebarMoreMenu } from "./sidebar-more-menu";
 
 const ThemedStrollLogo = withUnistyles(StrollLogo);
 const foregroundColorMapping = (theme: Theme) => ({ color: theme.colors.foreground });
@@ -32,6 +33,7 @@ const foregroundMutedColorMapping = (theme: Theme) => ({ color: theme.colors.for
 export function SidebarRail({
   style,
   handleSettings,
+  handleImportSession,
   children,
 }: {
   style?: StyleProp<ViewStyle>;
@@ -89,6 +91,11 @@ export function SidebarRail({
       ))}
 
       <View style={styles.spacer} />
+
+      <SidebarMoreMenu
+        showHistory={derived.showHistoryInMore}
+        handleImportSession={handleImportSession}
+      />
 
       <SidebarHeaderRow
         icon={SettingsIcon}

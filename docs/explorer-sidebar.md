@@ -23,7 +23,14 @@ Desktop Projects has one compact Filters control beside its organization control
 project, and label filters without reintroducing the former grouping, title, or row-detail choices;
 active saved filters remain visible there even when the available host or project catalog has narrowed
 to one item, so they can always be cleared. Plugin header, footer, and legacy rail contributions keep
-their existing mounts; the rail itself stays limited to Home, Projects, Settings, and the host avatar.
+their existing mounts. The rail includes Home, Projects, Settings, the host avatar,
+and a More menu that keeps History, Import session and Help reachable.
+
+An empty daemon-created workspace has no chat row in the desktop sidebar yet.
+Its canonical `/h/<serverId>/workspace/<workspaceId>` route remains usable. Desktop
+renderer and packaged smoke tests open that real workspace route, then verify its
+header, editor actions and terminal behavior instead of waiting for a legacy
+workspace row that the chat sidebar no longer renders.
 
 `packages/app/src/workspace-tabs/single-chat.ts` holds the rules, and the layout store applies them
 on desktop only (`isSingleChatMainActive`):

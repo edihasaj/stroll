@@ -2,13 +2,8 @@ import { execSync } from "node:child_process";
 import path from "node:path";
 import type { Page } from "@playwright/test";
 import { waitForTabBar } from "./launcher";
-import { selectWorkspaceInSidebar } from "./sidebar";
 import { createTempGitRepo, resolveTempRoot } from "./workspace";
-import {
-  connectWorkspaceSetupClient,
-  openHomeWithProject,
-  type WorkspaceSetupDaemonClient,
-} from "./workspace-setup";
+import { connectWorkspaceSetupClient, type WorkspaceSetupDaemonClient } from "./workspace-setup";
 
 export interface CreatedWorkspace {
   workspaceId: string;
@@ -81,8 +76,13 @@ export function createWithWorkspace(page: Page): WithWorkspaceHandle {
       workspaceId,
       repoPath: workspacePath,
       navigateTo: async () => {
-        await openHomeWithProject(page, repo.path);
-        await selectWorkspaceInSidebar(page, workspaceId);
+        // Desktop navigation lists chats, so a newly created empty workspace
+        // has no sidebar row yet. Its canonical route remains addressable.
+        const serverId = process.env.E2E_SERVER_ID;
+        if (!serverId) throw new Error("E2E_SERVER_ID is not set");
+        await page.goto(
+          `/h/${encodeURIComponent(serverId)}/workspace/${encodeURIComponent(workspaceId)}`,
+        );
         await waitForTabBar(page);
       },
     };

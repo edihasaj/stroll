@@ -804,7 +804,15 @@ async function openSmokeWorkspace({ appPath, env, page, daemonHome }) {
     ],
     label: "Create packaged smoke workspace",
   });
-  await page.getByRole("button", { name: "Sandbox smoke workspace", exact: true }).click();
+  // Empty workspaces have no chat to list in the desktop sidebar. Open the
+  // actual daemon-created workspace through the app's canonical route.
+  const status = await page.evaluate(() => window.paseoDesktop.invoke("desktop_daemon_status"));
+  if (typeof status.serverId !== "string" || !status.serverId) {
+    throw new Error("Packaged smoke requires the actual desktop daemon server ID");
+  }
+  const workspaceUrl = new URL(page.url());
+  workspaceUrl.pathname = `/h/${encodeURIComponent(status.serverId)}/workspace/${encodeURIComponent(workspace.workspaceId)}`;
+  await page.goto(workspaceUrl.href);
   await page.waitForURL((url) => url.pathname.endsWith(`/workspace/${workspace.workspaceId}`));
   // An empty workspace opens on the new-chat composer.
   await page.getByRole("textbox", { name: "Message agent..." }).first().click();
