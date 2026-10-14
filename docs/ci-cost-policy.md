@@ -1,5 +1,5 @@
 ---
-summary: "Explicit production-only native CI and paused release workflows to bound Actions spend."
+summary: "All Stroll GitHub Actions are disabled repository-wide to stop CI spending."
 read_when:
   - Changing GitHub Actions runners or release triggers.
   - Requesting a production native build or investigating Actions charges.
@@ -7,10 +7,20 @@ read_when:
 
 # CI cost policy
 
-Mac-capable workflows were manually disabled on October 14, 2026. Keep them
-paused until Edi explicitly requests a production build. This includes mixed
-workflows containing a Mac job: their Linux lanes are also paused while the
-workflow is disabled. Unaffected portable workflows remain unchanged.
+## All Actions are disabled
+
+Edi requested that Stroll CI be disabled completely on October 14, 2026.
+The GitHub repository Actions setting is `enabled=false`. This blocks every
+workflow on every branch, including Linux, Windows, macOS, manual dispatches,
+release packaging and scheduled jobs. No new workflow file can bypass it.
+
+Do not enable Actions to test a change or perform a release. A future re-enable
+requires a new explicit owner request. Run validation locally instead. Existing
+artifacts/cache storage are not deleted by this setting and can still count
+toward GitHub storage usage.
+
+The guards below remain in the checked-in workflows as defense in depth if
+the owner later chooses to re-enable Actions.
 
 A branch push, tag push, production PR, schedule, or ordinary dispatch must not
 allocate a paid Mac. Native job guards require an explicit dispatch of
