@@ -1,15 +1,13 @@
 name: Desktop Release
 
 on:
-  push:
-    tags:
-      - "v*"
-      - "desktop-v*"
-      - "desktop-macos-v*"
-      - "desktop-linux-v*"
-      - "desktop-windows-v*"
   workflow_dispatch:
     inputs:
+      run_native:
+        description: "Explicitly authorize paid macOS packaging from production"
+        required: false
+        default: false
+        type: boolean
       tag:
         description: "Existing tag to build (e.g. v0.1.0)"
         required: true
@@ -17,22 +15,17 @@ on:
       platform:
         description: "Optional desktop platform to build."
         required: false
-        default: "all"
+        default: "linux"
         type: choice
         options:
           - all
           - macos
           - linux
           - windows
-      checkout_ref:
-        description: "Optional branch/ref to checkout while using tag for release metadata."
-        required: false
-        default: ""
-        type: string
       publish:
         description: "Publish built artifacts to GitHub Releases."
         required: false
-        default: "true"
+        default: "false"
         type: choice
         options:
           - "true"
@@ -49,13 +42,34 @@ concurrency:
 
 env:
   SOURCE_TAG: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || github.ref_name }}
-  CHECKOUT_REF: ${{ github.event_name == 'workflow_dispatch' && (github.event.inputs.checkout_ref || github.ref_name) || github.ref_name }}
+  CHECKOUT_REF: ${{ github.sha }}
   SHOULD_PUBLISH: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.publish != 'false' }}
   ROLLOUT_HOURS: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.rollout_hours || '36' }}
   DESKTOP_PACKAGE_PATH: "packages/desktop"
 
 jobs:
+  validate-production:
+    permissions:
+      contents: read
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/production'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      tag: ${{ steps.validate.outputs.tag }}
+      sha: ${{ steps.validate.outputs.sha }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Validate exact production tag before allocating a Mac
+        id: validate
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: bash scripts/validate-production-release.sh
+
   create-release:
+    needs: validate-production
     if: ${{ (github.event_name == 'push' && !startsWith(github.ref_name, 'desktop-macos-v') && !startsWith(github.ref_name, 'desktop-linux-v') && !startsWith(github.ref_name, 'desktop-windows-v')) || (github.event_name == 'workflow_dispatch' && github.event.inputs.platform == 'all' && github.event.inputs.publish != 'false') }}
     permissions:
       contents: write
@@ -94,8 +108,8 @@ jobs:
           fi
 
   publish-macos:
-    needs: [create-release]
-    if: ${{ always() && (needs.create-release.result == 'success' || needs.create-release.result == 'skipped') && ((github.event_name == 'workflow_dispatch' && (github.event.inputs.platform == 'all' || github.event.inputs.platform == 'macos')) || (github.event_name == 'push' && (startsWith(github.ref_name, 'v') || startsWith(github.ref_name, 'desktop-v') || startsWith(github.ref_name, 'desktop-macos-v')))) }}
+    needs: [validate-production, create-release]
+    if: ${{ always() && needs.validate-production.result == 'success' && (needs.create-release.result == 'success' || needs.create-release.result == 'skipped') && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/production' && inputs.run_native == true && (inputs.platform == 'all' || inputs.platform == 'macos') }}
     strategy:
       fail-fast: false
       matrix:
@@ -215,8 +229,8 @@ jobs:
           retention-days: 1
 
   publish-linux:
-    needs: [create-release]
-    if: ${{ always() && (needs.create-release.result == 'success' || needs.create-release.result == 'skipped') && ((github.event_name == 'workflow_dispatch' && (github.event.inputs.platform == 'all' || github.event.inputs.platform == 'linux')) || (github.event_name == 'push' && (startsWith(github.ref_name, 'v') || startsWith(github.ref_name, 'desktop-v') || startsWith(github.ref_name, 'desktop-linux-v')))) }}
+    needs: [validate-production, create-release]
+    if: ${{ always() && needs.validate-production.result == 'success' && (needs.create-release.result == 'success' || needs.create-release.result == 'skipped') && ((github.event_name == 'workflow_dispatch' && (github.event.inputs.platform == 'all' || github.event.inputs.platform == 'linux')) || (github.event_name == 'push' && (startsWith(github.ref_name, 'v') || startsWith(github.ref_name, 'desktop-v') || startsWith(github.ref_name, 'desktop-linux-v')))) }}
     permissions:
       contents: write
       packages: read
@@ -320,8 +334,8 @@ jobs:
           retention-days: 1
 
   publish-windows:
-    needs: [create-release]
-    if: ${{ always() && (needs.create-release.result == 'success' || needs.create-release.result == 'skipped') && ((github.event_name == 'workflow_dispatch' && (github.event.inputs.platform == 'all' || github.event.inputs.platform == 'windows')) || (github.event_name == 'push' && (startsWith(github.ref_name, 'v') || startsWith(github.ref_name, 'desktop-v') || startsWith(github.ref_name, 'desktop-windows-v')))) }}
+    needs: [validate-production, create-release]
+    if: ${{ always() && needs.validate-production.result == 'success' && (needs.create-release.result == 'success' || needs.create-release.result == 'skipped') && ((github.event_name == 'workflow_dispatch' && (github.event.inputs.platform == 'all' || github.event.inputs.platform == 'windows')) || (github.event_name == 'push' && (startsWith(github.ref_name, 'v') || startsWith(github.ref_name, 'desktop-v') || startsWith(github.ref_name, 'desktop-windows-v')))) }}
     permissions:
       contents: write
       packages: read

@@ -7,12 +7,13 @@ const repoRoot = new URL("../", import.meta.url);
 const pullRequestTypes = ["opened", "synchronize", "reopened", "edited"];
 const nativeContexts = [
   ["main push", { name: "push", ref: "refs/heads/main" }, false],
-  ["production push", { name: "push", ref: "refs/heads/production" }, true],
+  ["production push", { name: "push", ref: "refs/heads/production" }, false],
   ["tag push", { name: "push", ref: "refs/tags/v1.2.3" }, false],
   ["main pull request", { name: "pull_request", baseRef: "main" }, false],
-  ["production PR opened", { name: "pull_request", baseRef: "production", action: "opened" }, true],
-  ["production PR edited", { name: "pull_request", baseRef: "production", action: "edited" }, true],
-  ["manual native opt-in", { name: "workflow_dispatch", runNative: true }, true],
+  ["production PR opened", { name: "pull_request", baseRef: "production", action: "opened" }, false],
+  ["production PR edited", { name: "pull_request", baseRef: "production", action: "edited" }, false],
+  ["manual native opt-in", { name: "workflow_dispatch", ref: "refs/heads/production", runNative: true }, true],
+  ["manual main opt-in", { name: "workflow_dispatch", ref: "refs/heads/main", runNative: true }, false],
   [
     "manual native opt-out on production",
     { name: "workflow_dispatch", ref: "refs/heads/production", runNative: false },

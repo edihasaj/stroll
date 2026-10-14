@@ -2,6 +2,8 @@
   <img src="packages/website/public/logo.svg" width="64" height="64" alt="Stroll logo">
 </p>
 
+For paused native builds and explicit production requests, see [CI cost policy](docs/ci-cost-policy.md).
+
 <h1 align="center">Stroll</h1>
 
 <p align="center">One place to run Claude Code, Codex, Copilot, OpenCode, Pi, Oh My Pi, Antigravity, Muse Code, and local models on your own computers.</p>
