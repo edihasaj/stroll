@@ -50,7 +50,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: "22"
+          node-version: "22.23.4"
 
       - name: Detect affected CI contracts
         id: filter
@@ -71,7 +71,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: "22"
+          node-version: "22.23.4"
           cache: "npm"
 
       - name: Install dependencies
@@ -90,7 +90,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: "22"
+          node-version: "22.23.4"
           cache: "npm"
 
       - name: Install dependencies
@@ -118,7 +118,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: "22"
+          node-version: "22.23.4"
           cache: "npm"
 
       - name: Install dependencies
@@ -160,7 +160,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: "22"
+          node-version: "22.23.4"
           cache: "npm"
 
       - name: Fetch origin/main (worktree tests)
@@ -212,7 +212,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: "22"
+          node-version: "22.23.4"
           cache: "npm"
 
       - name: Install dependencies
@@ -242,7 +242,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: "22"
+          node-version: "22.23.4"
           cache: "npm"
 
       - name: Install dependencies with retry
@@ -324,7 +324,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: "22"
+          node-version: "22.23.4"
           cache: "npm"
 
       - name: Install dependencies with retry
@@ -350,7 +350,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: "22"
+          node-version: "22.23.4"
           cache: "npm"
 
       - name: Install dependencies
@@ -390,7 +390,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: "22"
+          node-version: "22.23.4"
           cache: "npm"
 
       - name: Install dependencies with retry
@@ -467,7 +467,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: "22"
+          node-version: "22.23.4"
           cache: "npm"
 
       - name: Install dependencies
@@ -495,7 +495,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: "22"
+          node-version: "22.23.4"
           cache: "npm"
 
       - name: Install dependencies
