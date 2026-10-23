@@ -29,6 +29,7 @@ import { MarkdownTableCellText } from "@/components/markdown-text-selection";
 import { getMarkdownListMarker, getMarkdownListSpacing } from "@/utils/markdown-list";
 import { markdownNodeContainsType } from "@/utils/markdown-ast";
 import { createMarkdownParser } from "@/utils/markdown-parser";
+import type { MarkdownIt as AppMarkdownIt } from "markdown-it";
 import { createCompactMarkdownStyles, createMarkdownStyles } from "@/styles/markdown-styles";
 import type { Theme } from "@/styles/theme";
 import { openExternalUrl } from "@/utils/open-external-url";
@@ -79,7 +80,7 @@ export interface MarkdownRendererProps {
   text: string;
   compact?: boolean;
   rules?: RenderRules;
-  markdownit?: ReturnType<typeof MarkdownIt>;
+  markdownit?: AppMarkdownIt;
   onLinkPress?: (url: string) => boolean;
   allowedImageHandlers?: readonly string[];
   topLevelMaxExceededItem?: ReactNode;
@@ -190,7 +191,9 @@ function MarkdownFragment({
     <ThemedMarkdown
       uniProps={uniProps}
       rules={rules}
-      markdownit={markdownit}
+      // react-native-markdown-display types its parser with the markdown-it 14 typings; the app's
+      // markdown-it 15 parser has the same parse() and token shape the renderer uses at runtime.
+      markdownit={markdownit as unknown as ReturnType<typeof MarkdownIt>}
       onLinkPress={onLinkPress}
       allowedImageHandlers={allowedImageHandlers}
       topLevelMaxExceededItem={topLevelMaxExceededItem}

@@ -9,319 +9,79 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from "./routes/__root";
-import { Route as VtcodeRouteImport } from "./routes/vtcode";
-import { Route as TermsRouteImport } from "./routes/terms";
-import { Route as StakpakRouteImport } from "./routes/stakpak";
-import { Route as SponsorRouteImport } from "./routes/sponsor";
-import { Route as SigitRouteImport } from "./routes/sigit";
-import { Route as QwenCodeRouteImport } from "./routes/qwen-code";
-import { Route as QoderRouteImport } from "./routes/qoder";
-import { Route as PrivacyRouteImport } from "./routes/privacy";
-import { Route as PoolsideRouteImport } from "./routes/poolside";
-import { Route as PiRouteImport } from "./routes/pi";
-import { Route as OpencodeRouteImport } from "./routes/opencode";
-import { Route as OmpRouteImport } from "./routes/omp";
-import { Route as NovaRouteImport } from "./routes/nova";
-import { Route as MuseCodeRouteImport } from "./routes/muse-code";
-import { Route as MistralVibeRouteImport } from "./routes/mistral-vibe";
-import { Route as MinionCodeRouteImport } from "./routes/minion-code";
-import { Route as KimiRouteImport } from "./routes/kimi";
-import { Route as KiloRouteImport } from "./routes/kilo";
-import { Route as JunieRouteImport } from "./routes/junie";
-import { Route as HubRouteImport } from "./routes/hub";
-import { Route as HermesRouteImport } from "./routes/hermes";
-import { Route as GrokRouteImport } from "./routes/grok";
-import { Route as GooseRouteImport } from "./routes/goose";
-import { Route as GlmRouteImport } from "./routes/glm";
-import { Route as GeminiRouteImport } from "./routes/gemini";
-import { Route as FastAgentRouteImport } from "./routes/fast-agent";
-import { Route as FactoryDroidRouteImport } from "./routes/factory-droid";
-import { Route as DownloadRouteImport } from "./routes/download";
-import { Route as DocsRouteImport } from "./routes/docs";
-import { Route as DiracRouteImport } from "./routes/dirac";
-import { Route as DimcodeRouteImport } from "./routes/dimcode";
-import { Route as DeepseekTuiRouteImport } from "./routes/deepseek-tui";
-import { Route as DeepagentsRouteImport } from "./routes/deepagents";
-import { Route as CursorRouteImport } from "./routes/cursor";
-import { Route as CrowRouteImport } from "./routes/crow";
-import { Route as CorustRouteImport } from "./routes/corust";
-import { Route as CortexCodeRouteImport } from "./routes/cortex-code";
-import { Route as CopilotRouteImport } from "./routes/copilot";
-import { Route as CodexRouteImport } from "./routes/codex";
-import { Route as CodebuddyRouteImport } from "./routes/codebuddy";
-import { Route as ClineRouteImport } from "./routes/cline";
-import { Route as ClaudeCodeRouteImport } from "./routes/claude-code";
-import { Route as ChangelogRouteImport } from "./routes/changelog";
-import { Route as BlogRouteImport } from "./routes/blog";
-import { Route as AutohandRouteImport } from "./routes/autohand";
-import { Route as AuggieRouteImport } from "./routes/auggie";
-import { Route as AntigravityRouteImport } from "./routes/antigravity";
-import { Route as AmpRouteImport } from "./routes/amp";
-import { Route as AgoragenticRouteImport } from "./routes/agoragentic";
-import { Route as AgentsRouteImport } from "./routes/agents";
 import { Route as IndexRouteImport } from "./routes/index";
-import { Route as PluginsIndexRouteImport } from "./routes/plugins/index";
-import { Route as DocsIndexRouteImport } from "./routes/docs/index";
-import { Route as BlogIndexRouteImport } from "./routes/blog/index";
-import { Route as PluginsAllRouteImport } from "./routes/plugins/all";
-import { Route as PluginsOwnerRouteImport } from "./routes/plugins/$owner";
-import { Route as DownloadThanksRouteImport } from "./routes/download_.thanks";
-import { Route as DocsSplatRouteImport } from "./routes/docs/$";
-import { Route as BlogSplatRouteImport } from "./routes/blog/$";
-import { Route as AlternativesSupersetRouteImport } from "./routes/alternatives/superset";
-import { Route as AlternativesOrcaRouteImport } from "./routes/alternatives/orca";
-import { Route as AlternativesOpencodeDesktopRouteImport } from "./routes/alternatives/opencode-desktop";
-import { Route as AlternativesOpenchamberRouteImport } from "./routes/alternatives/openchamber";
-import { Route as AlternativesHappyCoderRouteImport } from "./routes/alternatives/happy-coder";
-import { Route as AlternativesConductorRouteImport } from "./routes/alternatives/conductor";
-import { Route as AlternativesCodexAppRouteImport } from "./routes/alternatives/codex-app";
+import { Route as AgentsRouteImport } from "./routes/agents";
+import { Route as AgoragenticRouteImport } from "./routes/agoragentic";
+import { Route as AmpRouteImport } from "./routes/amp";
+import { Route as AntigravityRouteImport } from "./routes/antigravity";
+import { Route as AuggieRouteImport } from "./routes/auggie";
+import { Route as AutohandRouteImport } from "./routes/autohand";
+import { Route as BlogRouteImport } from "./routes/blog";
+import { Route as ChangelogRouteImport } from "./routes/changelog";
+import { Route as ClaudeCodeRouteImport } from "./routes/claude-code";
+import { Route as ClineRouteImport } from "./routes/cline";
+import { Route as CodebuddyRouteImport } from "./routes/codebuddy";
+import { Route as CodexRouteImport } from "./routes/codex";
+import { Route as CopilotRouteImport } from "./routes/copilot";
+import { Route as CortexCodeRouteImport } from "./routes/cortex-code";
+import { Route as CorustRouteImport } from "./routes/corust";
+import { Route as CrowRouteImport } from "./routes/crow";
+import { Route as CursorRouteImport } from "./routes/cursor";
+import { Route as DeepagentsRouteImport } from "./routes/deepagents";
+import { Route as DeepseekTuiRouteImport } from "./routes/deepseek-tui";
+import { Route as DimcodeRouteImport } from "./routes/dimcode";
+import { Route as DiracRouteImport } from "./routes/dirac";
+import { Route as DocsRouteImport } from "./routes/docs";
+import { Route as DownloadRouteImport } from "./routes/download";
+import { Route as FactoryDroidRouteImport } from "./routes/factory-droid";
+import { Route as FastAgentRouteImport } from "./routes/fast-agent";
+import { Route as GeminiRouteImport } from "./routes/gemini";
+import { Route as GlmRouteImport } from "./routes/glm";
+import { Route as GooseRouteImport } from "./routes/goose";
+import { Route as GrokRouteImport } from "./routes/grok";
+import { Route as HermesRouteImport } from "./routes/hermes";
+import { Route as HubRouteImport } from "./routes/hub";
+import { Route as JunieRouteImport } from "./routes/junie";
+import { Route as KiloRouteImport } from "./routes/kilo";
+import { Route as KimiRouteImport } from "./routes/kimi";
+import { Route as MinionCodeRouteImport } from "./routes/minion-code";
+import { Route as MistralVibeRouteImport } from "./routes/mistral-vibe";
+import { Route as MuseCodeRouteImport } from "./routes/muse-code";
+import { Route as NovaRouteImport } from "./routes/nova";
+import { Route as OmpRouteImport } from "./routes/omp";
+import { Route as OpencodeRouteImport } from "./routes/opencode";
+import { Route as PiRouteImport } from "./routes/pi";
+import { Route as PoolsideRouteImport } from "./routes/poolside";
+import { Route as PrivacyRouteImport } from "./routes/privacy";
+import { Route as QoderRouteImport } from "./routes/qoder";
+import { Route as QwenCodeRouteImport } from "./routes/qwen-code";
+import { Route as SigitRouteImport } from "./routes/sigit";
+import { Route as SponsorRouteImport } from "./routes/sponsor";
+import { Route as StakpakRouteImport } from "./routes/stakpak";
+import { Route as TermsRouteImport } from "./routes/terms";
+import { Route as VtcodeRouteImport } from "./routes/vtcode";
 import { Route as AlternativesClaudeDesktopRouteImport } from "./routes/alternatives/claude-desktop";
-import { Route as PluginsCategorySlugRouteImport } from "./routes/plugins/category/$slug";
+import { Route as AlternativesCodexAppRouteImport } from "./routes/alternatives/codex-app";
+import { Route as AlternativesConductorRouteImport } from "./routes/alternatives/conductor";
+import { Route as AlternativesHappyCoderRouteImport } from "./routes/alternatives/happy-coder";
+import { Route as AlternativesOpenchamberRouteImport } from "./routes/alternatives/openchamber";
+import { Route as AlternativesOpencodeDesktopRouteImport } from "./routes/alternatives/opencode-desktop";
+import { Route as AlternativesOrcaRouteImport } from "./routes/alternatives/orca";
+import { Route as AlternativesSupersetRouteImport } from "./routes/alternatives/superset";
+import { Route as BlogIndexRouteImport } from "./routes/blog/index";
+import { Route as BlogSplatRouteImport } from "./routes/blog/$";
+import { Route as DocsIndexRouteImport } from "./routes/docs/index";
+import { Route as DocsSplatRouteImport } from "./routes/docs/$";
+import { Route as DownloadThanksRouteImport } from "./routes/download_.thanks";
+import { Route as PluginsIndexRouteImport } from "./routes/plugins/index";
+import { Route as PluginsOwnerRouteImport } from "./routes/plugins/$owner";
+import { Route as PluginsAllRouteImport } from "./routes/plugins/all";
 import { Route as PluginsOwnerSlugRouteImport } from "./routes/plugins/$owner_.$slug";
+import { Route as PluginsCategorySlugRouteImport } from "./routes/plugins/category/$slug";
 
-const VtcodeRoute = VtcodeRouteImport.update({
-  id: "/vtcode",
-  path: "/vtcode",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const TermsRoute = TermsRouteImport.update({
-  id: "/terms",
-  path: "/terms",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const StakpakRoute = StakpakRouteImport.update({
-  id: "/stakpak",
-  path: "/stakpak",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const SponsorRoute = SponsorRouteImport.update({
-  id: "/sponsor",
-  path: "/sponsor",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const SigitRoute = SigitRouteImport.update({
-  id: "/sigit",
-  path: "/sigit",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const QwenCodeRoute = QwenCodeRouteImport.update({
-  id: "/qwen-code",
-  path: "/qwen-code",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const QoderRoute = QoderRouteImport.update({
-  id: "/qoder",
-  path: "/qoder",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const PrivacyRoute = PrivacyRouteImport.update({
-  id: "/privacy",
-  path: "/privacy",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const PoolsideRoute = PoolsideRouteImport.update({
-  id: "/poolside",
-  path: "/poolside",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const PiRoute = PiRouteImport.update({
-  id: "/pi",
-  path: "/pi",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const OpencodeRoute = OpencodeRouteImport.update({
-  id: "/opencode",
-  path: "/opencode",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const OmpRoute = OmpRouteImport.update({
-  id: "/omp",
-  path: "/omp",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const NovaRoute = NovaRouteImport.update({
-  id: "/nova",
-  path: "/nova",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const MuseCodeRoute = MuseCodeRouteImport.update({
-  id: "/muse-code",
-  path: "/muse-code",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const MistralVibeRoute = MistralVibeRouteImport.update({
-  id: "/mistral-vibe",
-  path: "/mistral-vibe",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const MinionCodeRoute = MinionCodeRouteImport.update({
-  id: "/minion-code",
-  path: "/minion-code",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const KimiRoute = KimiRouteImport.update({
-  id: "/kimi",
-  path: "/kimi",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const KiloRoute = KiloRouteImport.update({
-  id: "/kilo",
-  path: "/kilo",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const JunieRoute = JunieRouteImport.update({
-  id: "/junie",
-  path: "/junie",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const HubRoute = HubRouteImport.update({
-  id: "/hub",
-  path: "/hub",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const HermesRoute = HermesRouteImport.update({
-  id: "/hermes",
-  path: "/hermes",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const GrokRoute = GrokRouteImport.update({
-  id: "/grok",
-  path: "/grok",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const GooseRoute = GooseRouteImport.update({
-  id: "/goose",
-  path: "/goose",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const GlmRoute = GlmRouteImport.update({
-  id: "/glm",
-  path: "/glm",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const GeminiRoute = GeminiRouteImport.update({
-  id: "/gemini",
-  path: "/gemini",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const FastAgentRoute = FastAgentRouteImport.update({
-  id: "/fast-agent",
-  path: "/fast-agent",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const FactoryDroidRoute = FactoryDroidRouteImport.update({
-  id: "/factory-droid",
-  path: "/factory-droid",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const DownloadRoute = DownloadRouteImport.update({
-  id: "/download",
-  path: "/download",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const DocsRoute = DocsRouteImport.update({
-  id: "/docs",
-  path: "/docs",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const DiracRoute = DiracRouteImport.update({
-  id: "/dirac",
-  path: "/dirac",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const DimcodeRoute = DimcodeRouteImport.update({
-  id: "/dimcode",
-  path: "/dimcode",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const DeepseekTuiRoute = DeepseekTuiRouteImport.update({
-  id: "/deepseek-tui",
-  path: "/deepseek-tui",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const DeepagentsRoute = DeepagentsRouteImport.update({
-  id: "/deepagents",
-  path: "/deepagents",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const CursorRoute = CursorRouteImport.update({
-  id: "/cursor",
-  path: "/cursor",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const CrowRoute = CrowRouteImport.update({
-  id: "/crow",
-  path: "/crow",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const CorustRoute = CorustRouteImport.update({
-  id: "/corust",
-  path: "/corust",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const CortexCodeRoute = CortexCodeRouteImport.update({
-  id: "/cortex-code",
-  path: "/cortex-code",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const CopilotRoute = CopilotRouteImport.update({
-  id: "/copilot",
-  path: "/copilot",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const CodexRoute = CodexRouteImport.update({
-  id: "/codex",
-  path: "/codex",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const CodebuddyRoute = CodebuddyRouteImport.update({
-  id: "/codebuddy",
-  path: "/codebuddy",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const ClineRoute = ClineRouteImport.update({
-  id: "/cline",
-  path: "/cline",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const ClaudeCodeRoute = ClaudeCodeRouteImport.update({
-  id: "/claude-code",
-  path: "/claude-code",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const ChangelogRoute = ChangelogRouteImport.update({
-  id: "/changelog",
-  path: "/changelog",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const BlogRoute = BlogRouteImport.update({
-  id: "/blog",
-  path: "/blog",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const AutohandRoute = AutohandRouteImport.update({
-  id: "/autohand",
-  path: "/autohand",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const AuggieRoute = AuggieRouteImport.update({
-  id: "/auggie",
-  path: "/auggie",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const AntigravityRoute = AntigravityRouteImport.update({
-  id: "/antigravity",
-  path: "/antigravity",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const AmpRoute = AmpRouteImport.update({
-  id: "/amp",
-  path: "/amp",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const AgoragenticRoute = AgoragenticRouteImport.update({
-  id: "/agoragentic",
-  path: "/agoragentic",
+const IndexRoute = IndexRouteImport.update({
+  id: "/",
+  path: "/",
   getParentRoute: () => rootRouteImport,
 } as any);
 const AgentsRoute = AgentsRouteImport.update({
@@ -329,85 +89,249 @@ const AgentsRoute = AgentsRouteImport.update({
   path: "/agents",
   getParentRoute: () => rootRouteImport,
 } as any);
-const IndexRoute = IndexRouteImport.update({
-  id: "/",
-  path: "/",
+const AgoragenticRoute = AgoragenticRouteImport.update({
+  id: "/agoragentic",
+  path: "/agoragentic",
   getParentRoute: () => rootRouteImport,
 } as any);
-const PluginsIndexRoute = PluginsIndexRouteImport.update({
-  id: "/plugins/",
-  path: "/plugins/",
+const AmpRoute = AmpRouteImport.update({
+  id: "/amp",
+  path: "/amp",
   getParentRoute: () => rootRouteImport,
 } as any);
-const DocsIndexRoute = DocsIndexRouteImport.update({
-  id: "/",
-  path: "/",
-  getParentRoute: () => DocsRoute,
-} as any);
-const BlogIndexRoute = BlogIndexRouteImport.update({
-  id: "/",
-  path: "/",
-  getParentRoute: () => BlogRoute,
-} as any);
-const PluginsAllRoute = PluginsAllRouteImport.update({
-  id: "/plugins/all",
-  path: "/plugins/all",
+const AntigravityRoute = AntigravityRouteImport.update({
+  id: "/antigravity",
+  path: "/antigravity",
   getParentRoute: () => rootRouteImport,
 } as any);
-const PluginsOwnerRoute = PluginsOwnerRouteImport.update({
-  id: "/plugins/$owner",
-  path: "/plugins/$owner",
+const AuggieRoute = AuggieRouteImport.update({
+  id: "/auggie",
+  path: "/auggie",
   getParentRoute: () => rootRouteImport,
 } as any);
-const DownloadThanksRoute = DownloadThanksRouteImport.update({
-  id: "/download_/thanks",
-  path: "/download/thanks",
+const AutohandRoute = AutohandRouteImport.update({
+  id: "/autohand",
+  path: "/autohand",
   getParentRoute: () => rootRouteImport,
 } as any);
-const DocsSplatRoute = DocsSplatRouteImport.update({
-  id: "/$",
-  path: "/$",
-  getParentRoute: () => DocsRoute,
-} as any);
-const BlogSplatRoute = BlogSplatRouteImport.update({
-  id: "/$",
-  path: "/$",
-  getParentRoute: () => BlogRoute,
-} as any);
-const AlternativesSupersetRoute = AlternativesSupersetRouteImport.update({
-  id: "/alternatives/superset",
-  path: "/alternatives/superset",
+const BlogRoute = BlogRouteImport.update({
+  id: "/blog",
+  path: "/blog",
   getParentRoute: () => rootRouteImport,
 } as any);
-const AlternativesOrcaRoute = AlternativesOrcaRouteImport.update({
-  id: "/alternatives/orca",
-  path: "/alternatives/orca",
+const ChangelogRoute = ChangelogRouteImport.update({
+  id: "/changelog",
+  path: "/changelog",
   getParentRoute: () => rootRouteImport,
 } as any);
-const AlternativesOpencodeDesktopRoute =
-  AlternativesOpencodeDesktopRouteImport.update({
-    id: "/alternatives/opencode-desktop",
-    path: "/alternatives/opencode-desktop",
-    getParentRoute: () => rootRouteImport,
-  } as any);
-const AlternativesOpenchamberRoute = AlternativesOpenchamberRouteImport.update({
-  id: "/alternatives/openchamber",
-  path: "/alternatives/openchamber",
+const ClaudeCodeRoute = ClaudeCodeRouteImport.update({
+  id: "/claude-code",
+  path: "/claude-code",
   getParentRoute: () => rootRouteImport,
 } as any);
-const AlternativesHappyCoderRoute = AlternativesHappyCoderRouteImport.update({
-  id: "/alternatives/happy-coder",
-  path: "/alternatives/happy-coder",
+const ClineRoute = ClineRouteImport.update({
+  id: "/cline",
+  path: "/cline",
   getParentRoute: () => rootRouteImport,
 } as any);
-const AlternativesConductorRoute = AlternativesConductorRouteImport.update({
-  id: "/alternatives/conductor",
-  path: "/alternatives/conductor",
+const CodebuddyRoute = CodebuddyRouteImport.update({
+  id: "/codebuddy",
+  path: "/codebuddy",
   getParentRoute: () => rootRouteImport,
 } as any);
-const AlternativesCodexAppRoute = AlternativesCodexAppRouteImport.update({
-  id: "/alternatives/codex-app",
-  path: "/alternatives/codex-app",
+const CodexRoute = CodexRouteImport.update({
+  id: "/codex",
+  path: "/codex",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const CopilotRoute = CopilotRouteImport.update({
+  id: "/copilot",
+  path: "/copilot",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const CortexCodeRoute = CortexCodeRouteImport.update({
+  id: "/cortex-code",
+  path: "/cortex-code",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const CorustRoute = CorustRouteImport.update({
+  id: "/corust",
+  path: "/corust",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const CrowRoute = CrowRouteImport.update({
+  id: "/crow",
+  path: "/crow",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const CursorRoute = CursorRouteImport.update({
+  id: "/cursor",
+  path: "/cursor",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const DeepagentsRoute = DeepagentsRouteImport.update({
+  id: "/deepagents",
+  path: "/deepagents",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const DeepseekTuiRoute = DeepseekTuiRouteImport.update({
+  id: "/deepseek-tui",
+  path: "/deepseek-tui",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const DimcodeRoute = DimcodeRouteImport.update({
+  id: "/dimcode",
+  path: "/dimcode",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const DiracRoute = DiracRouteImport.update({
+  id: "/dirac",
+  path: "/dirac",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const DocsRoute = DocsRouteImport.update({
+  id: "/docs",
+  path: "/docs",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const DownloadRoute = DownloadRouteImport.update({
+  id: "/download",
+  path: "/download",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const FactoryDroidRoute = FactoryDroidRouteImport.update({
+  id: "/factory-droid",
+  path: "/factory-droid",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const FastAgentRoute = FastAgentRouteImport.update({
+  id: "/fast-agent",
+  path: "/fast-agent",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const GeminiRoute = GeminiRouteImport.update({
+  id: "/gemini",
+  path: "/gemini",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const GlmRoute = GlmRouteImport.update({
+  id: "/glm",
+  path: "/glm",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const GooseRoute = GooseRouteImport.update({
+  id: "/goose",
+  path: "/goose",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const GrokRoute = GrokRouteImport.update({
+  id: "/grok",
+  path: "/grok",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const HermesRoute = HermesRouteImport.update({
+  id: "/hermes",
+  path: "/hermes",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const HubRoute = HubRouteImport.update({
+  id: "/hub",
+  path: "/hub",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const JunieRoute = JunieRouteImport.update({
+  id: "/junie",
+  path: "/junie",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const KiloRoute = KiloRouteImport.update({
+  id: "/kilo",
+  path: "/kilo",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const KimiRoute = KimiRouteImport.update({
+  id: "/kimi",
+  path: "/kimi",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const MinionCodeRoute = MinionCodeRouteImport.update({
+  id: "/minion-code",
+  path: "/minion-code",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const MistralVibeRoute = MistralVibeRouteImport.update({
+  id: "/mistral-vibe",
+  path: "/mistral-vibe",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const MuseCodeRoute = MuseCodeRouteImport.update({
+  id: "/muse-code",
+  path: "/muse-code",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const NovaRoute = NovaRouteImport.update({
+  id: "/nova",
+  path: "/nova",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const OmpRoute = OmpRouteImport.update({
+  id: "/omp",
+  path: "/omp",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const OpencodeRoute = OpencodeRouteImport.update({
+  id: "/opencode",
+  path: "/opencode",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const PiRoute = PiRouteImport.update({
+  id: "/pi",
+  path: "/pi",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const PoolsideRoute = PoolsideRouteImport.update({
+  id: "/poolside",
+  path: "/poolside",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const PrivacyRoute = PrivacyRouteImport.update({
+  id: "/privacy",
+  path: "/privacy",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const QoderRoute = QoderRouteImport.update({
+  id: "/qoder",
+  path: "/qoder",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const QwenCodeRoute = QwenCodeRouteImport.update({
+  id: "/qwen-code",
+  path: "/qwen-code",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const SigitRoute = SigitRouteImport.update({
+  id: "/sigit",
+  path: "/sigit",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const SponsorRoute = SponsorRouteImport.update({
+  id: "/sponsor",
+  path: "/sponsor",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const StakpakRoute = StakpakRouteImport.update({
+  id: "/stakpak",
+  path: "/stakpak",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const TermsRoute = TermsRouteImport.update({
+  id: "/terms",
+  path: "/terms",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const VtcodeRoute = VtcodeRouteImport.update({
+  id: "/vtcode",
+  path: "/vtcode",
   getParentRoute: () => rootRouteImport,
 } as any);
 const AlternativesClaudeDesktopRoute =
@@ -416,14 +340,90 @@ const AlternativesClaudeDesktopRoute =
     path: "/alternatives/claude-desktop",
     getParentRoute: () => rootRouteImport,
   } as any);
-const PluginsCategorySlugRoute = PluginsCategorySlugRouteImport.update({
-  id: "/plugins/category/$slug",
-  path: "/plugins/category/$slug",
+const AlternativesCodexAppRoute = AlternativesCodexAppRouteImport.update({
+  id: "/alternatives/codex-app",
+  path: "/alternatives/codex-app",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const AlternativesConductorRoute = AlternativesConductorRouteImport.update({
+  id: "/alternatives/conductor",
+  path: "/alternatives/conductor",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const AlternativesHappyCoderRoute = AlternativesHappyCoderRouteImport.update({
+  id: "/alternatives/happy-coder",
+  path: "/alternatives/happy-coder",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const AlternativesOpenchamberRoute = AlternativesOpenchamberRouteImport.update({
+  id: "/alternatives/openchamber",
+  path: "/alternatives/openchamber",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const AlternativesOpencodeDesktopRoute =
+  AlternativesOpencodeDesktopRouteImport.update({
+    id: "/alternatives/opencode-desktop",
+    path: "/alternatives/opencode-desktop",
+    getParentRoute: () => rootRouteImport,
+  } as any);
+const AlternativesOrcaRoute = AlternativesOrcaRouteImport.update({
+  id: "/alternatives/orca",
+  path: "/alternatives/orca",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const AlternativesSupersetRoute = AlternativesSupersetRouteImport.update({
+  id: "/alternatives/superset",
+  path: "/alternatives/superset",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const BlogIndexRoute = BlogIndexRouteImport.update({
+  id: "/",
+  path: "/",
+  getParentRoute: () => BlogRoute,
+} as any);
+const BlogSplatRoute = BlogSplatRouteImport.update({
+  id: "/$",
+  path: "/$",
+  getParentRoute: () => BlogRoute,
+} as any);
+const DocsIndexRoute = DocsIndexRouteImport.update({
+  id: "/",
+  path: "/",
+  getParentRoute: () => DocsRoute,
+} as any);
+const DocsSplatRoute = DocsSplatRouteImport.update({
+  id: "/$",
+  path: "/$",
+  getParentRoute: () => DocsRoute,
+} as any);
+const DownloadThanksRoute = DownloadThanksRouteImport.update({
+  id: "/download_/thanks",
+  path: "/download/thanks",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const PluginsIndexRoute = PluginsIndexRouteImport.update({
+  id: "/plugins/",
+  path: "/plugins/",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const PluginsOwnerRoute = PluginsOwnerRouteImport.update({
+  id: "/plugins/$owner",
+  path: "/plugins/$owner",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const PluginsAllRoute = PluginsAllRouteImport.update({
+  id: "/plugins/all",
+  path: "/plugins/all",
   getParentRoute: () => rootRouteImport,
 } as any);
 const PluginsOwnerSlugRoute = PluginsOwnerSlugRouteImport.update({
   id: "/plugins/$owner_/$slug",
   path: "/plugins/$owner/$slug",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const PluginsCategorySlugRoute = PluginsCategorySlugRouteImport.update({
+  id: "/plugins/category/$slug",
+  path: "/plugins/category/$slug",
   getParentRoute: () => rootRouteImport,
 } as any);
 
@@ -923,347 +923,11 @@ export interface RootRouteChildren {
 
 declare module "@tanstack/react-router" {
   interface FileRoutesByPath {
-    "/vtcode": {
-      id: "/vtcode";
-      path: "/vtcode";
-      fullPath: "/vtcode";
-      preLoaderRoute: typeof VtcodeRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/terms": {
-      id: "/terms";
-      path: "/terms";
-      fullPath: "/terms";
-      preLoaderRoute: typeof TermsRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/stakpak": {
-      id: "/stakpak";
-      path: "/stakpak";
-      fullPath: "/stakpak";
-      preLoaderRoute: typeof StakpakRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/sponsor": {
-      id: "/sponsor";
-      path: "/sponsor";
-      fullPath: "/sponsor";
-      preLoaderRoute: typeof SponsorRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/sigit": {
-      id: "/sigit";
-      path: "/sigit";
-      fullPath: "/sigit";
-      preLoaderRoute: typeof SigitRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/qwen-code": {
-      id: "/qwen-code";
-      path: "/qwen-code";
-      fullPath: "/qwen-code";
-      preLoaderRoute: typeof QwenCodeRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/qoder": {
-      id: "/qoder";
-      path: "/qoder";
-      fullPath: "/qoder";
-      preLoaderRoute: typeof QoderRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/privacy": {
-      id: "/privacy";
-      path: "/privacy";
-      fullPath: "/privacy";
-      preLoaderRoute: typeof PrivacyRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/poolside": {
-      id: "/poolside";
-      path: "/poolside";
-      fullPath: "/poolside";
-      preLoaderRoute: typeof PoolsideRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/pi": {
-      id: "/pi";
-      path: "/pi";
-      fullPath: "/pi";
-      preLoaderRoute: typeof PiRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/opencode": {
-      id: "/opencode";
-      path: "/opencode";
-      fullPath: "/opencode";
-      preLoaderRoute: typeof OpencodeRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/omp": {
-      id: "/omp";
-      path: "/omp";
-      fullPath: "/omp";
-      preLoaderRoute: typeof OmpRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/nova": {
-      id: "/nova";
-      path: "/nova";
-      fullPath: "/nova";
-      preLoaderRoute: typeof NovaRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/muse-code": {
-      id: "/muse-code";
-      path: "/muse-code";
-      fullPath: "/muse-code";
-      preLoaderRoute: typeof MuseCodeRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/mistral-vibe": {
-      id: "/mistral-vibe";
-      path: "/mistral-vibe";
-      fullPath: "/mistral-vibe";
-      preLoaderRoute: typeof MistralVibeRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/minion-code": {
-      id: "/minion-code";
-      path: "/minion-code";
-      fullPath: "/minion-code";
-      preLoaderRoute: typeof MinionCodeRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/kimi": {
-      id: "/kimi";
-      path: "/kimi";
-      fullPath: "/kimi";
-      preLoaderRoute: typeof KimiRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/kilo": {
-      id: "/kilo";
-      path: "/kilo";
-      fullPath: "/kilo";
-      preLoaderRoute: typeof KiloRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/junie": {
-      id: "/junie";
-      path: "/junie";
-      fullPath: "/junie";
-      preLoaderRoute: typeof JunieRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/hub": {
-      id: "/hub";
-      path: "/hub";
-      fullPath: "/hub";
-      preLoaderRoute: typeof HubRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/hermes": {
-      id: "/hermes";
-      path: "/hermes";
-      fullPath: "/hermes";
-      preLoaderRoute: typeof HermesRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/grok": {
-      id: "/grok";
-      path: "/grok";
-      fullPath: "/grok";
-      preLoaderRoute: typeof GrokRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/goose": {
-      id: "/goose";
-      path: "/goose";
-      fullPath: "/goose";
-      preLoaderRoute: typeof GooseRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/glm": {
-      id: "/glm";
-      path: "/glm";
-      fullPath: "/glm";
-      preLoaderRoute: typeof GlmRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/gemini": {
-      id: "/gemini";
-      path: "/gemini";
-      fullPath: "/gemini";
-      preLoaderRoute: typeof GeminiRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/fast-agent": {
-      id: "/fast-agent";
-      path: "/fast-agent";
-      fullPath: "/fast-agent";
-      preLoaderRoute: typeof FastAgentRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/factory-droid": {
-      id: "/factory-droid";
-      path: "/factory-droid";
-      fullPath: "/factory-droid";
-      preLoaderRoute: typeof FactoryDroidRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/download": {
-      id: "/download";
-      path: "/download";
-      fullPath: "/download";
-      preLoaderRoute: typeof DownloadRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/docs": {
-      id: "/docs";
-      path: "/docs";
-      fullPath: "/docs";
-      preLoaderRoute: typeof DocsRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/dirac": {
-      id: "/dirac";
-      path: "/dirac";
-      fullPath: "/dirac";
-      preLoaderRoute: typeof DiracRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/dimcode": {
-      id: "/dimcode";
-      path: "/dimcode";
-      fullPath: "/dimcode";
-      preLoaderRoute: typeof DimcodeRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/deepseek-tui": {
-      id: "/deepseek-tui";
-      path: "/deepseek-tui";
-      fullPath: "/deepseek-tui";
-      preLoaderRoute: typeof DeepseekTuiRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/deepagents": {
-      id: "/deepagents";
-      path: "/deepagents";
-      fullPath: "/deepagents";
-      preLoaderRoute: typeof DeepagentsRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/cursor": {
-      id: "/cursor";
-      path: "/cursor";
-      fullPath: "/cursor";
-      preLoaderRoute: typeof CursorRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/crow": {
-      id: "/crow";
-      path: "/crow";
-      fullPath: "/crow";
-      preLoaderRoute: typeof CrowRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/corust": {
-      id: "/corust";
-      path: "/corust";
-      fullPath: "/corust";
-      preLoaderRoute: typeof CorustRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/cortex-code": {
-      id: "/cortex-code";
-      path: "/cortex-code";
-      fullPath: "/cortex-code";
-      preLoaderRoute: typeof CortexCodeRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/copilot": {
-      id: "/copilot";
-      path: "/copilot";
-      fullPath: "/copilot";
-      preLoaderRoute: typeof CopilotRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/codex": {
-      id: "/codex";
-      path: "/codex";
-      fullPath: "/codex";
-      preLoaderRoute: typeof CodexRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/codebuddy": {
-      id: "/codebuddy";
-      path: "/codebuddy";
-      fullPath: "/codebuddy";
-      preLoaderRoute: typeof CodebuddyRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/cline": {
-      id: "/cline";
-      path: "/cline";
-      fullPath: "/cline";
-      preLoaderRoute: typeof ClineRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/claude-code": {
-      id: "/claude-code";
-      path: "/claude-code";
-      fullPath: "/claude-code";
-      preLoaderRoute: typeof ClaudeCodeRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/changelog": {
-      id: "/changelog";
-      path: "/changelog";
-      fullPath: "/changelog";
-      preLoaderRoute: typeof ChangelogRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/blog": {
-      id: "/blog";
-      path: "/blog";
-      fullPath: "/blog";
-      preLoaderRoute: typeof BlogRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/autohand": {
-      id: "/autohand";
-      path: "/autohand";
-      fullPath: "/autohand";
-      preLoaderRoute: typeof AutohandRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/auggie": {
-      id: "/auggie";
-      path: "/auggie";
-      fullPath: "/auggie";
-      preLoaderRoute: typeof AuggieRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/antigravity": {
-      id: "/antigravity";
-      path: "/antigravity";
-      fullPath: "/antigravity";
-      preLoaderRoute: typeof AntigravityRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/amp": {
-      id: "/amp";
-      path: "/amp";
-      fullPath: "/amp";
-      preLoaderRoute: typeof AmpRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/agoragentic": {
-      id: "/agoragentic";
-      path: "/agoragentic";
-      fullPath: "/agoragentic";
-      preLoaderRoute: typeof AgoragenticRouteImport;
+    "/": {
+      id: "/";
+      path: "/";
+      fullPath: "/";
+      preLoaderRoute: typeof IndexRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     "/agents": {
@@ -1273,116 +937,347 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof AgentsRouteImport;
       parentRoute: typeof rootRouteImport;
     };
-    "/": {
-      id: "/";
-      path: "/";
-      fullPath: "/";
-      preLoaderRoute: typeof IndexRouteImport;
+    "/agoragentic": {
+      id: "/agoragentic";
+      path: "/agoragentic";
+      fullPath: "/agoragentic";
+      preLoaderRoute: typeof AgoragenticRouteImport;
       parentRoute: typeof rootRouteImport;
     };
-    "/plugins/": {
-      id: "/plugins/";
-      path: "/plugins";
-      fullPath: "/plugins/";
-      preLoaderRoute: typeof PluginsIndexRouteImport;
+    "/amp": {
+      id: "/amp";
+      path: "/amp";
+      fullPath: "/amp";
+      preLoaderRoute: typeof AmpRouteImport;
       parentRoute: typeof rootRouteImport;
     };
-    "/docs/": {
-      id: "/docs/";
-      path: "/";
-      fullPath: "/docs/";
-      preLoaderRoute: typeof DocsIndexRouteImport;
-      parentRoute: typeof DocsRoute;
-    };
-    "/blog/": {
-      id: "/blog/";
-      path: "/";
-      fullPath: "/blog/";
-      preLoaderRoute: typeof BlogIndexRouteImport;
-      parentRoute: typeof BlogRoute;
-    };
-    "/plugins/all": {
-      id: "/plugins/all";
-      path: "/plugins/all";
-      fullPath: "/plugins/all";
-      preLoaderRoute: typeof PluginsAllRouteImport;
+    "/antigravity": {
+      id: "/antigravity";
+      path: "/antigravity";
+      fullPath: "/antigravity";
+      preLoaderRoute: typeof AntigravityRouteImport;
       parentRoute: typeof rootRouteImport;
     };
-    "/plugins/$owner": {
-      id: "/plugins/$owner";
-      path: "/plugins/$owner";
-      fullPath: "/plugins/$owner";
-      preLoaderRoute: typeof PluginsOwnerRouteImport;
+    "/auggie": {
+      id: "/auggie";
+      path: "/auggie";
+      fullPath: "/auggie";
+      preLoaderRoute: typeof AuggieRouteImport;
       parentRoute: typeof rootRouteImport;
     };
-    "/download_/thanks": {
-      id: "/download_/thanks";
-      path: "/download/thanks";
-      fullPath: "/download/thanks";
-      preLoaderRoute: typeof DownloadThanksRouteImport;
+    "/autohand": {
+      id: "/autohand";
+      path: "/autohand";
+      fullPath: "/autohand";
+      preLoaderRoute: typeof AutohandRouteImport;
       parentRoute: typeof rootRouteImport;
     };
-    "/docs/$": {
-      id: "/docs/$";
-      path: "/$";
-      fullPath: "/docs/$";
-      preLoaderRoute: typeof DocsSplatRouteImport;
-      parentRoute: typeof DocsRoute;
-    };
-    "/blog/$": {
-      id: "/blog/$";
-      path: "/$";
-      fullPath: "/blog/$";
-      preLoaderRoute: typeof BlogSplatRouteImport;
-      parentRoute: typeof BlogRoute;
-    };
-    "/alternatives/superset": {
-      id: "/alternatives/superset";
-      path: "/alternatives/superset";
-      fullPath: "/alternatives/superset";
-      preLoaderRoute: typeof AlternativesSupersetRouteImport;
+    "/blog": {
+      id: "/blog";
+      path: "/blog";
+      fullPath: "/blog";
+      preLoaderRoute: typeof BlogRouteImport;
       parentRoute: typeof rootRouteImport;
     };
-    "/alternatives/orca": {
-      id: "/alternatives/orca";
-      path: "/alternatives/orca";
-      fullPath: "/alternatives/orca";
-      preLoaderRoute: typeof AlternativesOrcaRouteImport;
+    "/changelog": {
+      id: "/changelog";
+      path: "/changelog";
+      fullPath: "/changelog";
+      preLoaderRoute: typeof ChangelogRouteImport;
       parentRoute: typeof rootRouteImport;
     };
-    "/alternatives/opencode-desktop": {
-      id: "/alternatives/opencode-desktop";
-      path: "/alternatives/opencode-desktop";
-      fullPath: "/alternatives/opencode-desktop";
-      preLoaderRoute: typeof AlternativesOpencodeDesktopRouteImport;
+    "/claude-code": {
+      id: "/claude-code";
+      path: "/claude-code";
+      fullPath: "/claude-code";
+      preLoaderRoute: typeof ClaudeCodeRouteImport;
       parentRoute: typeof rootRouteImport;
     };
-    "/alternatives/openchamber": {
-      id: "/alternatives/openchamber";
-      path: "/alternatives/openchamber";
-      fullPath: "/alternatives/openchamber";
-      preLoaderRoute: typeof AlternativesOpenchamberRouteImport;
+    "/cline": {
+      id: "/cline";
+      path: "/cline";
+      fullPath: "/cline";
+      preLoaderRoute: typeof ClineRouteImport;
       parentRoute: typeof rootRouteImport;
     };
-    "/alternatives/happy-coder": {
-      id: "/alternatives/happy-coder";
-      path: "/alternatives/happy-coder";
-      fullPath: "/alternatives/happy-coder";
-      preLoaderRoute: typeof AlternativesHappyCoderRouteImport;
+    "/codebuddy": {
+      id: "/codebuddy";
+      path: "/codebuddy";
+      fullPath: "/codebuddy";
+      preLoaderRoute: typeof CodebuddyRouteImport;
       parentRoute: typeof rootRouteImport;
     };
-    "/alternatives/conductor": {
-      id: "/alternatives/conductor";
-      path: "/alternatives/conductor";
-      fullPath: "/alternatives/conductor";
-      preLoaderRoute: typeof AlternativesConductorRouteImport;
+    "/codex": {
+      id: "/codex";
+      path: "/codex";
+      fullPath: "/codex";
+      preLoaderRoute: typeof CodexRouteImport;
       parentRoute: typeof rootRouteImport;
     };
-    "/alternatives/codex-app": {
-      id: "/alternatives/codex-app";
-      path: "/alternatives/codex-app";
-      fullPath: "/alternatives/codex-app";
-      preLoaderRoute: typeof AlternativesCodexAppRouteImport;
+    "/copilot": {
+      id: "/copilot";
+      path: "/copilot";
+      fullPath: "/copilot";
+      preLoaderRoute: typeof CopilotRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/cortex-code": {
+      id: "/cortex-code";
+      path: "/cortex-code";
+      fullPath: "/cortex-code";
+      preLoaderRoute: typeof CortexCodeRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/corust": {
+      id: "/corust";
+      path: "/corust";
+      fullPath: "/corust";
+      preLoaderRoute: typeof CorustRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/crow": {
+      id: "/crow";
+      path: "/crow";
+      fullPath: "/crow";
+      preLoaderRoute: typeof CrowRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/cursor": {
+      id: "/cursor";
+      path: "/cursor";
+      fullPath: "/cursor";
+      preLoaderRoute: typeof CursorRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/deepagents": {
+      id: "/deepagents";
+      path: "/deepagents";
+      fullPath: "/deepagents";
+      preLoaderRoute: typeof DeepagentsRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/deepseek-tui": {
+      id: "/deepseek-tui";
+      path: "/deepseek-tui";
+      fullPath: "/deepseek-tui";
+      preLoaderRoute: typeof DeepseekTuiRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/dimcode": {
+      id: "/dimcode";
+      path: "/dimcode";
+      fullPath: "/dimcode";
+      preLoaderRoute: typeof DimcodeRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/dirac": {
+      id: "/dirac";
+      path: "/dirac";
+      fullPath: "/dirac";
+      preLoaderRoute: typeof DiracRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/docs": {
+      id: "/docs";
+      path: "/docs";
+      fullPath: "/docs";
+      preLoaderRoute: typeof DocsRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/download": {
+      id: "/download";
+      path: "/download";
+      fullPath: "/download";
+      preLoaderRoute: typeof DownloadRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/factory-droid": {
+      id: "/factory-droid";
+      path: "/factory-droid";
+      fullPath: "/factory-droid";
+      preLoaderRoute: typeof FactoryDroidRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/fast-agent": {
+      id: "/fast-agent";
+      path: "/fast-agent";
+      fullPath: "/fast-agent";
+      preLoaderRoute: typeof FastAgentRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/gemini": {
+      id: "/gemini";
+      path: "/gemini";
+      fullPath: "/gemini";
+      preLoaderRoute: typeof GeminiRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/glm": {
+      id: "/glm";
+      path: "/glm";
+      fullPath: "/glm";
+      preLoaderRoute: typeof GlmRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/goose": {
+      id: "/goose";
+      path: "/goose";
+      fullPath: "/goose";
+      preLoaderRoute: typeof GooseRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/grok": {
+      id: "/grok";
+      path: "/grok";
+      fullPath: "/grok";
+      preLoaderRoute: typeof GrokRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/hermes": {
+      id: "/hermes";
+      path: "/hermes";
+      fullPath: "/hermes";
+      preLoaderRoute: typeof HermesRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/hub": {
+      id: "/hub";
+      path: "/hub";
+      fullPath: "/hub";
+      preLoaderRoute: typeof HubRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/junie": {
+      id: "/junie";
+      path: "/junie";
+      fullPath: "/junie";
+      preLoaderRoute: typeof JunieRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/kilo": {
+      id: "/kilo";
+      path: "/kilo";
+      fullPath: "/kilo";
+      preLoaderRoute: typeof KiloRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/kimi": {
+      id: "/kimi";
+      path: "/kimi";
+      fullPath: "/kimi";
+      preLoaderRoute: typeof KimiRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/minion-code": {
+      id: "/minion-code";
+      path: "/minion-code";
+      fullPath: "/minion-code";
+      preLoaderRoute: typeof MinionCodeRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/mistral-vibe": {
+      id: "/mistral-vibe";
+      path: "/mistral-vibe";
+      fullPath: "/mistral-vibe";
+      preLoaderRoute: typeof MistralVibeRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/muse-code": {
+      id: "/muse-code";
+      path: "/muse-code";
+      fullPath: "/muse-code";
+      preLoaderRoute: typeof MuseCodeRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/nova": {
+      id: "/nova";
+      path: "/nova";
+      fullPath: "/nova";
+      preLoaderRoute: typeof NovaRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/omp": {
+      id: "/omp";
+      path: "/omp";
+      fullPath: "/omp";
+      preLoaderRoute: typeof OmpRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/opencode": {
+      id: "/opencode";
+      path: "/opencode";
+      fullPath: "/opencode";
+      preLoaderRoute: typeof OpencodeRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/pi": {
+      id: "/pi";
+      path: "/pi";
+      fullPath: "/pi";
+      preLoaderRoute: typeof PiRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/poolside": {
+      id: "/poolside";
+      path: "/poolside";
+      fullPath: "/poolside";
+      preLoaderRoute: typeof PoolsideRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/privacy": {
+      id: "/privacy";
+      path: "/privacy";
+      fullPath: "/privacy";
+      preLoaderRoute: typeof PrivacyRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/qoder": {
+      id: "/qoder";
+      path: "/qoder";
+      fullPath: "/qoder";
+      preLoaderRoute: typeof QoderRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/qwen-code": {
+      id: "/qwen-code";
+      path: "/qwen-code";
+      fullPath: "/qwen-code";
+      preLoaderRoute: typeof QwenCodeRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/sigit": {
+      id: "/sigit";
+      path: "/sigit";
+      fullPath: "/sigit";
+      preLoaderRoute: typeof SigitRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/sponsor": {
+      id: "/sponsor";
+      path: "/sponsor";
+      fullPath: "/sponsor";
+      preLoaderRoute: typeof SponsorRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/stakpak": {
+      id: "/stakpak";
+      path: "/stakpak";
+      fullPath: "/stakpak";
+      preLoaderRoute: typeof StakpakRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/terms": {
+      id: "/terms";
+      path: "/terms";
+      fullPath: "/terms";
+      preLoaderRoute: typeof TermsRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/vtcode": {
+      id: "/vtcode";
+      path: "/vtcode";
+      fullPath: "/vtcode";
+      preLoaderRoute: typeof VtcodeRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     "/alternatives/claude-desktop": {
@@ -1392,11 +1287,109 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof AlternativesClaudeDesktopRouteImport;
       parentRoute: typeof rootRouteImport;
     };
-    "/plugins/category/$slug": {
-      id: "/plugins/category/$slug";
-      path: "/plugins/category/$slug";
-      fullPath: "/plugins/category/$slug";
-      preLoaderRoute: typeof PluginsCategorySlugRouteImport;
+    "/alternatives/codex-app": {
+      id: "/alternatives/codex-app";
+      path: "/alternatives/codex-app";
+      fullPath: "/alternatives/codex-app";
+      preLoaderRoute: typeof AlternativesCodexAppRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/alternatives/conductor": {
+      id: "/alternatives/conductor";
+      path: "/alternatives/conductor";
+      fullPath: "/alternatives/conductor";
+      preLoaderRoute: typeof AlternativesConductorRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/alternatives/happy-coder": {
+      id: "/alternatives/happy-coder";
+      path: "/alternatives/happy-coder";
+      fullPath: "/alternatives/happy-coder";
+      preLoaderRoute: typeof AlternativesHappyCoderRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/alternatives/openchamber": {
+      id: "/alternatives/openchamber";
+      path: "/alternatives/openchamber";
+      fullPath: "/alternatives/openchamber";
+      preLoaderRoute: typeof AlternativesOpenchamberRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/alternatives/opencode-desktop": {
+      id: "/alternatives/opencode-desktop";
+      path: "/alternatives/opencode-desktop";
+      fullPath: "/alternatives/opencode-desktop";
+      preLoaderRoute: typeof AlternativesOpencodeDesktopRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/alternatives/orca": {
+      id: "/alternatives/orca";
+      path: "/alternatives/orca";
+      fullPath: "/alternatives/orca";
+      preLoaderRoute: typeof AlternativesOrcaRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/alternatives/superset": {
+      id: "/alternatives/superset";
+      path: "/alternatives/superset";
+      fullPath: "/alternatives/superset";
+      preLoaderRoute: typeof AlternativesSupersetRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/blog/": {
+      id: "/blog/";
+      path: "/";
+      fullPath: "/blog/";
+      preLoaderRoute: typeof BlogIndexRouteImport;
+      parentRoute: typeof BlogRoute;
+    };
+    "/blog/$": {
+      id: "/blog/$";
+      path: "/$";
+      fullPath: "/blog/$";
+      preLoaderRoute: typeof BlogSplatRouteImport;
+      parentRoute: typeof BlogRoute;
+    };
+    "/docs/": {
+      id: "/docs/";
+      path: "/";
+      fullPath: "/docs/";
+      preLoaderRoute: typeof DocsIndexRouteImport;
+      parentRoute: typeof DocsRoute;
+    };
+    "/docs/$": {
+      id: "/docs/$";
+      path: "/$";
+      fullPath: "/docs/$";
+      preLoaderRoute: typeof DocsSplatRouteImport;
+      parentRoute: typeof DocsRoute;
+    };
+    "/download_/thanks": {
+      id: "/download_/thanks";
+      path: "/download/thanks";
+      fullPath: "/download/thanks";
+      preLoaderRoute: typeof DownloadThanksRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/plugins/": {
+      id: "/plugins/";
+      path: "/plugins";
+      fullPath: "/plugins/";
+      preLoaderRoute: typeof PluginsIndexRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/plugins/$owner": {
+      id: "/plugins/$owner";
+      path: "/plugins/$owner";
+      fullPath: "/plugins/$owner";
+      preLoaderRoute: typeof PluginsOwnerRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/plugins/all": {
+      id: "/plugins/all";
+      path: "/plugins/all";
+      fullPath: "/plugins/all";
+      preLoaderRoute: typeof PluginsAllRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     "/plugins/$owner_/$slug": {
@@ -1404,6 +1397,13 @@ declare module "@tanstack/react-router" {
       path: "/plugins/$owner/$slug";
       fullPath: "/plugins/$owner/$slug";
       preLoaderRoute: typeof PluginsOwnerSlugRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/plugins/category/$slug": {
+      id: "/plugins/category/$slug";
+      path: "/plugins/category/$slug";
+      fullPath: "/plugins/category/$slug";
+      preLoaderRoute: typeof PluginsCategorySlugRouteImport;
       parentRoute: typeof rootRouteImport;
     };
   }

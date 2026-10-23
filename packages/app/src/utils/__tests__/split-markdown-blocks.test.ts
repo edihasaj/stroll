@@ -99,8 +99,11 @@ describe("splitMarkdownBlocks", () => {
   });
 
   it("recognizes every destination the renderer accepts, including escaped spaces", () => {
+    // CommonMark (markdown-it 15) does not let a backslash escape a space in a destination,
+    // so this is ordinary text to the renderer and stays its own block.
     expect(splitMarkdownBlocks("See [docs].\n\n[docs]: docs\\ folder/readme")).toEqual([
-      "See [docs].\n\n[docs]: docs\\ folder/readme",
+      "See [docs].",
+      "[docs]: docs\\ folder/readme",
     ]);
     expect(splitMarkdownBlocks("See [docs].\n\n[docs]: <docs folder/readme> 'Title'")).toEqual([
       "See [docs].\n\n[docs]: <docs folder/readme> 'Title'",

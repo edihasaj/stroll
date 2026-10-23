@@ -28,7 +28,7 @@ import {
   useContext,
 } from "react";
 import type { ComponentProps, ComponentType, ReactNode } from "react";
-import type MarkdownIt from "markdown-it";
+import type { MarkdownIt } from "markdown-it";
 import { type ASTNode, type RenderRules } from "react-native-markdown-display";
 import MaskedView from "@react-native-masked-view/masked-view";
 import {

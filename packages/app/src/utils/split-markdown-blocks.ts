@@ -1,4 +1,4 @@
-import MarkdownIt from "markdown-it";
+import MarkdownIt, { type Env } from "markdown-it";
 
 // Only block maps are needed here; inline parsing belongs to each rendered block.
 const markdownBlockParser = new MarkdownIt();
@@ -7,7 +7,7 @@ markdownBlockParser.core.ruler.disable("inline");
 // The renderer decides what counts as a definition, so ask the same parser: a block
 // that produces no tokens but registers references is nothing but definitions.
 function isLinkReferenceDefinitionBlock(block: string): boolean {
-  const env: { references?: Record<string, unknown> } = {};
+  const env: Env = {};
   const tokens = markdownBlockParser.parse(block, env);
   return tokens.length === 0 && Object.keys(env.references ?? {}).length > 0;
 }

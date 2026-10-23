@@ -13,8 +13,6 @@ const REWRITTEN_BY_TYPOGRAPHER = [
   "(R)",
   "(tm)",
   "(TM)",
-  "(p)",
-  "(P)",
   "+-",
   "two dots .. here",
   "wait for it...",
