@@ -1,4 +1,4 @@
-import type MarkdownIt from "markdown-it";
+import type { MarkdownIt } from "markdown-it";
 import { scanTextForLocalPaths, type LocalPathTextMatch } from "./text-path-scan";
 
 export interface AssistantProseLinkRuleOptions {
@@ -9,7 +9,7 @@ export interface AssistantProseLinkRuleOptions {
 // "markdown-it/lib/rules_core/state_core" can't be imported directly even though @types/
 // markdown-it ships declarations for them. Derive the same (structural) types instead, through
 // the one entry point that does resolve.
-type MarkdownItCoreState = Parameters<InstanceType<typeof MarkdownIt>["core"]["process"]>[0];
+type MarkdownItCoreState = Parameters<MarkdownIt["core"]["process"]>[0];
 type MarkdownItToken = MarkdownItCoreState["tokens"][number];
 
 /**
